@@ -1,7 +1,7 @@
 # BayesCode
 
-[![Build Status](https://travis-ci.org/bayesiancook/bayescode.svg?branch=dev)](https://travis-ci.org/bayesiancook/bayescode)
-[![codecov](https://codecov.io/gh/bayesiancook/bayescode/branch/dev/graph/badge.svg)](https://codecov.io/gh/bayesiancook/bayescode)
+[![Build Status](https://travis-ci.org/vlanore/new_bayescode.svg?branch=dev)](https://travis-ci.org/vlanore/new_bayescode)
+[![codecov](https://codecov.io/gh/vlanore/new_bayescode/branch/dev/graph/badge.svg)](https://codecov.io/gh/vlanore/new_bayescode)
 
 Requirements: Clang (or g++) and compatible MPI compiler
 ```bash
@@ -13,7 +13,7 @@ sudo apt install g++-5 clang-3.6 libopenmpi-dev openmpi-bin
 To get BayesCode from a machine connected to the internet, type in a terminal:
 
 ```bash
-git clone https://github.com/bayesiancook/bayescode.git
+git clone https://github.com/vlanore/new_bayescode.git
 ```
 
 This should create a folder called `bayescode` (the BayesCode root folder). You must go there before compiling BayesCode:
