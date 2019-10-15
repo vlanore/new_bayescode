@@ -1,3 +1,6 @@
 [submodule "utils/bayes_toolbox"]
 	path = utils/bayes_toolbox
 	url = https://github.com/vlanore/bayes_toolbox.git
+[submodule "utils/nhx-parser"]
+	path = utils/nhx-parser
+	url = https://github.com/vlanore/nhx-parser.git

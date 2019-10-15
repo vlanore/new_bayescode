@@ -24,11 +24,12 @@ include_directories("src")
 include_directories("src/lib")
 include_directories("utils")
 include_directories("utils/bayes_toolbox/src")
+include_directories("utils/nhx-parser/src")
 include_directories("utils/bayes_toolbox/utils")
 include_directories("utils/bayes_toolbox/utils/tagged_tuple/utils")
 
 # Static libs
-add_library (tree_lib STATIC "src/tree/implem.cpp")
+add_library (tree_lib STATIC "src/tree/implem.cpp" "utils/nhx-parser/src/nhx-parser.cpp")
 add_library (global_lib STATIC "src/global/Random.cpp")
 
 set(BAYESCODE_LIB

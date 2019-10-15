@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+#include <memory>
 #include <vector>
 #include "interface.hpp"
 #include "nhx-parser.hpp"
