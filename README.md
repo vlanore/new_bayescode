@@ -1,7 +1,7 @@
 # BayesCode
 
-[![Build Status](https://travis-ci.org/vlanore/new_bayescode.svg?branch=dev)](https://travis-ci.org/vlanore/new_bayescode)
-[![codecov](https://codecov.io/gh/vlanore/new_bayescode/branch/dev/graph/badge.svg)](https://codecov.io/gh/vlanore/new_bayescode)
+[![Build Status](https://travis-ci.org/vlanore/new_bayescode.svg?branch=master)](https://travis-ci.org/vlanore/new_bayescode)
+[![codecov](https://codecov.io/gh/vlanore/new_bayescode/branch/master/graph/badge.svg)](https://codecov.io/gh/vlanore/new_bayescode)
 
 Requirements: Clang (or g++) and compatible MPI compiler
 ```bash
