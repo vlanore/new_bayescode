@@ -69,7 +69,7 @@ run-unit-tests: all
 	@echo "\n\n\e[35m\e[1m== All sequential tests =======================================================\e[0m"
 	_build/all_tests
 	@echo "\n\n\e[35m\e[1m== MPI par test ===============================================================\e[0m"
-	mpirun -np 3 _build/mpi_par_test
+	mpirun --oversubscribe -np 3 _build/mpi_par_test
 
 .PHONY: run-app-tests
 run-app-tests: all
@@ -114,7 +114,7 @@ run-app-tests: all
 .PHONY: run-multigeneglobom-test
 run-multigeneglobom-test: all
 	@echo "\n\e[35m\e[1m== Multigene Single Omega ===================================================\e[0m"
-	cd data/small_multigene && mpirun -np 2 ../../_build/multigeneglobom -t tree.nwk -a verysmall.list  -u ${POINTS} tmp
+	cd data/small_multigene && mpirun --oversubscribe -np 2 ../../_build/multigeneglobom -t tree.nwk -a verysmall.list  -u ${POINTS} tmp
 
 .PHONY: testpr
 test:
