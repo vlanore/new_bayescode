@@ -125,3 +125,17 @@ void mpi_run(int argc, char** argv, F f) {
     MPI::p->message("End of MPI process");
     MPI_Finalize();
 }
+
+/*
+====================================================================================================
+  synchronized acquire/release functions
+==================================================================================================*/
+template <class P>
+void master_to_slave(P& proxy) {
+    (!MPI::p->rank) ? proxy->release() : proxy->acquire();
+}
+
+template <class P>
+void slave_to_master(P& proxy) {
+    (!MPI::p->rank) ? proxy->acquire() : proxy->release();
+}
