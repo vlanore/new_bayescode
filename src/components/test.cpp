@@ -112,3 +112,23 @@ TEST_CASE("Arg parse test") {
 
     for (int i = 0; i < argc; i++) { free(argv[i]); }
 }
+
+struct my_super_struct {
+    vector<vector<int>> data{{1, 2}, {3, 4}};
+
+    template <class Info>
+    void declare_interface(Info info) {
+        declare(info, "data", data);
+    }
+};
+
+TEST_CASE("matrix external interface test") {
+    stringstream ss;
+    my_super_struct s;
+    Tracer t(s, processing::True());
+
+    t.write_header(ss);
+    t.write_line(ss);
+
+    CHECK(ss.str() == "data_0_0\tdata_0_1\tdata_1_0\tdata_1_1\n1\t2\t3\t4");
+}

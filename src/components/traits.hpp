@@ -50,3 +50,15 @@ struct external_interface<std::vector<T>> {
         for (size_t i = 0; i < target.size(); i++) { declare(info, std::to_string(i), target[i]); }
     }
 };
+
+template <class T>
+struct external_interface<std::vector<std::vector<T>>> {
+    template <class Info, class Target>
+    static void declare_interface(Info info, Target& target) {
+        for (size_t i = 0; i < target.size(); i++) {
+            for (size_t j = 0; j < target[i].size(); j++) {
+                declare(info, std::to_string(i) + "_" + std::to_string(j), target[i][j]);
+            }
+        }
+    }
+};
