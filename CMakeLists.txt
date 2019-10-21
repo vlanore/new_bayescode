@@ -77,3 +77,6 @@ target_link_libraries(mpi_par_test ${MPI_LIBRARIES})
 
 add_executable(mpi_example "src/mpi_example.cpp")
 target_link_libraries(mpi_example ${MPI_LIBRARIES})
+
+add_executable(simu_and_infer "examples/simu_and_infer_example.cpp")
+target_link_libraries(simu_and_infer ${BASE_LIBS})
