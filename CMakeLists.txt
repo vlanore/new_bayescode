@@ -60,6 +60,10 @@ set(BASE_LIBS
     global_lib
 )
 
+# Poisson Gamma (mixture model) (mixpoigam)
+add_executable(mixpoigam "src/mixpoissongamma.cpp")
+target_link_libraries(mixpoigam ${BASE_LIBS})
+
 # Single omega (globom)
 add_executable(globom "src/SingleOmega.cpp")
 target_link_libraries(globom ${BASE_LIBS})
