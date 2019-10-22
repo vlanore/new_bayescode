@@ -1,9 +1,9 @@
 #pragma once
 #include <functional>
 #include <iostream>
+#include <sstream>
 #include "model_decl_utils.hpp"
 #include "mpi_components/partition.hpp"
-#include <sstream>
 #include "tags/decl_utils.hpp"
 #include "traits.hpp"
 
