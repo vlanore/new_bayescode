@@ -40,8 +40,7 @@ struct omega_sm {
         double alpha = get<omega, params, shape>(model)();
         double beta = 1. / get<omega, params, struct scale>(model)();
         auto ss_value = ss.get();
-        get<omega, value>(model) =
-            gamma_sr::draw(alpha + ss_value.count, beta + ss_value.beta, gen);
+        gamma_sr::draw(get<omega, value>(model), alpha + ss_value.count, beta + ss_value.beta, gen);
         DEBUG("Omega = {}", get<omega, value>(model));
     }
 };

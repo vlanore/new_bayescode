@@ -47,7 +47,7 @@ struct branchlengths_sm {
             auto alpha = get<bl_array, params, shape>(model)(i);
             auto beta = 1. / get<bl_array, params, struct scale>(model)(i);
 
-            raw_vec[i] = gamma_sr::draw(alpha + local_ss.count, beta + local_ss.beta, gen);
+            gamma_sr::draw(raw_vec[i], alpha + local_ss.count, beta + local_ss.beta, gen);
             assert(raw_vec[i] >= 0);
         }
         // DEBUG("New branch lengths are {}", vector_to_string(raw_vec));
