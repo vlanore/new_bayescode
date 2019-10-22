@@ -25,7 +25,7 @@ TOKEN(branch_lengths)
 TOKEN(nuc_rates)
 TOKEN(codon_statespace)
 TOKEN(codon_submatrix)
-TOKEN(branch_adapter)
+// TOKEN(branch_adapter)
 TOKEN(phyloprocess)
 TOKEN(bl_suffstats)
 TOKEN(path_suffstats)
@@ -49,10 +49,25 @@ struct globom {
         auto codon_sub_matrix = std::make_unique<MGOmegaCodonSubMatrix>(
             codon_statespace, &get<nuc_matrix>(nuc_rates), get<omega, value>(global_omega));
 
+        /*
         auto branch_adapter =
             std::make_unique<LegacyArrayProxy>(get<bl_array, value>(branch_lengths), *data.tree);
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
             branch_adapter.get(), nullptr, codon_sub_matrix.get());
+        */
+
+        auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment, 
+                // branch lengths
+                [bl = get<bl_array, value>(branch_lengths)] (int j) {return bl[j];},
+                // site-specific rates
+                [] (int) {return 1.0;},
+                // branch and site specific matrices (here, same matrix for everyone)
+                [m = codon_sub_matrix.get()] (int, int) -> const SubMatrix& {return *m;},
+                // root eq. freqs (here, those of global matrix for all sites)
+                [m = codon_sub_matrix.get()] (int) {return m->GetStationary();},
+                // no polymorphism
+                nullptr);
+
         phyloprocess->Unfold();
 
         // suff stats
@@ -67,7 +82,7 @@ struct globom {
             nuc_rates_ = move(nuc_rates),               //
             codon_statespace_ = codon_statespace,       //
             codon_submatrix_ = move(codon_sub_matrix),  //
-            branch_adapter_ = move(branch_adapter),     //
+            // branch_adapter_ = move(branch_adapter),     //
             phyloprocess_ = move(phyloprocess),         //
             bl_suffstats_ = bl_suffstats,               //
             path_suffstats_ = move(path_suffstats),     //
