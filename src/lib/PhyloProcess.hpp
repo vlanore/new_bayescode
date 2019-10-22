@@ -40,37 +40,16 @@ class PhyloProcess {
     friend class PoissonSuffStatArray;
     friend class PathSuffStatNodeArray;
 
-    //! \brief delegated constructor
-    //!
-    //! Constructor takes as parameters (pointers):
-    //! - tree
-    //! - sequence alignment
-    //! - a BranchSelector of branch lengths
-    //! - a site Selector of site rates (if pointer is null, then rates across
-    //! sites are all equal to 1)
-    //! - a PolyProcess to compute the likelihood of the data taking into account
-    //! occurrences in the population of the reference and derived alleles
-    PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-        const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-        PolyProcess *inpolyprocess);
-
-
     //! \brief generic constructor
-    //!
-    //! Constructor takes as parameters (pointers):
-    //! - tree
-    //! - sequence alignment
-    //! - a BranchSelector of branch lengths
-    //! - a site Selector of site rates (if pointer is null, then rates across
-    //! sites are all equal to 1)
-    //! - a BranchSiteSelector specifying which substitution matrix should be used
-    //! for each branch site pair
-    //! - a site Selector of substitution matrices, specifying which matrix should
-    //! be used for getting the equilibrium frequencies at each site, from which
-    //! to draw the root state
-    //! - a PolyProcess to compute the likelihood of the data taking into account
-    //! occurrences in the population of the reference and derived alleles,
-    //! this is nullpointer if no data could be found
+    PhyloProcess(const Tree* intree, const SequenceAlignment* indata,
+        std::function<const double& (int)> inbranchlength,
+        std::function<const double& (int)> insiterate,
+        std::function<const SubMatrix& (int, int)> insubmatrixarray,
+        std::function<const EVector& (int)> inrootfreq,
+        PolyProcess* inpolyprocess = nullptr);
+
+    // generic
+    // [[deprecated]]
     PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
         const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
         const BranchSiteSelector<SubMatrix> *insubmatrixarray,
@@ -78,47 +57,26 @@ class PhyloProcess {
 
     //! \brief special (short-cut) constructor for branch-homogeneous and
     //! site-homogeneous model
-    //!
-    //! Compared to the generic constructor, this constructor takes a pointer to a
-    //! single substitution matrix. The branch/site and site selectors of
-    //! substitution matrices (submatrixarray and rootsubmatrixarray) are then
-    //! internally allocated by PhyloProcess based on this matrix. If insiterate
-    //! pointer is null, then rates across sites are all equal to 1.
-    //! - a PolyProcess to compute the likelihood of the data taking into account
-    //! occurrences in the population of the reference and derived alleles,
-    //! this is nullpointer if no data could be found
+    // PhyloProcess(const Tree* intree, const SequenceAlignment* indata,
+    //     const std::vector<double>& inbranchlength,
+    //     const SubMatrix* insubmatrix,
+    //     PolyProcess* inpolyprocess = nullptr);
+
+    // [[deprecated]]
     PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
         const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
         const SubMatrix *insubmatrix, PolyProcess *inpolyprocess = nullptr);
 
     //! \brief special (short-cut) constructor for branch-homogeneous and
     //! site-heterogeneous model
-    //!
-    //! Compared to the generic constructor, this constructor takes a pointer to a
-    //! (site) Selector<SubMatrix>* insubmatrixarray. The branch/site selector of
-    //! substitution matrices (submatrixarray) is then internally allocated by
-    //! PhyloProcess based on this matrix based on this array, while
-    //! rootmatrixarray is set to insubmatrixarray. If insiterate pointer is null,
-    //! then rates across sites are all equal to 1.
-    //! - a PolyProcess to compute the likelihood of the data taking into account
-    //! occurrences in the population of the reference and derived alleles,
-    //! this is nullpointer if no data could be found
+    // [[deprecated]]
     PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
         const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
         const Selector<SubMatrix> *insubmatrixarray, PolyProcess *inpolyprocess = nullptr);
 
     //! \brief special (short-cut) constructor for branch-heterogeneous and
     //! site-homogeneous model
-    //!
-    //! Compared to the generic constructor, this constructor takes a pointer to
-    //! BranchSelector<SubMatrix>* insubmatrixarray and a single submatrix (for
-    //! the root eq frequencies). The branch/site and site selectors of
-    //! substitution matrices (submatrixarray and rootsubmatrixarray) are then
-    //! internally allocated by PhyloProcess based on these parameters. If
-    //! insiterate pointer is null, then rates across sites are all equal to 1.
-    //! - a PolyProcess to compute the likelihood of the data taking into account
-    //! occurrences in the population of the reference and derived alleles,
-    //! this is nullpointer if no data could be found
+    // [[deprecated]]
     PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
         const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
         const BranchSelector<SubMatrix> *insubmatrixbrancharray, const SubMatrix *inrootsubmatrix,
@@ -174,22 +132,30 @@ class PhyloProcess {
     double FastSiteLogLikelihood(int site) const;
 
     //! return branch length for given branch, based on index of node at the tip of the branch
-    double GetBranchLength(int index) const { return branchlength->GetVal(GetBranchIndex(index)); }
+    double GetBranchLength(int index) const { 
+        return branchlength(GetBranchIndex(index));
+        // return branchlength->GetVal(GetBranchIndex(index));
+    }
 
     //! return site rate for given site (if no rates-across-sites array was given
     //! to phyloprocess, returns 1)
     double GetSiteRate(int site) const {
+        return siterate(site);
+        /*
         if (!siterate) { return 1.0; }
         return siterate->GetVal(site);
+        */
     }
 
     //! return matrix that should be used on a given branch based on index of node at branch tip
     const SubMatrix &GetSubMatrix(int index, int site) const {
-        return submatrixarray->GetVal(GetBranchIndex(index), site);
+        return submatrixarray(GetBranchIndex(index), site);
+        // return submatrixarray->GetVal(GetBranchIndex(index), site);
     }
 
     const EVector &GetRootFreq(int site) const {
-        return rootsubmatrixarray->GetVal(site).GetStationary();
+        return rootfreq(site);
+        // return rootsubmatrixarray->GetVal(site).GetStationary();
     }
 
     const StateSpace *GetStateSpace() const { return data->GetStateSpace(); }
@@ -337,13 +303,13 @@ class PhyloProcess {
     const SequenceAlignment *data;
     std::vector<int> taxon_table;
     std::vector<int> reverse_taxon_table;
+
+    std::function<const double& (int)> branchlength;
+    std::function<const double& (int)> siterate { [](int) {return 1.0;} };
+    std::function<const SubMatrix& (int, int)> submatrixarray;
+    std::function<const EVector& (int)> rootfreq;
+
     PolyProcess *polyprocess;
-    const BranchSelector<double> *branchlength;
-    const Selector<double> *siterate;
-    const BranchSiteSelector<SubMatrix> *submatrixarray;
-    const Selector<SubMatrix> *rootsubmatrixarray;
-    bool allocsubmatrixarray;
-    bool allocrootsubmatrixarray;
 
     int *sitearray;
     mutable double *sitelnL;

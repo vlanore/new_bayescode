@@ -4,76 +4,136 @@
 #include "PolySuffStat.hpp"
 #include "global/logging.hpp"
 
+
+// generic
+PhyloProcess::PhyloProcess(const Tree* intree, const SequenceAlignment* indata,
+    std::function<const double& (int)> inbranchlength,
+    std::function<const double& (int)> insiterate,
+    std::function<const SubMatrix& (int, int)> insubmatrixarray,
+    std::function<const EVector& (int)> inrootfreq,
+    PolyProcess* inpolyprocess):
+
+    tree(intree),
+    data(indata),
+    branchlength(inbranchlength),
+    siterate(insiterate),
+    submatrixarray(insubmatrixarray),
+    rootfreq(inrootfreq),
+    polyprocess(inpolyprocess) {
+        Nstate = data->GetNstate();
+        taxon_table = data->GetTaxonSet()->get_index_table(tree);
+        reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
+        maxtrial = DEFAULTMAXTRIAL;
+    }
+
+// specialized for one matrix for all sites and all branches
+/*
+PhyloProcess::PhyloProcess(const Tree* intree, const SequenceAlignment* indata,
+    const std::vector<double>& inbranchlength,
+    const SubMatrix* insubmatrix,
+    PolyProcess* inpolyprocess):
+
+    tree(intree),
+    data(indata),
+    branchlength([inbranchlength] (int j) {return inbranchlength[j];}),
+    submatrixarray([insubmatrix] (int, int) -> const SubMatrix& {return *insubmatrix;}),
+    rootfreq([insubmatrix] (int) {return insubmatrix->GetStationary();}),
+    polyprocess(inpolyprocess) {
+        Nstate = data->GetNstate();
+        taxon_table = data->GetTaxonSet()->get_index_table(tree);
+        reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
+        maxtrial = DEFAULTMAXTRIAL;
+}
+*/
+
 using namespace std;
 
-PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-    const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-    PolyProcess *inpolyprocess) {
-    tree = intree;
-    data = indata;
-    Nstate = data->GetNstate();
-    taxon_table = data->GetTaxonSet()->get_index_table(tree);
-    reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
-    maxtrial = DEFAULTMAXTRIAL;
-    branchlength = inbranchlength;
-    siterate = insiterate;
-    polyprocess = inpolyprocess;
-}
-
+// generic deprecated
 PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
     const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
     const BranchSiteSelector<SubMatrix> *insubmatrixarray,
-    const Selector<SubMatrix> *inrootsubmatrixarray, PolyProcess *inpolyprocess)
-    : PhyloProcess(intree, indata, inbranchlength, insiterate, inpolyprocess) {
-    submatrixarray = insubmatrixarray;
-    allocsubmatrixarray = false;
-    rootsubmatrixarray = inrootsubmatrixarray;
-    allocrootsubmatrixarray = false;
+    const Selector<SubMatrix> *inrootsubmatrixarray, PolyProcess *inpolyprocess):
+    tree(intree),
+    data(indata),
+    branchlength([inbranchlength] (int j) {return inbranchlength->GetVal(j);}),
+    submatrixarray([insubmatrixarray] (int i, int j) -> const SubMatrix& {return insubmatrixarray->GetVal(i,j);}),
+    rootfreq([inrootsubmatrixarray] (int i) {return inrootsubmatrixarray->GetVal(i).GetStationary();}),
+    polyprocess(inpolyprocess)  {
+        if (insiterate) {
+            siterate = [insiterate] (int i) {return insiterate->GetVal(i);};
+        }
+        Nstate = data->GetNstate();
+        taxon_table = data->GetTaxonSet()->get_index_table(tree);
+        reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
+        maxtrial = DEFAULTMAXTRIAL;
 }
 
+// specialized for one matrix, old style
 PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
     const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-    const SubMatrix *insubmatrix, PolyProcess *inpolyprocess)
-    : PhyloProcess(intree, indata, inbranchlength, insiterate, inpolyprocess) {
-    submatrixarray =
-        new BranchHomogeneousSiteHomogeneousSelector<SubMatrix>(*tree, GetNsite(), *insubmatrix);
-    allocsubmatrixarray = true;
-    rootsubmatrixarray = new HomogeneousSelector<SubMatrix>(GetNsite(), *insubmatrix);
-    allocrootsubmatrixarray = true;
+    const SubMatrix *insubmatrix, PolyProcess *inpolyprocess):
+
+    tree(intree),
+    data(indata),
+    branchlength([inbranchlength] (int j) {return inbranchlength->GetVal(j);}),
+    submatrixarray([insubmatrix] (int i, int j) -> const SubMatrix& {return *insubmatrix;}),
+    rootfreq([insubmatrix] (int i) {return insubmatrix->GetStationary();}),
+    polyprocess(inpolyprocess)  {
+
+        if (insiterate) {
+            siterate = [insiterate] (int i) {return insiterate->GetVal(i);};
+        }
+        Nstate = data->GetNstate();
+        taxon_table = data->GetTaxonSet()->get_index_table(tree);
+        reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
+        maxtrial = DEFAULTMAXTRIAL;
 }
 
+// specialized for an array of matrices across sites, old style
 PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
     const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-    const Selector<SubMatrix> *insubmatrixarray, PolyProcess *inpolyprocess)
-    : PhyloProcess(intree, indata, inbranchlength, insiterate, inpolyprocess) {
-    if (insubmatrixarray->GetSize() != GetNsite()) {
-        std::cerr << "error in PhyloProcess constructor: size of matrix array does "
-                     "not match alignment size\n";
-        exit(1);
-    }
-    submatrixarray =
-        new BranchHomogeneousSiteHeterogeneousSelector<SubMatrix>(*tree, *insubmatrixarray);
-    allocsubmatrixarray = true;
-    rootsubmatrixarray = insubmatrixarray;
-    allocrootsubmatrixarray = false;
+    const Selector<SubMatrix> *insubmatrixarray, PolyProcess *inpolyprocess):
+
+    tree(intree),
+    data(indata),
+    branchlength([inbranchlength] (int j) {return inbranchlength->GetVal(j);}),
+    submatrixarray([insubmatrixarray] (int i, int j) -> const SubMatrix& {return insubmatrixarray->GetVal(i);}),
+    rootfreq([insubmatrixarray] (int i) {return insubmatrixarray->GetVal(i).GetStationary();}),
+    polyprocess(inpolyprocess)  {
+
+        if (insiterate) {
+            siterate = [insiterate] (int i) {return insiterate->GetVal(i);};
+        }
+        Nstate = data->GetNstate();
+        taxon_table = data->GetTaxonSet()->get_index_table(tree);
+        reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
+        maxtrial = DEFAULTMAXTRIAL;
 }
 
+// specialized for a branch array of matrices (same for all sites), old style
 PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
     const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
     const BranchSelector<SubMatrix> *insubmatrixbrancharray, const SubMatrix *insubmatrix,
-    PolyProcess *inpolyprocess)
-    : PhyloProcess(intree, indata, inbranchlength, insiterate, inpolyprocess) {
-    submatrixarray = new BranchHeterogeneousSiteHomogeneousSelector<SubMatrix>(
-        *insubmatrixbrancharray, GetNsite());
-    allocsubmatrixarray = true;
-    rootsubmatrixarray = new HomogeneousSelector<SubMatrix>(GetNsite(), *insubmatrix);
-    allocrootsubmatrixarray = true;
+    PolyProcess *inpolyprocess) :
+
+    tree(intree),
+    data(indata),
+    branchlength([inbranchlength] (int j) {return inbranchlength->GetVal(j);}),
+    submatrixarray([insubmatrixbrancharray] (int i, int j) -> const SubMatrix& {return insubmatrixbrancharray->GetVal(j);}),
+    rootfreq([insubmatrix] (int i) {return insubmatrix->GetStationary();}),
+    polyprocess(inpolyprocess)  {
+
+        if (insiterate) {
+            siterate = [insiterate] (int i) {return insiterate->GetVal(i);};
+        }
+        Nstate = data->GetNstate();
+        taxon_table = data->GetTaxonSet()->get_index_table(tree);
+        reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
+        maxtrial = DEFAULTMAXTRIAL;
 }
 
 PhyloProcess::~PhyloProcess() {
     Cleanup();
-    if (allocsubmatrixarray) { delete submatrixarray; }
-    if (allocrootsubmatrixarray) { delete rootsubmatrixarray; }
 }
 
 void PhyloProcess::SetData(const SequenceAlignment *indata) { data = indata; }
