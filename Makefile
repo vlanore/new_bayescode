@@ -10,25 +10,22 @@ _build: CMakeLists.txt # default mode is release
 	@mkdir _build
 	@cd _build ; cmake ..
 
-modules:
-	git submodule update --init --recursive
-
-.PHONY: coverage
-coverage:
+.PHONY: rebuild-coverage
+rebuild-coverage:
 	@rm -rf _build
 	@mkdir _build
 	@cd _build ; cmake -DCOVERAGE_MODE=ON ..
 	@make --no-print-directory test
 
-.PHONY: debug
-debug:
+.PHONY: rebuild-debug
+rebuild-debug:
 	@rm -rf _build
 	@mkdir _build
 	@cd _build ; cmake -DDEBUG_MODE=ON ..
 	@make --no-print-directory
 
-.PHONY: release
-release:
+.PHONY: rebuild-release
+rebuild-release:
 	@rm -rf _build
 	@mkdir _build
 	@cd _build ; cmake ..
@@ -40,6 +37,18 @@ clean:
 	@rm -rf _build_coverage
 	@rm -rf _test
 	@rm -rf _aamutsel
+
+# ==================================================================================================
+#  SUBMODULES
+# ==================================================================================================
+.PHONY: modules
+modules:
+	git submodule update --init --recursive
+
+.PHONY: modules-latest
+modules-latest:
+	git submodule foreach git pull origin master
+
 
 # ==================================================================================================
 #  CODE QUALITY
