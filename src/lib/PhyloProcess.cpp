@@ -10,7 +10,7 @@ PhyloProcess::PhyloProcess(const Tree* intree, const SequenceAlignment* indata,
     std::function<const double& (int)> inbranchlength,
     std::function<const double& (int)> insiterate,
     std::function<const SubMatrix& (int, int)> insubmatrixarray,
-    std::function<const EVector& (int)> inrootfreq,
+    std::function<const SubMatrix& (int)> inrootsubmatrixarray,
     PolyProcess* inpolyprocess):
 
     tree(intree),
@@ -18,7 +18,7 @@ PhyloProcess::PhyloProcess(const Tree* intree, const SequenceAlignment* indata,
     branchlength(inbranchlength),
     siterate(insiterate),
     submatrixarray(insubmatrixarray),
-    rootfreq(inrootfreq),
+    rootsubmatrixarray(inrootsubmatrixarray),
     polyprocess(inpolyprocess) {
         Nstate = data->GetNstate();
         taxon_table = data->GetTaxonSet()->get_index_table(tree);
@@ -37,7 +37,7 @@ PhyloProcess::PhyloProcess(const Tree* intree, const SequenceAlignment* indata,
     data(indata),
     branchlength([inbranchlength] (int j) {return inbranchlength[j];}),
     submatrixarray([insubmatrix] (int, int) -> const SubMatrix& {return *insubmatrix;}),
-    rootfreq([insubmatrix] (int) {return insubmatrix->GetStationary();}),
+    rootsubmatrixarray([insubmatrix] (int) -> const SubMatrix& {return *insubmatrix;}),
     polyprocess(inpolyprocess) {
         Nstate = data->GetNstate();
         taxon_table = data->GetTaxonSet()->get_index_table(tree);
@@ -57,7 +57,7 @@ PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
     data(indata),
     branchlength([inbranchlength] (int j) {return inbranchlength->GetVal(j);}),
     submatrixarray([insubmatrixarray] (int i, int j) -> const SubMatrix& {return insubmatrixarray->GetVal(i,j);}),
-    rootfreq([inrootsubmatrixarray] (int i) {return inrootsubmatrixarray->GetVal(i).GetStationary();}),
+    rootsubmatrixarray([inrootsubmatrixarray] (int i) -> const SubMatrix& {return inrootsubmatrixarray->GetVal(i);}),
     polyprocess(inpolyprocess)  {
         if (insiterate) {
             siterate = [insiterate] (int i) {return insiterate->GetVal(i);};
@@ -77,7 +77,7 @@ PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
     data(indata),
     branchlength([inbranchlength] (int j) {return inbranchlength->GetVal(j);}),
     submatrixarray([insubmatrix] (int i, int j) -> const SubMatrix& {return *insubmatrix;}),
-    rootfreq([insubmatrix] (int i) {return insubmatrix->GetStationary();}),
+    rootsubmatrixarray([insubmatrix] (int) -> const SubMatrix& {return *insubmatrix;}),
     polyprocess(inpolyprocess)  {
 
         if (insiterate) {
@@ -98,7 +98,7 @@ PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
     data(indata),
     branchlength([inbranchlength] (int j) {return inbranchlength->GetVal(j);}),
     submatrixarray([insubmatrixarray] (int i, int j) -> const SubMatrix& {return insubmatrixarray->GetVal(i);}),
-    rootfreq([insubmatrixarray] (int i) {return insubmatrixarray->GetVal(i).GetStationary();}),
+    rootsubmatrixarray([insubmatrixarray] (int i) -> const SubMatrix& {return insubmatrixarray->GetVal(i);}),
     polyprocess(inpolyprocess)  {
 
         if (insiterate) {
@@ -120,7 +120,7 @@ PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
     data(indata),
     branchlength([inbranchlength] (int j) {return inbranchlength->GetVal(j);}),
     submatrixarray([insubmatrixbrancharray] (int i, int j) -> const SubMatrix& {return insubmatrixbrancharray->GetVal(j);}),
-    rootfreq([insubmatrix] (int i) {return insubmatrix->GetStationary();}),
+    rootsubmatrixarray([insubmatrix] (int) -> const SubMatrix& {return *insubmatrix;}),
     polyprocess(inpolyprocess)  {
 
         if (insiterate) {

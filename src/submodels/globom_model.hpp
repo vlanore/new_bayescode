@@ -64,7 +64,8 @@ struct globom {
                 // branch and site specific matrices (here, same matrix for everyone)
                 [m = codon_sub_matrix.get()] (int, int) -> const SubMatrix& {return *m;},
                 // root eq. freqs (here, those of global matrix for all sites)
-                [m = codon_sub_matrix.get()] (int) {return m->GetStationary();},
+                [m = codon_sub_matrix.get()] (int) -> const SubMatrix& {return *m;},
+                // [m = codon_sub_matrix.get()] (int) {return m->GetStationary();},
                 // no polymorphism
                 nullptr);
 

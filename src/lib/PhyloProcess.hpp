@@ -45,7 +45,7 @@ class PhyloProcess {
         std::function<const double& (int)> inbranchlength,
         std::function<const double& (int)> insiterate,
         std::function<const SubMatrix& (int, int)> insubmatrixarray,
-        std::function<const EVector& (int)> inrootfreq,
+        std::function<const SubMatrix& (int)> inrootsubmatrixarray,
         PolyProcess* inpolyprocess = nullptr);
 
     // generic
@@ -133,29 +133,24 @@ class PhyloProcess {
 
     //! return branch length for given branch, based on index of node at the tip of the branch
     double GetBranchLength(int index) const { 
+        return 1.0;
         return branchlength(GetBranchIndex(index));
-        // return branchlength->GetVal(GetBranchIndex(index));
     }
 
     //! return site rate for given site (if no rates-across-sites array was given
     //! to phyloprocess, returns 1)
     double GetSiteRate(int site) const {
+        return 1.0;
         return siterate(site);
-        /*
-        if (!siterate) { return 1.0; }
-        return siterate->GetVal(site);
-        */
     }
 
     //! return matrix that should be used on a given branch based on index of node at branch tip
     const SubMatrix &GetSubMatrix(int index, int site) const {
         return submatrixarray(GetBranchIndex(index), site);
-        // return submatrixarray->GetVal(GetBranchIndex(index), site);
     }
 
     const EVector &GetRootFreq(int site) const {
-        return rootfreq(site);
-        // return rootsubmatrixarray->GetVal(site).GetStationary();
+        return rootsubmatrixarray(site).GetStationary();
     }
 
     const StateSpace *GetStateSpace() const { return data->GetStateSpace(); }
@@ -307,7 +302,7 @@ class PhyloProcess {
     std::function<const double& (int)> branchlength;
     std::function<const double& (int)> siterate { [](int) {return 1.0;} };
     std::function<const SubMatrix& (int, int)> submatrixarray;
-    std::function<const EVector& (int)> rootfreq;
+    std::function<const SubMatrix& (int)> rootsubmatrixarray;
 
     PolyProcess *polyprocess;
 
