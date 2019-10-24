@@ -133,14 +133,12 @@ class PhyloProcess {
 
     //! return branch length for given branch, based on index of node at the tip of the branch
     double GetBranchLength(int index) const { 
-        return 1.0;
         return branchlength(GetBranchIndex(index));
     }
 
     //! return site rate for given site (if no rates-across-sites array was given
     //! to phyloprocess, returns 1)
     double GetSiteRate(int site) const {
-        return 1.0;
         return siterate(site);
     }
 
