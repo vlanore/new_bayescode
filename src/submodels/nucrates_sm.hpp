@@ -33,14 +33,16 @@ struct nucrates_sm {
     static auto make(const std::vector<double>& nucrelratecenter, double nucrelrateinvconc,
         const std::vector<double>& nucstatcenter, double nucstatinvconc, Gen& gen) {
         /* -- */
-        auto exchangeability_rates = make_vector_node<dirichlet_cic>(
-            6, [v = nucrelratecenter]() { return v; }, [v = nucrelrateinvconc]() { return v; });
+        auto exchangeability_rates = make_node<dirichlet_cic>(
+            [nucrelratecenter]() { return nucrelratecenter; }, nucrelrateinvconc);
+        set_value(exchangeability_rates, std::vector<double>(6, 0));
         draw(exchangeability_rates, gen);
         DEBUG("GTR model: exchangeability rates are {}.",
             vector_to_string(get<value>(exchangeability_rates)));
 
-        auto equilibrium_frequencies = make_vector_node<dirichlet_cic>(
-            4, [v = nucstatcenter]() { return v; }, [v = nucstatinvconc]() { return v; });
+        auto equilibrium_frequencies =
+            make_node<dirichlet_cic>([nucstatcenter]() { return nucstatcenter; }, nucstatinvconc);
+        set_value(equilibrium_frequencies, std::vector<double>(4, 0));
         draw(equilibrium_frequencies, gen);
         DEBUG("GTR model: equilibrium frequencies are {}.",
             vector_to_string(get<value>(equilibrium_frequencies)));
@@ -62,7 +64,6 @@ struct nucrates_sm {
         LogProb logprob_children, Update update, Gen& gen, Reporter reporter = {}) {
         /* -- */
         auto& target = exch_rates_(model);
-        static_assert(is_node_array<std::decay_t<decltype(target)>>::value, "");
 
         for (auto tuning : tunings) {
             auto bkp = backup(target);
@@ -84,7 +85,6 @@ struct nucrates_sm {
         LogProb logprob_children, Update update, Gen& gen, Reporter reporter = {}) {
         /* -- */
         auto& target = eq_freq_(model);
-        static_assert(is_node_array<std::decay_t<decltype(target)>>::value, "");
 
         for (auto tuning : tunings) {
             auto bkp = backup(target);
