@@ -30,18 +30,17 @@ std::vector<double> normalize(const std::vector<double>& vec) {
 
 struct nucrates_sm {
     template <class Gen>
-    static auto make(const std::vector<double>& nucrelratecenter, double nucrelrateinvconc,
-        const std::vector<double>& nucstatcenter, double nucstatinvconc, Gen& gen) {
+    static auto make(std::function<const std::vector<double>&()> nucrelratecenter, std::function<const double&()> nucrelrateinvconc,
+        std::function<const std::vector<double>&()> nucstatcenter, std::function<const double& ()> nucstatinvconc, Gen& gen) {
         /* -- */
-        auto exchangeability_rates = make_node<dirichlet_cic>(
-            [nucrelratecenter]() { return nucrelratecenter; }, nucrelrateinvconc);
+        auto exchangeability_rates = make_node<dirichlet_cic>(nucrelratecenter, nucrelrateinvconc);
         set_value(exchangeability_rates, std::vector<double>(6, 0));
         draw(exchangeability_rates, gen);
         DEBUG("GTR model: exchangeability rates are {}.",
             vector_to_string(get<value>(exchangeability_rates)));
 
         auto equilibrium_frequencies =
-            make_node<dirichlet_cic>([nucstatcenter]() { return nucstatcenter; }, nucstatinvconc);
+            make_node<dirichlet_cic>(nucstatcenter, nucstatinvconc);
         set_value(equilibrium_frequencies, std::vector<double>(4, 0));
         draw(equilibrium_frequencies, gen);
         DEBUG("GTR model: equilibrium frequencies are {}.",

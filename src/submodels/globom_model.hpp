@@ -25,7 +25,6 @@ TOKEN(branch_lengths)
 TOKEN(nuc_rates)
 TOKEN(codon_statespace)
 TOKEN(codon_submatrix)
-// TOKEN(branch_adapter)
 TOKEN(phyloprocess)
 TOKEN(bl_suffstats)
 TOKEN(path_suffstats)
@@ -36,12 +35,17 @@ struct globom {
     // =============================================================================================
     template <class Gen>
     static auto make(PreparedData& data, Gen& gen) {
-        auto global_omega = omega_sm::make(1.0, 1.0, gen);
 
-        auto branch_lengths = branchlengths_sm::make(data.parser, *data.tree, 0.1, 1.0);
+        auto global_omega = omega_sm::make(to_constant(1.0), to_constant(1.0), gen);
+
+        auto branch_lengths = branchlengths_sm::make(data.parser, *data.tree, to_constant(0.1), to_constant(1.0));
 
         auto nuc_rates = nucrates_sm::make(
-            normalize({1, 1, 1, 1, 1, 1}), 1. / 6, normalize({1, 1, 1, 1}), 1. / 4, gen);
+            to_constant(normalize({1, 1, 1, 1, 1, 1})),
+            to_constant(1. / 6),
+            to_constant(normalize({1, 1, 1, 1})), 
+            to_constant(1. / 4),
+            gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
@@ -75,7 +79,6 @@ struct globom {
             nuc_rates_ = move(nuc_rates),               //
             codon_statespace_ = codon_statespace,       //
             codon_submatrix_ = move(codon_sub_matrix),  //
-            // branch_adapter_ = move(branch_adapter),     //
             phyloprocess_ = move(phyloprocess),         //
             bl_suffstats_ = bl_suffstats,               //
             path_suffstats_ = move(path_suffstats),     //

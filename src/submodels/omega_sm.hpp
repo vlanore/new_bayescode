@@ -17,9 +17,10 @@ TOKEN(omega)
 
 struct omega_sm {
     template <class Gen>
-    static auto make(double mean, double invshape, Gen& gen) {
-        DEBUG("Making omega with fixed parameters mean={} and invshape={}", mean, invshape);
-        auto omega = make_node<gamma_ss>(1. / invshape, mean * invshape);
+    static auto make(std::function<const double&()> mean, std::function<const double&()> invshape, Gen& gen) {
+        DEBUG("Making omega with parameters mean={} and invshape={}", mean(), invshape());
+        auto omega = make_node<gamma_ss>(to_constant(1. / invshape()), to_constant(mean() * invshape()));
+        // auto omega = make_node<gamma_ss>([&invshape] () {return 1. / invshape();}, [&mean, &invshape] () {return mean() * invshape();});
         draw(omega, gen);
         return make_model(omega_ = std::move(omega));
     }

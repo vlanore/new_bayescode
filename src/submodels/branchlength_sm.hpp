@@ -18,7 +18,7 @@ TOKEN(suffstats)
 /* Array of branch lengths, gamma iid with fixed mean and invshape.
 Initialized with branch length from input tree. */
 struct branchlengths_sm {
-    static auto make(TreeParser& parser, const Tree& tree, double mean, double invshape) {
+    static auto make(TreeParser& parser, const Tree& tree, std::function<const double&()> mean, std::function<const double&()> invshape)    {
         DEBUG("Getting branch lengths from tree");
         const size_t nb_branches = parser.get_tree().nb_nodes() - 1;
         auto initial_bl = branch_container_from_parser<double>(
@@ -27,8 +27,7 @@ struct branchlengths_sm {
         DEBUG("Branch lengths are {}", vector_to_string(initial_bl));
 
         DEBUG("Creating branch length array of gamma nodes (length {})", nb_branches);
-        auto bl_array = make_node_array<gamma_ss>(
-            nb_branches, n_to_constant(1. / invshape), n_to_constant(mean * invshape));
+        auto bl_array = make_node_array<gamma_ss>(nb_branches, n_to_constant(1. / invshape()), n_to_constant(mean() * invshape()));
         set_value(bl_array, initial_bl);
 
         // return model
