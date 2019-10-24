@@ -26,6 +26,12 @@ license and that you accept its terms.*/
 
 #include <iostream>
 #include "basic_moves.hpp"
+#include "components/ChainCheckpoint.hpp"
+#include "components/ChainDriver.hpp"
+#include "components/ConsoleLogger.hpp"
+#include "components/MoveScheduler.hpp"
+#include "components/StandardTracer.hpp"
+#include "components/restart_check.hpp"
 #include "distributions/exponential.hpp"
 #include "distributions/gamma.hpp"
 #include "distributions/poisson.hpp"
@@ -37,17 +43,10 @@ license and that you accept its terms.*/
 #include "operations/set_value.hpp"
 #include "structure/View.hpp"
 #include "structure/array_utils.hpp"
+#include "submodels/move_reporter.hpp"
+#include "submodels/submodel_external_interface.hpp"
 #include "suffstat_utils.hpp"
 #include "tagged_tuple/src/fancy_syntax.hpp"
-
-#include "components/ChainCheckpoint.hpp"
-#include "components/ChainDriver.hpp"
-#include "components/ConsoleLogger.hpp"
-#include "components/StandardTracer.hpp"
-#include "components/restart_check.hpp"
-#include "components/MoveScheduler.hpp"
-#include "submodels/move_reporter.hpp"
-
 
 using namespace std;
 
@@ -60,14 +59,14 @@ auto poisson_gamma(size_t size, size_t size2) {
     auto alpha = make_node<exponential>(1.0);
     auto mu = make_node<exponential>(1.0);
     auto lambda = make_node_array<gamma_ss>(size, n_to_one(alpha), n_to_one(mu));
-    auto K = make_node_matrix<poisson>(size, size2,
-                                       [& v = get<value>(lambda)](int i, int) { return v[i]; });
+    // auto K = make_node_matrix<poisson>(
+    //     size, size2, [& v = get<value>(lambda)](int i, int) { return v[i]; });
     // clang-format off
     return make_model(
          alpha_ = move(alpha),
             mu_ = move(mu),
-        lambda_ = move(lambda),
-             K_ = move(K)
+        lambda_ = move(lambda)//,
+             // K_ = move(K)
     );  // clang-format on
 }
 
@@ -84,65 +83,81 @@ void scaling_move(Node& node, MB blanket, Gen& gen, IndexArgs... args) {
 int main() {
     auto gen = make_generator();
 
-    constexpr size_t nb_it{100'000}, len_lambda{20}, len_K{200};
+    constexpr size_t nb_it{100'000}, len_lambda{20}, len_K{200}, every(1);
     auto m = poisson_gamma(len_lambda, len_K);
 
 
-
-    auto v = make_view<alpha, mu, lambda, K>(m);
-    draw(v, gen);
-    // display node value in stdout
-    INFO("Alpha = {}", get<alpha, value>(m));
-    INFO("Mu = {}", get<mu, value>(m));
-    INFO("Lambda = {}", vector_to_string(get<lambda, value>(m)));
-    // INFO("K = {}", get<K, value>(m));
-
-//    set_value(K_(m), {{1, 2, 1}, {1, 2, 2}, {1, 2, 1}, {2, 1, 2}, {2, 1, 3}});
-
-// // move success stats
-// MoveStatsRegistry ms;
-//
-// // move schedule
-// auto scheduler = make_move_scheduler([&gen, &model, &ms]() {
-//     // move alpha
-//     scaling_move(alpha_(m), make_view<alpha, lambda>(m), gen);
-//     // move mu
-//     scaling_move(mu_(m), make_view<mu, lambda>(m), gen);
-//
-//     for (size_t i = 0; i < len_lambda; i++) {
-//         auto lambda_mb = make_view(make_ref<K>(m, i), make_ref<lambda>(m, i));
-//         scaling_move(lambda_(m), lambda_mb, gen, i);
-//     }
-//
-// });
-//
+    // auto v = make_view<alpha, mu, lambda, K>(m);
+    // draw(v, gen);
+    // // display node value in stdout
+    // INFO("Alpha = {}", get<alpha, value>(m));
+    // INFO("Mu = {}", get<mu, value>(m));
+    // INFO("Lambda = {}", vector_to_string(get<lambda, value>(m)));
+    // // INFO("K = {}", get<K, value>(m));
+    //
+    // //    set_value(K_(m), {{1, 2, 1}, {1, 2, 2}, {1, 2, 1}, {2, 1, 2}, {2, 1, 3}});
+    //
+    // // move success stats
+    // MoveStatsRegistry ms;
+    //
+    // // move schedule
+    // auto scheduler = make_move_scheduler([&gen, &m, &ms]() {
+    //     // move alpha
+    //     scaling_move(alpha_(m), make_view<alpha, lambda>(m), gen);
+    //     // move mu
+    //     scaling_move(mu_(m), make_view<mu, lambda>(m), gen);
+    //
+    //     for (size_t i = 0; i < len_lambda; i++) {
+    //         auto lambda_mb = make_view(make_ref<K>(m, i), make_ref<lambda>(m, i));
+    //         scaling_move(lambda_(m), lambda_mb, gen, i);
+    //     }
+    // });
 
 
-    double alpha_sum{0}, mu_sum{0};
-    vector<double> lambda_sum (len_lambda, 0.0);
+    // initializing components
+    ChainDriver chain_driver{"simu_and_infer_chain", every, nb_it};
 
-    for (size_t it = 0; it < nb_it; it++) {
-        //INFO("Alpha = {}\n", raw_value(alpha_(m)));
-        scaling_move(alpha_(m), make_view<alpha, lambda>(m), gen);
-        scaling_move(mu_(m), make_view<mu, lambda>(m), gen);
-        alpha_sum += raw_value(alpha_(m));
-        mu_sum += raw_value(mu_(m));
+    ConsoleLogger console_logger;
+    // ChainCheckpoint chain_checkpoint(cmd.chain_name() + ".param", chain_driver, model);
+    StandardTracer trace(m, "simu_and_infer_chain");
 
-        for (size_t i = 0; i < len_lambda; i++) {
-            auto lambda_mb = make_view(make_ref<K>(m, i), make_ref<lambda>(m, i));
-            scaling_move(lambda_(m), lambda_mb, gen, i);
-            lambda_sum[i] += raw_value(lambda_(m), i);
-        }
-    }
-    INFO("RESULTS OF THE MCMC: ");
-    INFO("Alpha = {}", alpha_sum / float(nb_it));
-    INFO("Mu = {}", mu_sum / float(nb_it));
+    // registering components to chain driver
+    // chain_driver.add(scheduler);
+    chain_driver.add(console_logger);
+    // chain_driver.add(chain_checkpoint);
+    chain_driver.add(trace);
+    // chain_driver.add(ms);
 
-    for (size_t i = 0; i < len_lambda; i++) {
-      lambda_sum[i] = lambda_sum[i]/float(nb_it) ;
-    }
+    // launching chain!
+    chain_driver.go();
 
-    //std::cout << "Mean lambda = " << lambda_sum / (float(nb_it) * len_lambda) << std::endl;
-    INFO("Lambda = {}", vector_to_string(lambda_sum));
 
+    // The code below works and corresponds to the code above, in a more verbose version.
+
+    // double alpha_sum{0}, mu_sum{0};
+    // vector<double> lambda_sum (len_lambda, 0.0);
+    //
+    // for (size_t it = 0; it < nb_it; it++) {
+    //     //INFO("Alpha = {}\n", raw_value(alpha_(m)));
+    //     scaling_move(alpha_(m), make_view<alpha, lambda>(m), gen);
+    //     scaling_move(mu_(m), make_view<mu, lambda>(m), gen);
+    //     alpha_sum += raw_value(alpha_(m));
+    //     mu_sum += raw_value(mu_(m));
+    //
+    //     for (size_t i = 0; i < len_lambda; i++) {
+    //         auto lambda_mb = make_view(make_ref<K>(m, i), make_ref<lambda>(m, i));
+    //         scaling_move(lambda_(m), lambda_mb, gen, i);
+    //         lambda_sum[i] += raw_value(lambda_(m), i);
+    //     }
+    // }
+    // INFO("RESULTS OF THE MCMC: ");
+    // INFO("Alpha = {}", alpha_sum / float(nb_it));
+    // INFO("Mu = {}", mu_sum / float(nb_it));
+    //
+    // for (size_t i = 0; i < len_lambda; i++) {
+    //   lambda_sum[i] = lambda_sum[i]/float(nb_it) ;
+    // }
+    //
+    // //std::cout << "Mean lambda = " << lambda_sum / (float(nb_it) * len_lambda) << std::endl;
+    // INFO("Lambda = {}", vector_to_string(lambda_sum));
 }
