@@ -49,23 +49,15 @@ struct globom {
         auto codon_sub_matrix = std::make_unique<MGOmegaCodonSubMatrix>(
             codon_statespace, &get<nuc_matrix>(nuc_rates), get<omega, value>(global_omega));
 
-        /*
-        auto branch_adapter =
-            std::make_unique<LegacyArrayProxy>(get<bl_array, value>(branch_lengths), *data.tree);
-        auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
-            branch_adapter.get(), nullptr, codon_sub_matrix.get());
-        */
-
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment, 
                 // branch lengths
-                [bl = get<bl_array, value>(branch_lengths)] (int j) {return bl[j];},
-                // site-specific rates
-                [] (int) {return 1.0;},
+                n_to_n(get<bl_array, value>(branch_lengths)),
+                // site-specific rates: all equal to 1
+                n_to_constant(1.0),
                 // branch and site specific matrices (here, same matrix for everyone)
-                [m = codon_sub_matrix.get()] (int, int) -> const SubMatrix& {return *m;},
-                // root eq. freqs (here, those of global matrix for all sites)
-                [m = codon_sub_matrix.get()] (int) -> const SubMatrix& {return *m;},
-                // [m = codon_sub_matrix.get()] (int) {return m->GetStationary();},
+                mn_to_one(*codon_sub_matrix.get()),
+                // site-specific matrices for root equilibrium frequencies (here same for all sites)
+                n_to_one(*codon_sub_matrix.get()),
                 // no polymorphism
                 nullptr);
 
