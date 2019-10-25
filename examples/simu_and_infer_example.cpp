@@ -35,6 +35,7 @@ license and that you accept its terms.*/
 #include "distributions/exponential.hpp"
 #include "distributions/gamma.hpp"
 #include "distributions/poisson.hpp"
+#include "src/bayes_toolbox.hpp"
 #include "global/logging.hpp"
 #include "mcmc_utils.hpp"
 #include "operations/backup.hpp"
