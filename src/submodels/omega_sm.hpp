@@ -31,7 +31,7 @@ struct omega_sm {
             return logprob(omega) + children_logprob();
         };
         scaling_move(omega, full_logprob, gen);
-        DEBUG("Omega = {}", raw_value(omega));
+        // TRACE("Omega = {}", raw_value(omega));
     }
 
     template <class OmegaModel, class Gen>
@@ -41,6 +41,6 @@ struct omega_sm {
         double beta = 1. / get<omega, params, struct scale>(model)();
         auto ss_value = ss.get();
         gamma_sr::draw(get<omega, value>(model), alpha + ss_value.count, beta + ss_value.beta, gen);
-        DEBUG("Omega = {}", get<omega, value>(model));
+        // TRACE("Omega = {}", get<omega, value>(model));
     }
 };

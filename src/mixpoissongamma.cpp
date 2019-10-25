@@ -26,10 +26,10 @@ license and that you accept its terms.*/
 
 #include <iostream>
 #include "basic_moves.hpp"
+#include "distributions/categorical.hpp"
+#include "distributions/dirichlet.hpp"
 #include "distributions/exponential.hpp"
 #include "distributions/gamma.hpp"
-#include "distributions/dirichlet.hpp"
-#include "distributions/categorical.hpp"
 #include "distributions/poisson.hpp"
 #include "mcmc_utils.hpp"
 #include "operations/backup.hpp"
@@ -51,17 +51,17 @@ TOKEN(alloc)
 
 TOKEN(K)
 
-auto poisson_gamma(size_t ncomp, size_t nsite)    {
+auto poisson_gamma(size_t ncomp, size_t nsite) {
     auto alpha = make_node<exponential>(1.0);
     auto mu = make_node<exponential>(1.0);
 
     auto lambda = make_node_array<gamma_ss>(ncomp, n_to_one(alpha), n_to_one(mu));
 
-    auto pi = make_node<dirichlet>(std::vector<double>(ncomp,1.0));
+    auto pi = make_node<dirichlet>(std::vector<double>(ncomp, 1.0));
     auto alloc = make_node_array<categorical>(nsite, n_to_one(pi));
 
-    auto K = make_node_array<poisson>(nsite,
-                                       [& v = get<value>(lambda), &z = get<value>(alloc)](int i) { return v[z[i]]; });
+    auto K = make_node_array<poisson>(
+        nsite, [& v = get<value>(lambda), &z = get<value>(alloc)](int i) { return v[z[i]]; });
     // clang-format off
     return make_model(
          alpha_ = move(alpha),
@@ -89,10 +89,10 @@ template <class Node, class MB, class Gen, class... IndexArgs>
 void alloc_gibbs(Node& node, MB blanket, Gen& gen, IndexArgs... args) {
     auto index = make_index(args...);
     auto& z = raw_value(node, index);
-    size_t ncomp = get<params, weights>(node)(args...).size(); 
+    size_t ncomp = get<params, weights>(node)(args...).size();
     std::vector<double> prob(ncomp);
     double norm = 0;
-    for (size_t i=0; i<ncomp; i++)  {
+    for (size_t i = 0; i < ncomp; i++) {
         z = i;
         prob[i] = exp(logprob(blanket));
         norm += prob[i];
@@ -111,9 +111,7 @@ int main() {
     draw(v, gen);
     vector<double> uni_weight(ncomp, 1.0 / ncomp);
     vector<size_t> k(nsite);
-    for (size_t i=0; i<nsite; i++)  {
-        k[i] = i % 10;
-    }
+    for (size_t i = 0; i < nsite; i++) { k[i] = i % 10; }
     set_value(K_(m), k);
 
     double alpha_sum{0}, mu_sum{0};
@@ -131,7 +129,7 @@ int main() {
         }
 
         for (size_t i = 0; i < nsite; i++) {
-            auto alloc_mb = make_view(make_ref<K>(m,i), make_ref<alloc>(m,i));
+            auto alloc_mb = make_view(make_ref<K>(m, i), make_ref<alloc>(m, i));
             alloc_gibbs(alloc_(m), alloc_mb, gen, i);
         }
     }

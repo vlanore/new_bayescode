@@ -1,8 +1,8 @@
 #pragma once
 
 #include <unordered_map>
-#include "components/ChainComponent.hpp"
 #include "bayes_utils/src/logging.hpp"
+#include "components/ChainComponent.hpp"
 
 class OnlineMean {
     double sum{0};

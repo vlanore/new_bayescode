@@ -4,8 +4,8 @@
 #include <mpi.h>
 #include <vector>
 #include "Process.hpp"
-#include "components/RegistrarBase.hpp"
 #include "bayes_utils/src/logging.hpp"
+#include "components/RegistrarBase.hpp"
 #include "operations/interfaces.hpp"
 
 /*
