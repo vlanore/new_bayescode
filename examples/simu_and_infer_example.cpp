@@ -131,7 +131,6 @@ int main() {
     // launching chain!
     chain_driver.go();
 
-
     // The code below works and corresponds to the code above, in a more verbose version.
     // double alpha_sum{0}, beta_sum{0};
     // vector<double> lambda_sum (len_lambda, 0.0);
