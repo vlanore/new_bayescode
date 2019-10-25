@@ -2,7 +2,7 @@
 #include <sys/time.h>
 #include <cmath>
 #include <iostream>
-#include "global/logging.hpp"
+#include "bayes_utils/src/logging.hpp"
 
 /* =======================================================
    (VL) Magical constants, to be used only in this file.

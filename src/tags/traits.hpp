@@ -1,7 +1,7 @@
 #pragma once
 
 #include <type_traits>
-#include "global/logging.hpp"
+#include "bayes_utils/src/logging.hpp"
 
 template <class, class>
 struct ProcessingInfo;

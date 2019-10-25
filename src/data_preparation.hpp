@@ -1,6 +1,6 @@
 #pragma once
 #include <fstream>
-#include "global/logging.hpp"
+#include "bayes_utils/src/logging.hpp"
 #include "lib/CodonSequenceAlignment.hpp"
 #include "tree/implem.hpp"
 

@@ -27,6 +27,7 @@ include_directories("utils/bayes_toolbox/src")
 include_directories("utils/nhx-parser/src")
 include_directories("utils/bayes_toolbox/utils")
 include_directories("utils/bayes_toolbox/utils/tagged_tuple/utils")
+include_directories("utils/bayes_toolbox/utils/tagged_tuple/utils/bayes_utils/utils")
 
 # Static libs
 add_library (tree_lib STATIC "src/tree/implem.cpp" "utils/nhx-parser/src/nhx-parser.cpp")

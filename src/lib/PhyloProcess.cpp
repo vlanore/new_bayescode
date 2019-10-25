@@ -2,7 +2,7 @@
 #include <algorithm>
 #include "PathSuffStat.hpp"
 #include "PolySuffStat.hpp"
-#include "global/logging.hpp"
+#include "bayes_utils/src/logging.hpp"
 
 
 // generic

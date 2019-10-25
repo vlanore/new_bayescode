@@ -2,7 +2,7 @@
 
 #include <unordered_map>
 #include "components/ChainComponent.hpp"
-#include "global/logging.hpp"
+#include "bayes_utils/src/logging.hpp"
 
 class OnlineMean {
     double sum{0};

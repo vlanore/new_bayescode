@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <memory>
 #include <vector>
-#include "logging.hpp"
+#include "bayes_utils/src/logging.hpp"
 using std::istream;
 using std::ostream;
 using std::string;

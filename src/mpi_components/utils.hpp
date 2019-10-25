@@ -5,7 +5,7 @@
 #include <vector>
 #include "Process.hpp"
 #include "components/RegistrarBase.hpp"
-#include "global/logging.hpp"
+#include "bayes_utils/src/logging.hpp"
 #include "operations/interfaces.hpp"
 
 /*

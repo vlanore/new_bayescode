@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <vector>
-#include "global/logging.hpp"
+#include "bayes_utils/src/logging.hpp"
 
 /*==================================================================================================
   Process

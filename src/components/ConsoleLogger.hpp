@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ChainComponent.hpp"
-#include "global/logging.hpp"
+#include "bayes_utils/src/logging.hpp"
 
 class ConsoleLogger : public ChainComponent {
     logger_t logger{stdout_logger("chain_logger")};

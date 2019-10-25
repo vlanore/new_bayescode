@@ -1,7 +1,7 @@
 #include "TaxonSet.hpp"
 #include <iostream>
 #include "BiologicalSequences.hpp"
-#include "global/logging.hpp"
+#include "bayes_utils/src/logging.hpp"
 #include "tree/implem.hpp"
 
 using namespace std;
