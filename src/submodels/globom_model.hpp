@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cmath>
-#include "LegacyArrayProxy.hpp"
 #include "components/ChainCheckpoint.hpp"
 #include "components/ChainDriver.hpp"
 #include "components/ConsoleLogger.hpp"
