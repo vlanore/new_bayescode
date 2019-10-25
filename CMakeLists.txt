@@ -62,7 +62,7 @@ set(BASE_LIBS
 )
 
 # Single omega (globom)
-add_executable(globom "src/SingleOmega.cpp")
+add_executable(globom "src/globom.cpp")
 target_link_libraries(globom ${BASE_LIBS})
 
 # tests
