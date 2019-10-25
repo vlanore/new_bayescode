@@ -51,35 +51,26 @@ license and that you accept its terms.*/
 
 using namespace std;
 
-TOKEN(alpha)
-TOKEN(mu)
+TOKEN(alpha_)
+TOKEN(beta_)
 TOKEN(lambda)
 TOKEN(K)
 
 auto poisson_gamma(size_t size, size_t size2) {
-    auto alpha = make_node<exponential>(1.0);
-    auto mu = make_node<exponential>(1.0);
-    auto lambda = make_node_array<gamma_ss>(size, n_to_one(alpha), n_to_one(mu));
+    auto alpha_ = make_node<exponential>(1.0);
+    auto beta_ = make_node<exponential>(1.0);
+    auto lambda = make_node_array<gamma_ss>(size, n_to_one(alpha_), n_to_one(beta_));
     auto K = make_node_matrix<poisson>(
         size, size2, [& v = get<value>(lambda)](int i, int) { return v[i]; });
     // clang-format off
     return make_model(
-         alpha_ = move(alpha),
-            mu_ = move(mu),
+         alpha__ = move(alpha_),
+            beta__ = move(beta_),
         lambda_ = move(lambda),
              K_ = move(K)
     );  // clang-format on
 }
 
-template <class Node, class MB, class Gen, class... IndexArgs>
-void scaling_move(Node& node, MB blanket, Gen& gen, IndexArgs... args) {
-    auto index = make_index(args...);
-    auto bkp = backup(node, index);
-    double logprob_before = logprob(blanket);
-    double log_hastings = scale(raw_value(node, index), gen);
-    bool accept = decide(logprob(blanket) - logprob_before + log_hastings, gen);
-    if (!accept) { restore(node, bkp, index); }
-}
 
 int main() {
     auto gen = make_generator();
@@ -88,11 +79,14 @@ int main() {
     auto m = poisson_gamma(len_lambda, len_K);
 
 
-    auto v = make_collection<alpha, mu, lambda, K>(m);
+//    auto v = make_view<alpha, beta, lambda, K>(m);
+
+    auto v = make_collection(alpha__(m), beta__(m), lambda_(m), K_(m));
+
     draw(v, gen);
     // display node value in stdout
-    INFO("Alpha = {}", get<alpha, value>(m));
-    INFO("Mu = {}", get<mu, value>(m));
+    INFO("Alpha = {}", raw_value(alpha__(m)));
+    INFO("Beta = {}", raw_value(beta__(m)));
     INFO("Lambda = {}", vector_to_string(get<lambda, value>(m)));
     // INFO("K = {}", get<K, value>(m));
 
@@ -103,14 +97,19 @@ int main() {
 
     // move schedule
     auto scheduler = make_move_scheduler([&gen, &m, &ms]() {
-        // move alpha
-        scaling_move(alpha_(m), make_view<alpha, lambda>(m), gen);
-        // move mu
-        scaling_move(mu_(m), make_view<mu, lambda>(m), gen);
+        // // move alpha
+        // scaling_move(alpha_(m), make_view<alpha, lambda>(m), gen);
+        // // move beta
+        // scaling_move(beta_(m), make_view<beta, lambda>(m), gen);
+        scaling_move(alpha__(m), logprob_of_blanket(make_collection(alpha__(m), lambda_(m))), gen);
+        scaling_move(beta__(m), logprob_of_blanket(make_collection(beta__(m), lambda_(m))), gen);
+
 
         for (size_t i = 0; i < len_lambda; i++) {
-            auto lambda_mb = make_view(make_ref<K>(m, i), make_ref<lambda>(m, i));
-            scaling_move(lambda_(m), lambda_mb, gen, i);
+            auto lambda_mb =
+                make_collection(subsets::row(K_(m), i), subsets::element(lambda_(m), i));
+                mh_move(lambda_(m), logprob_of_blanket(lambda_mb),
+                        [i](auto& value, auto& gen) { return scale(value[i], gen); }, gen);
         }
     });
 
@@ -134,15 +133,15 @@ int main() {
 
 
     // The code below works and corresponds to the code above, in a more verbose version.
-    // double alpha_sum{0}, mu_sum{0};
+    // double alpha_sum{0}, beta_sum{0};
     // vector<double> lambda_sum (len_lambda, 0.0);
     //
     // for (size_t it = 0; it < nb_it; it++) {
     //     //INFO("Alpha = {}\n", raw_value(alpha_(m)));
     //     scaling_move(alpha_(m), make_view<alpha, lambda>(m), gen);
-    //     scaling_move(mu_(m), make_view<mu, lambda>(m), gen);
+    //     scaling_move(beta_(m), make_view<beta, lambda>(m), gen);
     //     alpha_sum += raw_value(alpha_(m));
-    //     mu_sum += raw_value(mu_(m));
+    //     beta_sum += raw_value(beta_(m));
     //
     //     for (size_t i = 0; i < len_lambda; i++) {
     //         auto lambda_mb = make_view(make_ref<K>(m, i), make_ref<lambda>(m, i));
@@ -152,7 +151,7 @@ int main() {
     // }
     // INFO("RESULTS OF THE MCMC: ");
     // INFO("Alpha = {}", alpha_sum / float(nb_it));
-    // INFO("Mu = {}", mu_sum / float(nb_it));
+    // INFO("beta = {}", beta_sum / float(nb_it));
     //
     // for (size_t i = 0; i < len_lambda; i++) {
     //   lambda_sum[i] = lambda_sum[i]/float(nb_it) ;
