@@ -41,12 +41,12 @@ class PhyloProcess {
     friend class PathSuffStatNodeArray;
 
     //! \brief generic constructor
-    PhyloProcess(const Tree* intree, const SequenceAlignment* indata,
-        std::function<const double& (int)> inbranchlength,
-        std::function<const double& (int)> insiterate,
-        std::function<const SubMatrix& (int, int)> insubmatrixarray,
-        std::function<const SubMatrix& (int)> inrootsubmatrixarray,
-        PolyProcess* inpolyprocess = nullptr);
+    PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
+        std::function<const double &(int)> inbranchlength,
+        std::function<const double &(int)> insiterate,
+        std::function<const SubMatrix &(int, int)> insubmatrixarray,
+        std::function<const SubMatrix &(int)> inrootsubmatrixarray,
+        PolyProcess *inpolyprocess = nullptr);
 
     // generic
     // [[deprecated]]
@@ -132,24 +132,18 @@ class PhyloProcess {
     double FastSiteLogLikelihood(int site) const;
 
     //! return branch length for given branch, based on index of node at the tip of the branch
-    double GetBranchLength(int index) const { 
-        return branchlength(GetBranchIndex(index));
-    }
+    double GetBranchLength(int index) const { return branchlength(GetBranchIndex(index)); }
 
     //! return site rate for given site (if no rates-across-sites array was given
     //! to phyloprocess, returns 1)
-    double GetSiteRate(int site) const {
-        return siterate(site);
-    }
+    double GetSiteRate(int site) const { return siterate(site); }
 
     //! return matrix that should be used on a given branch based on index of node at branch tip
     const SubMatrix &GetSubMatrix(int index, int site) const {
         return submatrixarray(GetBranchIndex(index), site);
     }
 
-    const EVector &GetRootFreq(int site) const {
-        return rootsubmatrixarray(site).GetStationary();
-    }
+    const EVector &GetRootFreq(int site) const { return rootsubmatrixarray(site).GetStationary(); }
 
     const StateSpace *GetStateSpace() const { return data->GetStateSpace(); }
     const TaxonSet *GetTaxonSet() const { return data->GetTaxonSet(); }
@@ -297,10 +291,10 @@ class PhyloProcess {
     std::vector<int> taxon_table;
     std::vector<int> reverse_taxon_table;
 
-    std::function<const double& (int)> branchlength;
-    std::function<const double& (int)> siterate { [](int) {return 1.0;} };
-    std::function<const SubMatrix& (int, int)> submatrixarray;
-    std::function<const SubMatrix& (int)> rootsubmatrixarray;
+    std::function<const double &(int)> branchlength;
+    std::function<const double &(int)> siterate{[](int) { return 1.0; }};
+    std::function<const SubMatrix &(int, int)> submatrixarray;
+    std::function<const SubMatrix &(int)> rootsubmatrixarray;
 
     PolyProcess *polyprocess;
 
