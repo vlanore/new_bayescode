@@ -21,6 +21,24 @@ class PathSSW final : public Proxy<PathSuffStat&> {
 };
 
 // =================================================================================================
+class NucPathSSW final : public Proxy<NucPathSuffStat&> {
+    NucPathSuffStat _nucss;
+    NucCodonSubMatrix& _codon_submatrix;
+    Proxy<PathSuffStat&>& _path_suffstat;
+
+    NucPathSuffStat& _get() final { return _nucss; }
+
+  public:
+    // OmegaSSW(const OmegaCodonSubMatrix& codon_submatrix, Proxy<PathSuffStat&>& pathsuffstat)
+    NucPathSSW(NucCodonSubMatrix& codon_submatrix, Proxy<PathSuffStat&>& path_suffstat) : _nucss(*codon_submatrix.GetCodonStateSpace()), _codon_submatrix(codon_submatrix), _path_suffstat(path_suffstat) {}
+
+    void gather() final {
+        _nucss.Clear();
+        _nucss.AddSuffStat(_codon_submatrix, _path_suffstat.get());
+    }
+};
+
+// =================================================================================================
 class NucMatrixProxy : public Proxy<GTRSubMatrix&> {
     GTRSubMatrix& _mat;
     const std::vector<double>& _eq_freqs;

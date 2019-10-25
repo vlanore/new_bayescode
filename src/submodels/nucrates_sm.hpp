@@ -29,18 +29,17 @@ std::vector<double> normalize(const std::vector<double>& vec) {
 }
 
 struct nucrates_sm {
-    template <class Gen>
-    static auto make(std::function<const std::vector<double>&()> nucrelratecenter, std::function<const double&()> nucrelrateinvconc,
-        std::function<const std::vector<double>&()> nucstatcenter, std::function<const double& ()> nucstatinvconc, Gen& gen) {
+    template <class RRCenter, class RRInvConc, class StatCenter, class StatInvConc, class Gen>
+    static auto make(RRCenter rrcenter, RRInvConc rrinvconc, StatCenter statcenter, StatInvConc statinvconc, Gen& gen)  {
         /* -- */
-        auto exchangeability_rates = make_node<dirichlet_cic>(nucrelratecenter, nucrelrateinvconc);
+        auto exchangeability_rates = make_node<dirichlet_cic>(rrcenter, rrinvconc);
         set_value(exchangeability_rates, std::vector<double>(6, 0));
         draw(exchangeability_rates, gen);
         DEBUG("GTR model: exchangeability rates are {}.",
             vector_to_string(get<value>(exchangeability_rates)));
 
         auto equilibrium_frequencies =
-            make_node<dirichlet_cic>(nucstatcenter, nucstatinvconc);
+            make_node<dirichlet_cic>(statcenter, statinvconc);
         set_value(equilibrium_frequencies, std::vector<double>(4, 0));
         draw(equilibrium_frequencies, gen);
         DEBUG("GTR model: equilibrium frequencies are {}.",
@@ -98,5 +97,46 @@ struct nucrates_sm {
             }
             reporter.report(accept);
         }
+    }
+
+    template <class SubModel, class LogProb, class Update, class Gen, class Reporter = NoReport>
+    static void move_nucrates(SubModel& model,
+        LogProb logprob_children, Update update, Gen& gen, 
+        size_t nrep = 1, double tuning = 1.0,
+        Reporter reporter = {}) {
+        /* -- */
+        std::vector<double> exch_tunings = {0.1, 0.03, 0.01};
+        for (auto& t : exch_tunings)   {
+            t *= tuning;
+        }
+        std::vector<double> eqfreqs_tunings = {0.1, 0.03};
+        for (auto& t : eqfreqs_tunings)    {
+            t *= tuning;
+        }
+        for (size_t i = 0; i<nrep; i++) {
+            move_exch_rates(model, exch_tunings, logprob_children, update, gen);
+            move_eq_freqs(model, eqfreqs_tunings, logprob_children, update, gen);
+            /*
+            move_exch_rates(model, exch_tunings, logprob_children, update, gen, reporter("exch_rates"));
+            move_eq_freqs(model, eqfreqs_tunings, logprob_children, update, gen, reporter("eq_freqs"));
+            */
+        }
+    }
+
+    // specialised version when we give nuc path suffstats:
+    // - the log prob of the children is given by the suffstats
+    // - we also know that the only update to do is the nuc matrix itself
+    template <class SubModel, class SS, class Gen, class Reporter = NoReport>
+    static void move_nucrates(SubModel& model, SS& ss, Gen& gen, 
+        size_t nrep = 1, double tuning = 1.0,
+        Reporter reporter = {}) {
+
+        auto logprob = [&model, &ss]() {
+            return ss.get().GetLogProb(matrix_proxy_(model).get());
+        };
+
+        auto update = [&model]() {matrix_proxy_(model).gather();};
+
+        move_nucrates(model, logprob, update, gen, nrep, tuning, reporter);
     }
 };

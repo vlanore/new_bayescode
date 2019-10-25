@@ -36,7 +36,9 @@ int main(int argc, char* argv[]) {
             omega_sm::gibbs_resample(global_omega_(model), omegapath_suffstats_(model), gen);
 
             // move nuc rates
-            globom::move_nucrates(model, gen, ms);
+            nucpath_suffstats_(model).gather();
+            nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
+            // nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0, ms);
         }
     });
 

@@ -24,10 +24,11 @@
 
 class NucPathSuffStat : public SuffStat {
   public:
-    NucPathSuffStat()
+    NucPathSuffStat(const CodonStateSpace& incod = CodonStateSpace(Universal))
         : rootcount(4, 0),
           paircount(4, std::vector<int>(4, 0)),
-          pairbeta(4, std::vector<double>(4, 0)) {}
+          pairbeta(4, std::vector<double>(4, 0)),
+          cod(incod) {}
 
     ~NucPathSuffStat() {}
 
@@ -163,6 +164,30 @@ class NucPathSuffStat : public SuffStat {
         return total;
     }
 
+    double GetLogProb(const SubMatrix &mat) const {
+        double total = 0;
+        // root part
+        int nroot = 0;
+        auto rootstat = mat.GetStationary();
+        for (int i = 0; i < Nnuc; i++) {
+            total += rootcount[i] * log(rootstat[i]);
+            nroot += rootcount[i];
+        }
+        total -= nroot / 3 * log(cod.GetNormStat(rootstat));
+
+        // non root part
+        for (int i = 0; i < Nnuc; i++) {
+            for (int j = 0; j < Nnuc; j++) {
+                if (i != j) {
+                    total += paircount[i][j] * log(mat(i, j));
+                    total -= pairbeta[i][j] * mat(i, j);
+                }
+            }
+        }
+
+        return total;
+    }
+
     //! add another nucpath suff stat to this
     void Add(const NucPathSuffStat &from) {
         for (int i = 0; i < Nnuc; i++) { rootcount[i] += from.rootcount[i]; }
@@ -189,6 +214,7 @@ class NucPathSuffStat : public SuffStat {
     std::vector<int> rootcount;
     std::vector<std::vector<int>> paircount;
     std::vector<std::vector<double>> pairbeta;
+    const CodonStateSpace& cod;
 };
 
 template <>
