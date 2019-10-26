@@ -4,6 +4,7 @@
 #include "PolySuffStat.hpp"
 #include "bayes_utils/src/logging.hpp"
 
+using namespace std;
 
 // generic
 PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
@@ -20,121 +21,6 @@ PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
       submatrixarray(insubmatrixarray),
       rootsubmatrixarray(inrootsubmatrixarray),
       polyprocess(inpolyprocess) {
-    Nstate = data->GetNstate();
-    taxon_table = data->GetTaxonSet()->get_index_table(tree);
-    reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
-    maxtrial = DEFAULTMAXTRIAL;
-}
-
-// specialized for one matrix for all sites and all branches
-/*
-PhyloProcess::PhyloProcess(const Tree* intree, const SequenceAlignment* indata,
-    const std::vector<double>& inbranchlength,
-    const SubMatrix* insubmatrix,
-    PolyProcess* inpolyprocess):
-
-    tree(intree),
-    data(indata),
-    branchlength([inbranchlength] (int j) {return inbranchlength[j];}),
-    submatrixarray([insubmatrix] (int, int) -> const SubMatrix& {return *insubmatrix;}),
-    rootsubmatrixarray([insubmatrix] (int) -> const SubMatrix& {return *insubmatrix;}),
-    polyprocess(inpolyprocess) {
-        Nstate = data->GetNstate();
-        taxon_table = data->GetTaxonSet()->get_index_table(tree);
-        reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
-        maxtrial = DEFAULTMAXTRIAL;
-}
-*/
-
-using namespace std;
-
-// generic deprecated
-PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-    const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-    const BranchSiteSelector<SubMatrix> *insubmatrixarray,
-    const Selector<SubMatrix> *inrootsubmatrixarray, PolyProcess *inpolyprocess)
-    : tree(intree),
-      data(indata),
-      branchlength([inbranchlength](int j) { return inbranchlength->GetVal(j); }),
-      submatrixarray([insubmatrixarray](int i, int j) -> const SubMatrix & {
-          return insubmatrixarray->GetVal(i, j);
-      }),
-      rootsubmatrixarray([inrootsubmatrixarray](int i) -> const SubMatrix & {
-          return inrootsubmatrixarray->GetVal(i);
-      }),
-      polyprocess(inpolyprocess) {
-    if (insiterate) {
-        siterate = [insiterate](int i) { return insiterate->GetVal(i); };
-    }
-    Nstate = data->GetNstate();
-    taxon_table = data->GetTaxonSet()->get_index_table(tree);
-    reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
-    maxtrial = DEFAULTMAXTRIAL;
-}
-
-// specialized for one matrix, old style
-PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-    const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-    const SubMatrix *insubmatrix, PolyProcess *inpolyprocess)
-    :
-
-      tree(intree),
-      data(indata),
-      branchlength([inbranchlength](int j) { return inbranchlength->GetVal(j); }),
-      submatrixarray([insubmatrix](int i, int j) -> const SubMatrix & { return *insubmatrix; }),
-      rootsubmatrixarray([insubmatrix](int) -> const SubMatrix & { return *insubmatrix; }),
-      polyprocess(inpolyprocess) {
-    if (insiterate) {
-        siterate = [insiterate](int i) { return insiterate->GetVal(i); };
-    }
-    Nstate = data->GetNstate();
-    taxon_table = data->GetTaxonSet()->get_index_table(tree);
-    reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
-    maxtrial = DEFAULTMAXTRIAL;
-}
-
-// specialized for an array of matrices across sites, old style
-PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-    const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-    const Selector<SubMatrix> *insubmatrixarray, PolyProcess *inpolyprocess)
-    :
-
-      tree(intree),
-      data(indata),
-      branchlength([inbranchlength](int j) { return inbranchlength->GetVal(j); }),
-      submatrixarray([insubmatrixarray](int i, int j) -> const SubMatrix & {
-          return insubmatrixarray->GetVal(i);
-      }),
-      rootsubmatrixarray(
-          [insubmatrixarray](int i) -> const SubMatrix & { return insubmatrixarray->GetVal(i); }),
-      polyprocess(inpolyprocess) {
-    if (insiterate) {
-        siterate = [insiterate](int i) { return insiterate->GetVal(i); };
-    }
-    Nstate = data->GetNstate();
-    taxon_table = data->GetTaxonSet()->get_index_table(tree);
-    reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
-    maxtrial = DEFAULTMAXTRIAL;
-}
-
-// specialized for a branch array of matrices (same for all sites), old style
-PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-    const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-    const BranchSelector<SubMatrix> *insubmatrixbrancharray, const SubMatrix *insubmatrix,
-    PolyProcess *inpolyprocess)
-    :
-
-      tree(intree),
-      data(indata),
-      branchlength([inbranchlength](int j) { return inbranchlength->GetVal(j); }),
-      submatrixarray([insubmatrixbrancharray](int i, int j) -> const SubMatrix & {
-          return insubmatrixbrancharray->GetVal(j);
-      }),
-      rootsubmatrixarray([insubmatrix](int) -> const SubMatrix & { return *insubmatrix; }),
-      polyprocess(inpolyprocess) {
-    if (insiterate) {
-        siterate = [insiterate](int i) { return insiterate->GetVal(i); };
-    }
     Nstate = data->GetNstate();
     taxon_table = data->GetTaxonSet()->get_index_table(tree);
     reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);

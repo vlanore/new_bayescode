@@ -48,40 +48,6 @@ class PhyloProcess {
         std::function<const SubMatrix &(int)> inrootsubmatrixarray,
         PolyProcess *inpolyprocess = nullptr);
 
-    // generic
-    // [[deprecated]]
-    PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-        const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-        const BranchSiteSelector<SubMatrix> *insubmatrixarray,
-        const Selector<SubMatrix> *inrootsubmatrixarray, PolyProcess *inpolyprocess = nullptr);
-
-    //! \brief special (short-cut) constructor for branch-homogeneous and
-    //! site-homogeneous model
-    // PhyloProcess(const Tree* intree, const SequenceAlignment* indata,
-    //     const std::vector<double>& inbranchlength,
-    //     const SubMatrix* insubmatrix,
-    //     PolyProcess* inpolyprocess = nullptr);
-
-    // [[deprecated]]
-    PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-        const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-        const SubMatrix *insubmatrix, PolyProcess *inpolyprocess = nullptr);
-
-    //! \brief special (short-cut) constructor for branch-homogeneous and
-    //! site-heterogeneous model
-    // [[deprecated]]
-    PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-        const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-        const Selector<SubMatrix> *insubmatrixarray, PolyProcess *inpolyprocess = nullptr);
-
-    //! \brief special (short-cut) constructor for branch-heterogeneous and
-    //! site-homogeneous model
-    // [[deprecated]]
-    PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-        const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-        const BranchSelector<SubMatrix> *insubmatrixbrancharray, const SubMatrix *inrootsubmatrix,
-        PolyProcess *inpolyprocess = nullptr);
-
     PhyloProcess(const PhyloProcess &) = delete;
 
     ~PhyloProcess();
