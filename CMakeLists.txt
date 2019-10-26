@@ -65,6 +65,10 @@ set(BASE_LIBS
 add_executable(globom "src/globom.cpp")
 target_link_libraries(globom ${BASE_LIBS})
 
+# Single omega (siteom)
+add_executable(siteom "src/siteom.cpp")
+target_link_libraries(siteom ${BASE_LIBS})
+
 # tests
 add_executable(all_tests "src/all_tests.cpp")
 target_link_libraries(all_tests ${BASE_LIBS} ${MPI_LIBRARIES})

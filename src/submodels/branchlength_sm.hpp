@@ -13,7 +13,7 @@
 #include "tree/implem.hpp"
 
 TOKEN(bl_array)
-TOKEN(suffstats)
+// TOKEN(suffstats)
 
 /* Array of branch lengths, gamma iid with fixed mean and invshape.
 Initialized with branch length from input tree. */

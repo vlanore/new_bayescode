@@ -26,6 +26,13 @@ SubMatrix::SubMatrix(int inNstate, bool innormalise) : Nstate(inNstate), normali
     Create();
 }
 
+/*
+SubMatrix::SubMatrix(const SubMatrix& from) : Nstate(from.Nstate), normalise(from.normalise) {
+    ndiagfailed = 0;
+    Create();
+}
+*/
+
 void SubMatrix::Create() {
     Q = EMatrix(Nstate, Nstate);
     u = EMatrix(Nstate, Nstate);

@@ -118,11 +118,14 @@ class PhyloProcess {
     const StateSpace *GetStateSpace() const { return data->GetStateSpace(); }
     const TaxonSet *GetTaxonSet() const { return data->GetTaxonSet(); }
 
+  public:
     int GetNsite() const { return data->GetNsite(); }
     int GetNtaxa() const { return data->GetNtaxa(); }
     int GetNnode() const { return tree->nb_nodes(); }
 
     int GetNstate() const { return Nstate; }
+
+  private:
 
     const SequenceAlignment *GetData() const { return data; }
     int GetData(int taxon, int site) const {

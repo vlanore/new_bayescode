@@ -129,6 +129,13 @@ class MGOmegaCodonSubMatrix : public MGCodonSubMatrix, public OmegaCodonSubMatri
           MGCodonSubMatrix(instatespace, inNucMatrix, innormalise),
           OmegaCodonSubMatrix(instatespace, inomega, innormalise) {}
 
+    MGOmegaCodonSubMatrix(const MGOmegaCodonSubMatrix& from) :
+        SubMatrix(from.GetNstate(), from.isNormalised()),
+        CodonSubMatrix(from.GetCodonStateSpace(), from.isNormalised()),
+        MGCodonSubMatrix(from.GetCodonStateSpace(), from.GetNucMatrix(), from.isNormalised()),
+        OmegaCodonSubMatrix(from.GetCodonStateSpace(), from.GetOmega(), from.isNormalised()) {
+        }
+
   protected:
     void ComputeArray(int i) const override;
 };

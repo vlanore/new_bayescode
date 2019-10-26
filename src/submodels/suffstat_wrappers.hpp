@@ -23,6 +23,25 @@ class PathSSW final : public Proxy<PathSuffStat&> {
 };
 
 // =================================================================================================
+class SitePathSSW final : public Proxy<PathSuffStat&, int> {
+    std::vector<PathSuffStat> _ss;
+    PhyloProcess& _phyloprocess;
+
+    PathSuffStat& _get(int i) final { return _ss[i]; }
+
+  public:
+    SitePathSSW(PhyloProcess& phyloprocess) : _ss(phyloprocess.GetNsite()), _phyloprocess(phyloprocess) {}
+
+    void gather() final {
+        for (size_t i=0; i<_ss.size(); i++) {
+            _ss[i].Clear();
+        }
+        auto& local_ss = _ss;
+        _phyloprocess.AddPathSuffStat( [&local_ss] (int branch, int site) -> PathSuffStat& { return local_ss[site]; } );
+    }
+};
+
+// =================================================================================================
 class NucPathSSW final : public Proxy<NucPathSuffStat&> {
     NucPathSuffStat _nucss;
     NucCodonSubMatrix& _codon_submatrix;
@@ -36,6 +55,35 @@ class NucPathSSW final : public Proxy<NucPathSuffStat&> {
     void gather() final {
         _nucss.Clear();
         _nucss.AddSuffStat(_codon_submatrix, _path_suffstat.get());
+    }
+};
+
+// =================================================================================================
+
+class ArrayCollectingNucPathSSW final : public Proxy<NucPathSuffStat&> {
+    NucPathSuffStat _nucss;
+    size_t _nsite;
+    const std::vector<MGOmegaCodonSubMatrix>& _codon_submatrix_array;
+    Proxy<PathSuffStat&, int>& _path_suffstat_array;
+
+    NucPathSuffStat& _get() final { return _nucss; }
+
+  public:
+    ArrayCollectingNucPathSSW(size_t nsite,
+            const CodonStateSpace& codonstatespace,
+            const std::vector<MGOmegaCodonSubMatrix>& codon_submatrix_array,
+            Proxy<PathSuffStat&, int>& path_suffstat_array) :
+
+        _nucss(codonstatespace),
+        _nsite(nsite),
+        _codon_submatrix_array(codon_submatrix_array),
+        _path_suffstat_array(path_suffstat_array) {}
+
+    void gather() final {
+        _nucss.Clear();
+        for (size_t i=0; i<_nsite; i++)  {
+            _nucss.AddSuffStat(_codon_submatrix_array[i], _path_suffstat_array.get(i));
+        }
     }
 };
 
@@ -82,6 +130,25 @@ class OmegaSSW final : public Proxy<omega_suffstat_t> {  // SSW = suff stat wrap
     }
 };
 
+class SiteOmegaSSW final : public Proxy<omega_suffstat_t, int> {  // SSW = suff stat wrapper
+    const std::vector<MGOmegaCodonSubMatrix>& _codon_submatrix_array;
+    Proxy<PathSuffStat&, int>& _path_suffstat_array;
+    std::vector<OmegaPathSuffStat> _ss;
+
+    omega_suffstat_t _get(int i) final { return {_ss[i].GetCount(), _ss[i].GetBeta()}; }
+
+  public:
+    SiteOmegaSSW(size_t nsite, const std::vector<MGOmegaCodonSubMatrix>& codon_submatrix_array, Proxy<PathSuffStat&, int>& pathsuffstatarray)
+        : _codon_submatrix_array(codon_submatrix_array), _path_suffstat_array(pathsuffstatarray), _ss(nsite) {}
+
+    void gather() final {
+        for (size_t i=0; i<_ss.size(); i++) {
+            _ss[i].Clear();
+            _ss[i].AddSuffStat(_codon_submatrix_array[i], _path_suffstat_array.get(i));
+        }
+    }
+};
+
 // =================================================================================================
 struct poisson_suffstat_t {
     int count;
@@ -110,3 +177,4 @@ class BranchArrayPoissonSSW final : public Proxy<poisson_suffstat_t, int> {
         _phyloprocess.AddLengthSuffStat( [&local_ss](int branch, int site) -> PoissonSuffStat& {return local_ss[branch];} );
     }
 };
+
