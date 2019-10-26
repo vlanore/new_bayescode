@@ -39,7 +39,7 @@ struct branchlengths_sm {
 
     template <class BLModel, class Gen>
     static auto gibbs_resample(
-        BLModel& model, Proxy<brancharray_poisson_suffstat_t, int>& ss, Gen& gen) {
+        BLModel& model, Proxy<poisson_suffstat_t, int>& ss, Gen& gen) {
         /* -- */
         auto& raw_vec = get<bl_array, value>(model);
 

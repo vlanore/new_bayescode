@@ -31,6 +31,7 @@
 
 class PhyloProcess {
   public:
+    /*
     friend class PathSuffStat;
     friend class PathSuffStatArray;
     friend class PathSuffStatBidimArray;
@@ -39,6 +40,7 @@ class PhyloProcess {
     friend class PoissonSuffStatBranchArray;
     friend class PoissonSuffStatArray;
     friend class PathSuffStatNodeArray;
+    */
 
     //! \brief generic constructor
     PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
@@ -89,6 +91,7 @@ class PhyloProcess {
     int GetBranchIndex(int index) const {
         if (index <= 0) {
             std::cerr << "error in PhyloProcess::GetBranchIndex\n";
+            std::cerr << index << '\n';
             exit(1);
         }
         return index - 1;
@@ -146,35 +149,34 @@ class PhyloProcess {
     void DrawSites(double fraction);  // draw a fraction of sites which will be resampled
     void ResampleSub(int site);
 
-    //! compute path sufficient statistics across all sites and branches and add
-    //! them to suffstat (site-branch-homogeneous model)
+  public:
+
+    void AddPathSuffStat(std::function<PathSuffStat&(int,int)> suffstat) const;
+    void RecursiveAddPathSuffStat(Tree::NodeIndex from, std::function<PathSuffStat&(int,int)>& suffstat) const;
+    void LocalAddPathSuffStat(Tree::NodeIndex from, std::function<PathSuffStat&(int,int)>& suffstat) const;
+
+    void AddLengthSuffStat(std::function<PoissonSuffStat&(int,int)> suffstat) const;
+    void RecursiveAddLengthSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const;
+    void LocalAddLengthSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const;
+
+    void AddRateSuffStat(std::function<PoissonSuffStat&(int,int)> ratepathsuffstat) const;
+    void RecursiveAddRateSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const;
+    void LocalAddRateSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const;
+
+    /*
+    void AddPolySuffStat(PolySuffStat &suffstat) const;
+    void AddPolySuffStat(Array<PolySuffStat> &suffstatarray) const;
+    */
+
+    /*
     void AddPathSuffStat(PathSuffStat &suffstat) const;
-    //! compute path sufficient statistics across all sites and branches and add
-    //! them to suffstatarray (site-heterogeneous branch-homogeneous model)
     void AddPathSuffStat(Array<PathSuffStat> &suffstatarray) const;
-    //! compute path sufficient statistics across all sites and branches and add
-    //! them to suffstatarray (branch-heterogeneous site-homogeneous model)
     void AddPathSuffStat(NodeArray<PathSuffStat> &suffstatarray) const;
-    //! compute path sufficient statistics across all sites and branches and add
-    //! them to bidim suffstatarray (branches partitioned into conditions, see
-    //! DiffSelModel) heterogeneeous across sites, branches partitioned into
-    //! conditions
     void AddPathSuffStat(
         BidimArray<PathSuffStat> &suffstatarray, const BranchSelector<int> &branchalloc) const;
 
-    //! compute path sufficient statistics across all sites and branches and add
-    //! them to suffstat (site-branch-homogeneous model)
-    // void AddPolySuffStat(PolySuffStat &suffstat) const;
-    //! compute path sufficient statistics across all sites and branches and add
-    //! them to suffstatarray (site-heterogeneous branch-homogeneous model)
-    // void AddPolySuffStat(Array<PolySuffStat> &suffstatarray) const;
-
-    //! compute path sufficient statistics for resampling branch lengths add them
-    //! to branchlengthpathsuffstatarray
     void AddLengthSuffStat(BranchArray<PoissonSuffStat> &branchlengthpathsuffstatarray) const;
 
-    //! compute path sufficient statistics for resampling branch lengths add them
-    //! to branchlengthpathsuffstatarray
     void AddRateSuffStat(Array<PoissonSuffStat> &siteratepathsuffstatarray) const;
 
     void RecursiveAddPathSuffStat(Tree::NodeIndex from, PathSuffStat &suffstat) const;
@@ -200,6 +202,9 @@ class PhyloProcess {
         Tree::NodeIndex from, Array<PoissonSuffStat> &siteratepathsuffstatarray) const;
     void LocalAddRateSuffStat(
         Tree::NodeIndex from, Array<PoissonSuffStat> &siteratepathsuffstatarray) const;
+    */
+
+  private:
 
     void PostPredSample(int site, bool rootprior = false);
     // rootprior == true : root state drawn from stationary probability of the

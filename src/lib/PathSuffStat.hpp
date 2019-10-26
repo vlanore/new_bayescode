@@ -3,14 +3,8 @@
 #define PATHSUFFSTAT_H
 
 #include <map>
-#include "Array.hpp"
-#include "BidimArray.hpp"
-#include "BranchArray.hpp"
-#include "NodeArray.hpp"
 #include "SubMatrix.hpp"
 #include "SuffStat.hpp"
-// #include "BranchSitePath.hpp"
-#include "PhyloProcess.hpp"
 
 /**
  * \brief A general sufficient statistic for substitution histories, as a
@@ -73,7 +67,7 @@ class PathSuffStat : public SuffStat {
     void AddWaitingTime(int state, double in) { waitingtime[state] += in; }
 
     //! add path sufficient statistics from PhyloProcess (site-homogeneous case)
-    void AddSuffStat(const PhyloProcess &process) { process.AddPathSuffStat(*this); }
+    // void AddSuffStat(const PhyloProcess &process) { process.AddPathSuffStat(*this); }
 
     void Add(const PathSuffStat &suffstat) {
         for (std::map<int, int>::const_iterator i = suffstat.GetRootCountMap().begin();
@@ -152,150 +146,6 @@ class PathSuffStat : public SuffStat {
     std::map<int, int> rootcount;
     std::map<std::pair<int, int>, int> paircount;
     std::map<int, double> waitingtime;
-};
-
-/**
- * \brief An array of substitution path sufficient statistics
- *
- * This class provides an interface for dealing with cases where
- * each item (each site, or each component of a mixture) has a different rate
- * matrix Q_i
- */
-
-class PathSuffStatArray : public SimpleArray<PathSuffStat> {
-  public:
-    PathSuffStatArray(int insize) : SimpleArray<PathSuffStat>(insize) {}
-    ~PathSuffStatArray() {}
-
-    //! set all suff stats to 0
-    void Clear() {
-        for (int i = 0; i < GetSize(); i++) { (*this)[i].Clear(); }
-    }
-
-    //! add path sufficient statistics from PhyloProcess (site-heterogeneous case)
-    void AddSuffStat(const PhyloProcess &process) { process.AddPathSuffStat(*this); }
-
-    //! return total log prob (summed over all items), given an array of rate
-    //! matrices
-    double GetLogProb(const Selector<SubMatrix> &matrixarray) const {
-        double total = 0;
-        for (int i = 0; i < GetSize(); i++) {
-            total += GetVal(i).GetLogProb(matrixarray.GetVal(i));
-        }
-        return total;
-    }
-
-    //! \brief add suffstatarray given as argument to this array based on the
-    //! allocations provided as the second argument (mixture models)
-    //!
-    //! specifically, for each i=0..GetSize()-1, (*this)[alloc[i]] +=
-    //! suffstatarray[i]
-    void Add(const Selector<PathSuffStat> &suffstatarray, const Selector<int> &alloc) {
-        for (int i = 0; i < suffstatarray.GetSize(); i++) {
-            (*this)[alloc.GetVal(i)] += suffstatarray.GetVal(i);
-        }
-    }
-};
-
-/**
- * \brief A NodeArray of substitution path sufficient statistics
- *
- * This class provides an interface for dealing with cases where
- * each branch has a different rate matrix Q_j
- */
-
-class PathSuffStatNodeArray : public SimpleNodeArray<PathSuffStat> {
-  public:
-    PathSuffStatNodeArray(const Tree &intree) : SimpleNodeArray<PathSuffStat>(intree) {}
-    ~PathSuffStatNodeArray() {}
-
-    //! set all suff stats to 0
-    void Clear() {
-        for (int i = 0; i < GetNnode(); i++) { (*this)[i].Clear(); }
-    }
-
-    //! add path sufficient statistics from PhyloProcess (site-heterogeneous case)
-    void AddSuffStat(const PhyloProcess &process) { process.AddPathSuffStat(*this); }
-
-    //! return total log prob (summed over all items), given an array of rate
-    //! matrices
-    double GetLogProb(
-        const BranchSelector<SubMatrix> &matrixarray, const SubMatrix &rootmatrix) const {
-        double ret = RecursiveGetLogProb(GetTree().root(), matrixarray, rootmatrix);
-        return ret;
-    }
-
-    int GetBranchIndex(int index) const { return index - 1; }
-
-    double RecursiveGetLogProb(Tree::NodeIndex from, const BranchSelector<SubMatrix> &matrixarray,
-        const SubMatrix &rootmatrix) const {
-        double total = 0;
-        if (GetTree().is_root(from)) {
-            total += GetVal(from).GetLogProb(rootmatrix);
-        } else {
-            total += GetVal(from).GetLogProb(matrixarray.GetVal(GetBranchIndex(from)));
-        }
-        for (auto c : GetTree().children(from)) {
-            total += RecursiveGetLogProb(c, matrixarray, rootmatrix);
-        }
-        return total;
-    }
-};
-
-/**
- * \brief A bi-dimensional array of substitution path sufficient statistics
- *
- * This class provides an interface for dealing with cases where
- * each site/condition pair has a different rate matrix Q_i
- * (essentially, the DiffSelModel).
- */
-
-class PathSuffStatBidimArray : public SimpleBidimArray<PathSuffStat> {
-  public:
-    PathSuffStatBidimArray(int inncol, int innrow)
-        : SimpleBidimArray<PathSuffStat>(inncol, innrow, PathSuffStat()) {}
-    ~PathSuffStatBidimArray() {}
-
-    //! set all suff stats to 0
-    void Clear() {
-        for (int i = 0; i < this->GetNrow(); i++) {
-            for (int j = 0; j < this->GetNcol(); j++) { (*this)(i, j).Clear(); }
-        }
-    }
-
-    //! add path sufficient statistics from PhyloProcess (site- and
-    //! condition-heterogeneous case)
-    void AddSuffStat(const PhyloProcess &process, const BranchSelector<int> &branchalloc) {
-        process.AddPathSuffStat(*this, branchalloc);
-    }
-
-    //! return total log prob (summed over all items), given a bi-dimensional
-    //! array of rate matrices
-    double GetLogProb(const BidimSelector<SubMatrix> &matrixarray) const {
-        double total = 0;
-        for (int j = 0; j < this->GetNcol(); j++) { total += GetLogProb(j, matrixarray); }
-        return total;
-    }
-
-    //! return log prob summed over a given column
-    double GetLogProb(int j, const BidimSelector<SubMatrix> &matrixarray) const {
-        double total = 0;
-        for (int i = 0; i < this->GetNrow(); i++) {
-            total += GetVal(i, j).GetLogProb(matrixarray.GetVal(i, j));
-        }
-        return total;
-    }
-
-    //! return log prob summed over a given column (and only for items for which
-    //! flag is non 0)
-    double GetLogProb(
-        int j, const std::vector<int> &flag, const BidimSelector<SubMatrix> &matrixarray) const {
-        double total = 0;
-        for (int i = 0; i < this->GetNrow(); i++) {
-            if (flag[i]) { total += GetVal(i, j).GetLogProb(matrixarray.GetVal(i, j)); }
-        }
-        return total;
-    }
 };
 
 #endif

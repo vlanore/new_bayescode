@@ -605,6 +605,76 @@ void PhyloProcess::AddPolySuffStat(Array<PolySuffStat> &suffstatarray) const {
 }
 */
 
+void PhyloProcess::AddPathSuffStat(std::function<PathSuffStat&(int,int)> suffstat) const    {
+    RecursiveAddPathSuffStat(GetRoot(), suffstat);
+}
+
+void PhyloProcess::RecursiveAddPathSuffStat(Tree::NodeIndex from, std::function<PathSuffStat&(int,int)>& suffstat) const    {
+    LocalAddPathSuffStat(from, suffstat);
+    for (auto c : tree->children(from)) { RecursiveAddPathSuffStat(c, suffstat); }
+}
+
+void PhyloProcess::LocalAddPathSuffStat(Tree::NodeIndex from, std::function<PathSuffStat&(int,int)>& suffstat) const    {
+
+    for (int i = 0; i < GetNsite(); i++) {
+        if (missingmap[from][i] == 2) {
+            suffstat(from,i).IncrementRootCount(statemap[from][i]);
+        } else if (missingmap[from][i] == 1) {
+            if (tree->is_root(from)) {
+                cerr << "error in missing map\n";
+                exit(1);
+            }
+            pathmap[from][i]->AddPathSuffStat(suffstat(from,i), GetBranchLength(from) * GetSiteRate(i));
+        }
+    }
+}
+
+void PhyloProcess::AddLengthSuffStat(std::function<PoissonSuffStat&(int,int)> suffstat) const {
+    RecursiveAddLengthSuffStat(GetRoot(), suffstat);
+}
+
+void PhyloProcess::RecursiveAddLengthSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const  {
+    if (!tree->is_root(from)) {
+        LocalAddLengthSuffStat(from, suffstat);
+    }
+    for (auto c : tree->children(from)) {
+        RecursiveAddLengthSuffStat(c, suffstat);
+    }
+}
+
+void PhyloProcess::LocalAddLengthSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const  {
+    int index = GetBranchIndex(from);
+    for (int i = 0; i < GetNsite(); i++) {
+        if (missingmap[from][i] == 1) {
+            pathmap[from][i]->AddLengthSuffStat(suffstat(index,i), GetSiteRate(i), GetSubMatrix(from, i));
+        }
+    }
+}
+
+void PhyloProcess::AddRateSuffStat(std::function<PoissonSuffStat&(int,int)> suffstat) const {
+    RecursiveAddRateSuffStat(GetRoot(), suffstat);
+}
+
+void PhyloProcess::RecursiveAddRateSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const    {
+    if (!tree->is_root(from)) {
+        LocalAddRateSuffStat(from, suffstat); 
+    }
+    for (auto c : tree->children(from)) {
+        RecursiveAddRateSuffStat(c, suffstat); 
+    }
+}
+
+void PhyloProcess::LocalAddRateSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const    {
+    double length = GetBranchLength(from);
+    int index = GetBranchIndex(from);
+    for (int i = 0; i < GetNsite(); i++) {
+        if (missingmap[from][i] == 1) {
+            pathmap[from][i]->AddLengthSuffStat(suffstat(index,i), length, GetSubMatrix(from, i));
+        }
+    }
+}
+
+/*
 void PhyloProcess::AddPathSuffStat(PathSuffStat &suffstat) const {
     RecursiveAddPathSuffStat(GetRoot(), suffstat);
 }
@@ -754,3 +824,4 @@ void PhyloProcess::LocalAddRateSuffStat(
         }
     }
 }
+*/

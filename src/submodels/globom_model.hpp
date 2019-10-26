@@ -77,7 +77,7 @@ struct globom {
             phyloprocess_ = move(phyloprocess),         //
             bl_suffstats_ = bl_suffstats,               //
             path_suffstats_ = move(path_suffstats),     //
-            nucpath_suffstats_ = nucpath_ssw,                 // 
+            nucpath_suffstats_ = nucpath_ssw,           // 
             omegapath_suffstats_ = omega_ssw);
     }
 

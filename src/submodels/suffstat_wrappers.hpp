@@ -3,6 +3,7 @@
 #include "Proxy.hpp"
 #include "lib/CodonSuffStat.hpp"
 #include "lib/GTRSubMatrix.hpp"
+#include "lib/PhyloProcess.hpp"
 
 // =================================================================================================
 class PathSSW final : public Proxy<PathSuffStat&> {
@@ -15,8 +16,9 @@ class PathSSW final : public Proxy<PathSuffStat&> {
     PathSSW(PhyloProcess& phyloprocess) : _phyloprocess(phyloprocess) {}
 
     void gather() final {
-        _ss.Clear();
-        _ss.AddSuffStat(_phyloprocess);
+        auto& local_ss = _ss;
+        local_ss.Clear();
+        _phyloprocess.AddPathSuffStat( [&local_ss] (int branch, int site) -> PathSuffStat& { return local_ss; } );
     }
 };
 
@@ -29,7 +31,6 @@ class NucPathSSW final : public Proxy<NucPathSuffStat&> {
     NucPathSuffStat& _get() final { return _nucss; }
 
   public:
-    // OmegaSSW(const OmegaCodonSubMatrix& codon_submatrix, Proxy<PathSuffStat&>& pathsuffstat)
     NucPathSSW(NucCodonSubMatrix& codon_submatrix, Proxy<PathSuffStat&>& path_suffstat) : _nucss(*codon_submatrix.GetCodonStateSpace()), _codon_submatrix(codon_submatrix), _path_suffstat(path_suffstat) {}
 
     void gather() final {
@@ -82,29 +83,30 @@ class OmegaSSW final : public Proxy<omega_suffstat_t> {  // SSW = suff stat wrap
 };
 
 // =================================================================================================
-struct brancharray_poisson_suffstat_t {
+struct poisson_suffstat_t {
     int count;
     double beta;
-    bool operator==(const brancharray_poisson_suffstat_t& other) const {
+    bool operator==(const poisson_suffstat_t& other) const {
         return count == other.count && beta == other.beta;
     }
 };
 
-class BranchArrayPoissonSSW final : public Proxy<brancharray_poisson_suffstat_t, int> {
-    PoissonSuffStatBranchArray _ss;
+class BranchArrayPoissonSSW final : public Proxy<poisson_suffstat_t, int> {
+    std::vector<PoissonSuffStat> _ss;
     PhyloProcess& _phyloprocess;
 
-    brancharray_poisson_suffstat_t _get(int i) final {
-        auto& local_ss = _ss.GetVal(i);
+    poisson_suffstat_t _get(int i) final {
+        auto& local_ss = _ss[i];
         return {local_ss.GetCount(), local_ss.GetBeta()};
     }
 
   public:
     BranchArrayPoissonSSW(const Tree& tree, PhyloProcess& phyloprocess)
-        : _ss(tree), _phyloprocess(phyloprocess) {}
+        : _ss(tree.nb_nodes() - 1), _phyloprocess(phyloprocess) {}
 
     void gather() final {
-        _ss.Clear();
-        _ss.AddLengthPathSuffStat(_phyloprocess);
+        for (auto i : _ss) i.Clear();
+        auto& local_ss = _ss;
+        _phyloprocess.AddLengthSuffStat( [&local_ss](int branch, int site) -> PoissonSuffStat& {return local_ss[branch];} );
     }
 };
