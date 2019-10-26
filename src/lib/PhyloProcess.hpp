@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <fstream>
@@ -151,6 +152,88 @@ class PhyloProcess {
 
   public:
 
+    // suffstat: should be a function or lambda with signature PathSuffStat&(int, int)
+    template<class SuffStatSelector>
+    void AddPathSuffStat(SuffStatSelector suffstat) const {
+        RecursiveAddPathSuffStat(GetRoot(), suffstat);
+    }
+
+    template<class SuffStatSelector>
+    void RecursiveAddPathSuffStat(Tree::NodeIndex from, SuffStatSelector& suffstat) const    {
+        LocalAddPathSuffStat(from, suffstat);
+        for (auto c : tree->children(from)) { RecursiveAddPathSuffStat(c, suffstat); }
+    }
+
+    template<class SuffStatSelector>
+    void LocalAddPathSuffStat(Tree::NodeIndex from, SuffStatSelector& suffstat) const {
+
+        for (int i = 0; i < GetNsite(); i++) {
+            if (missingmap[from][i] == 2) {
+                suffstat(from,i).IncrementRootCount(statemap[from][i]);
+            } else if (missingmap[from][i] == 1) {
+                if (tree->is_root(from)) {
+                    std::cerr << "error in missing map\n";
+                    exit(1);
+                }
+                pathmap[from][i]->AddPathSuffStat(suffstat(from,i), GetBranchLength(from) * GetSiteRate(i));
+            }
+        }
+    }
+
+    // suffstat: should be a function or lambda with signature PoissonSuffStat&(int, int)
+    template<class SuffStatSelector>
+    void AddLengthSuffStat(SuffStatSelector suffstat) const {
+        RecursiveAddLengthSuffStat(GetRoot(), suffstat);
+    }
+
+    template<class SuffStatSelector>
+    void RecursiveAddLengthSuffStat(Tree::NodeIndex from, SuffStatSelector& suffstat) const  {
+        if (!tree->is_root(from)) {
+            LocalAddLengthSuffStat(from, suffstat);
+        }
+        for (auto c : tree->children(from)) {
+            RecursiveAddLengthSuffStat(c, suffstat);
+        }
+    }
+
+    template<class SuffStatSelector>
+    void LocalAddLengthSuffStat(Tree::NodeIndex from, SuffStatSelector& suffstat) const  {
+        int index = GetBranchIndex(from);
+        for (int i = 0; i < GetNsite(); i++) {
+            if (missingmap[from][i] == 1) {
+                pathmap[from][i]->AddLengthSuffStat(suffstat(index,i), GetSiteRate(i), GetSubMatrix(from, i));
+            }
+        }
+    }
+
+    // suffstat: should be a function or lambda with signature PoissonSuffStat&(int, int)
+    template<class SuffStatSelector>
+    void AddRateSuffStat(SuffStatSelector& suffstat) const {
+        RecursiveAddRateSuffStat(GetRoot(), suffstat);
+    }
+
+    template<class SuffStatSelector>
+    void RecursiveAddRateSuffStat(Tree::NodeIndex from, SuffStatSelector& suffstat) const    {
+        if (!tree->is_root(from)) {
+            LocalAddRateSuffStat(from, suffstat); 
+        }
+        for (auto c : tree->children(from)) {
+            RecursiveAddRateSuffStat(c, suffstat); 
+        }
+    }
+
+    template<class SuffStatSelector>
+    void LocalAddRateSuffStat(Tree::NodeIndex from, SuffStatSelector& suffstat) const    {
+        double length = GetBranchLength(from);
+        int index = GetBranchIndex(from);
+        for (int i = 0; i < GetNsite(); i++) {
+            if (missingmap[from][i] == 1) {
+                pathmap[from][i]->AddLengthSuffStat(suffstat(index,i), length, GetSubMatrix(from, i));
+            }
+        }
+    }
+
+    /*
     void AddPathSuffStat(std::function<PathSuffStat&(int,int)> suffstat) const;
     void RecursiveAddPathSuffStat(Tree::NodeIndex from, std::function<PathSuffStat&(int,int)>& suffstat) const;
     void LocalAddPathSuffStat(Tree::NodeIndex from, std::function<PathSuffStat&(int,int)>& suffstat) const;
@@ -162,6 +245,7 @@ class PhyloProcess {
     void AddRateSuffStat(std::function<PoissonSuffStat&(int,int)> ratepathsuffstat) const;
     void RecursiveAddRateSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const;
     void LocalAddRateSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const;
+    */
 
     /*
     void AddPolySuffStat(PolySuffStat &suffstat) const;

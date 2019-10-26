@@ -605,6 +605,7 @@ void PhyloProcess::AddPolySuffStat(Array<PolySuffStat> &suffstatarray) const {
 }
 */
 
+/*
 void PhyloProcess::AddPathSuffStat(std::function<PathSuffStat&(int,int)> suffstat) const    {
     RecursiveAddPathSuffStat(GetRoot(), suffstat);
 }
@@ -673,6 +674,7 @@ void PhyloProcess::LocalAddRateSuffStat(Tree::NodeIndex from, std::function<Pois
         }
     }
 }
+*/
 
 /*
 void PhyloProcess::AddPathSuffStat(PathSuffStat &suffstat) const {
