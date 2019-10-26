@@ -1,7 +1,7 @@
 #include "PhyloProcess.hpp"
 #include <algorithm>
 #include "PathSuffStat.hpp"
-#include "PolySuffStat.hpp"
+// #include "PolySuffStat.hpp"
 #include "bayes_utils/src/logging.hpp"
 
 using namespace std;
@@ -584,6 +584,7 @@ BranchSitePath *PhyloProcess::ResampleUniformized(
     return path;
 }
 
+/*
 void PhyloProcess::AddPolySuffStat(PolySuffStat &polysuffstat) const {
     assert(polyprocess != nullptr);
     for (int site = 0; site < GetNsite(); site++) {
@@ -602,6 +603,7 @@ void PhyloProcess::AddPolySuffStat(Array<PolySuffStat> &suffstatarray) const {
         }
     }
 }
+*/
 
 void PhyloProcess::AddPathSuffStat(PathSuffStat &suffstat) const {
     RecursiveAddPathSuffStat(GetRoot(), suffstat);

@@ -164,10 +164,10 @@ class PhyloProcess {
 
     //! compute path sufficient statistics across all sites and branches and add
     //! them to suffstat (site-branch-homogeneous model)
-    void AddPolySuffStat(PolySuffStat &suffstat) const;
+    // void AddPolySuffStat(PolySuffStat &suffstat) const;
     //! compute path sufficient statistics across all sites and branches and add
     //! them to suffstatarray (site-heterogeneous branch-homogeneous model)
-    void AddPolySuffStat(Array<PolySuffStat> &suffstatarray) const;
+    // void AddPolySuffStat(Array<PolySuffStat> &suffstatarray) const;
 
     //! compute path sufficient statistics for resampling branch lengths add them
     //! to branchlengthpathsuffstatarray
