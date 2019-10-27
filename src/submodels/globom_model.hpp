@@ -59,10 +59,12 @@ struct globom {
             n_to_const(1.0),
             // branch and site specific matrices (here, same matrix for everyone)
             // why should I add get??
-            mn_to_one(get<mg_omega_proxy>(codon_submatrix).get()),
+            mn_to_one(codon_submatrix->get()),
+            // mn_to_one(get<mg_omega_proxy>(codon_submatrix).get()),
             // site-specific matrices for root equilibrium frequencies (here same for all sites)
             // why should I add get??
-            n_to_one(get<mg_omega_proxy>(codon_submatrix).get()),
+            n_to_one(codon_submatrix->get()),
+            // n_to_one(get<mg_omega_proxy>(codon_submatrix).get()),
             // no polymorphism
             nullptr);
 
@@ -70,10 +72,17 @@ struct globom {
 
         // suff stats
         BranchArrayPoissonSSW bl_suffstats{*data.tree, *phyloprocess};
-        auto path_suffstats = std::make_unique<PathSSW>(*phyloprocess);
-        // why get???
-        NucPathSSW nucpath_ssw(get<mg_omega_proxy>(codon_submatrix).get(), *path_suffstats);
-        OmegaSSW omega_ssw(get<mg_omega_proxy>(codon_submatrix).get(), *path_suffstats);
+
+        auto path_suffstats = pathssw::make(*phyloprocess);
+
+        auto nucpath_ssw = nucpathssw::make(codon_statespace,
+                one_to_one(codon_submatrix->get()),
+                // one_to_one(get<mg_omega_proxy>(codon_submatrix).get()),
+                one_to_one(path_suffstats->get())
+                );
+
+        OmegaSSW omega_ssw(codon_submatrix->get(), *path_suffstats);
+        // OmegaSSW omega_ssw(get<mg_omega_proxy>(codon_submatrix).get(), *path_suffstats);
 
         return make_model(                              //
             global_omega_ = move(global_omega),         //
@@ -84,7 +93,7 @@ struct globom {
             phyloprocess_ = move(phyloprocess),         //
             bl_suffstats_ = bl_suffstats,               //
             path_suffstats_ = move(path_suffstats),     //
-            nucpath_suffstats_ = nucpath_ssw,           // 
+            nucpath_suffstats_ = move(nucpath_ssw),           // 
             omegapath_suffstats_ = omega_ssw);
     }
 
@@ -93,7 +102,8 @@ struct globom {
     static void touch_matrices(Model& model) {
         auto& nuc_matrix_proxy = get<nuc_rates, matrix_proxy>(model);
         nuc_matrix_proxy.gather();
-        auto& cod_matrix_proxy = get<codon_submatrix, mg_omega_proxy>(model);
+        auto& cod_matrix_proxy = get<codon_submatrix>(model);
+        // auto& cod_matrix_proxy = get<codon_submatrix, mg_omega_proxy>(model);
         cod_matrix_proxy.gather();
     }
 };

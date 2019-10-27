@@ -1,10 +1,11 @@
 #pragma once
 
-#include "bayes_toolbox/src/structure/node.hpp"
-#include "bayes_toolbox/src/structure/model.hpp"
+// #include "bayes_toolbox/src/structure/node.hpp"
+// #include "bayes_toolbox/src/structure/model.hpp"
+// #include "Proxy.hpp"
 #include "lib/CodonSubMatrix.hpp"
 
-TOKEN(mg_omega_proxy)
+// TOKEN(mg_omega_proxy)
 
 struct mg_omega {
 
@@ -70,7 +71,8 @@ struct mg_omega {
         auto codon_matrix = 
             std::make_unique<MGOmegaCodonMatrixProxy<NucMatrixSelector, OmegaSelector>>(statespace, nucmatrix, omega);
 
-        return make_model(mg_omega_proxy_ = std::move(codon_matrix));
+        return std::move(codon_matrix);
+        // return make_model(mg_omega_proxy_ = std::move(codon_matrix));
     }
 
     // make an array proxy
@@ -80,7 +82,8 @@ struct mg_omega {
         auto codon_matrix_array = 
             std::make_unique<MGOmegaCodonMatrixArrayProxy<NucMatrixSelector, OmegaSelector, Size>>(statespace, nucmatrix, omega, n);
 
-        return make_model(mg_omega_proxy_ = std::move(codon_matrix_array));
+        return std::move(codon_matrix_array);
+        // return make_model(mg_omega_proxy_ = std::move(codon_matrix_array));
     }
 };
 

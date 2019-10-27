@@ -5,49 +5,56 @@
 #include "lib/GTRSubMatrix.hpp"
 #include "lib/PhyloProcess.hpp"
 
-/*
-template<class T>
-auto prox_n_to_n(Proxy<T, int>& prox) {
-    return [&prox] (int i) -> T& { return prox.get(i); };
-}
-*/
+struct pathssw  {
 
-// =================================================================================================
-class PathSSW final : public Proxy<PathSuffStat&> {
-    PathSuffStat _ss;
-    PhyloProcess& _phyloprocess;
+    class PathSSW final : public Proxy<PathSuffStat&> {
+        PathSuffStat _ss;
+        PhyloProcess& _phyloprocess;
 
-    PathSuffStat& _get() final { return _ss; }
+        PathSuffStat& _get() final { return _ss; }
 
-  public:
-    PathSSW(PhyloProcess& phyloprocess) : _phyloprocess(phyloprocess) {}
+      public:
+        PathSSW(PhyloProcess& phyloprocess) : _phyloprocess(phyloprocess) {}
 
-    void gather() final {
-        auto& local_ss = _ss;
-        local_ss.Clear();
-        _phyloprocess.AddPathSuffStat( [&local_ss] (int branch, int site) -> PathSuffStat& { return local_ss; } );
+        void gather() final {
+            auto& local_ss = _ss;
+            local_ss.Clear();
+            _phyloprocess.AddPathSuffStat( [&local_ss] (int branch, int site) -> PathSuffStat& { return local_ss; } );
+        }
+    };
+
+    static auto make(PhyloProcess& phyloprocess)    {
+        auto pathss = std::make_unique<PathSSW>(phyloprocess);
+        return std::move(pathss);
     }
 };
 
-// =================================================================================================
-class SitePathSSW final : public Proxy<PathSuffStat&, int> {
-    std::vector<PathSuffStat> _ss;
-    PhyloProcess& _phyloprocess;
+struct sitepathssw  {
 
-    PathSuffStat& _get(int i) final {
-        assert(i < _ss.size());
-        return _ss[i]; 
-    }
+    class SitePathSSW final : public Proxy<PathSuffStat&, int> {
+        std::vector<PathSuffStat> _ss;
+        PhyloProcess& _phyloprocess;
 
-  public:
-    SitePathSSW(PhyloProcess& phyloprocess) : _ss(phyloprocess.GetNsite()), _phyloprocess(phyloprocess) {}
-
-    void gather() final {
-        for (size_t i=0; i<_ss.size(); i++) {
-            _ss[i].Clear();
+        PathSuffStat& _get(int i) final {
+            assert(i < _ss.size());
+            return _ss[i]; 
         }
-        auto& local_ss = _ss;
-        _phyloprocess.AddPathSuffStat( [&local_ss] (int branch, int site) -> PathSuffStat& { return local_ss[site]; } );
+
+      public:
+        SitePathSSW(PhyloProcess& phyloprocess) : _ss(phyloprocess.GetNsite()), _phyloprocess(phyloprocess) {}
+
+        void gather() final {
+            for (size_t i=0; i<_ss.size(); i++) {
+                _ss[i].Clear();
+            }
+            auto& local_ss = _ss;
+            _phyloprocess.AddPathSuffStat( [&local_ss] (int branch, int site) -> PathSuffStat& { return local_ss[site]; } );
+        }
+    };
+
+    static auto make(PhyloProcess& phyloprocess)    {
+        auto sitepathss = std::make_unique<SitePathSSW>(phyloprocess);
+        return std::move(sitepathss);
     }
 };
 
@@ -135,40 +142,6 @@ class NucPathSSW final : public Proxy<NucPathSuffStat&> {
         _nucss.AddSuffStat(_codon_submatrix, _path_suffstat.get());
     }
 };
-
-// =================================================================================================
-
-/*
-class ArrayCollectingNucPathSSW final : public Proxy<NucPathSuffStat&> {
-    NucPathSuffStat _nucss;
-    size_t _nsite;
-    const std::vector<MGOmegaCodonSubMatrix>& _codon_submatrix_array;
-    // Proxy<NucCodonSubMatrix&, int>& _codon_submatrix_array;
-    Proxy<PathSuffStat&, int>& _path_suffstat_array;
-
-    NucPathSuffStat& _get() final { return _nucss; }
-
-  public:
-    ArrayCollectingNucPathSSW(size_t nsite,
-            const CodonStateSpace& codonstatespace,
-            // Proxy<NucCodonSubMatrix&, int>& codon_submatrix_array,
-            const std::vector<MGOmegaCodonSubMatrix>& codon_submatrix_array,
-            Proxy<PathSuffStat&, int>& path_suffstat_array) :
-
-        _nucss(codonstatespace),
-        _nsite(nsite),
-        _codon_submatrix_array(codon_submatrix_array),
-        _path_suffstat_array(path_suffstat_array) {}
-
-    void gather() final {
-        _nucss.Clear();
-        for (size_t i=0; i<_nsite; i++)  {
-            // _nucss.AddSuffStat(_codon_submatrix_array.get(i), _path_suffstat_array.get(i));
-            _nucss.AddSuffStat(_codon_submatrix_array[i], _path_suffstat_array.get(i));
-        }
-    }
-};
-*/
 
 // =================================================================================================
 class NucMatrixProxy : public Proxy<GTRSubMatrix&> {
