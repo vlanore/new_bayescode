@@ -19,7 +19,8 @@ struct omega_sm {
     template <class Mean, class InvShape, class Gen>
     static auto make(Mean mean, InvShape invshape, Gen& gen)    {
         DEBUG("Making omega with parameters mean={} and invshape={}", mean(), invshape());
-        auto omega = make_node<gamma_ss>([invshape] () {return 1. / invshape();}, [mean, invshape] () {return mean() * invshape();});
+        auto omega = make_node<gamma_mi>(mean, invshape);
+        // auto omega = make_node<gamma_ss>([invshape] () {return 1. / invshape();}, [mean, invshape] () {return mean() * invshape();});
         draw(omega, gen);
         return make_model(omega_ = std::move(omega));
     }
@@ -37,8 +38,14 @@ struct omega_sm {
     template <class OmegaModel, class Gen>
     static void gibbs_resample(OmegaModel& model, Proxy<omega_suffstat_t>& ss, Gen& gen) {
         /* -- */
+        double mean = get<omega, params, gam_mean>(model)();
+        double invshape = get<omega, params, gam_invshape>(model)();
+        /*
         double alpha = get<omega, params, shape>(model)();
         double beta = 1. / get<omega, params, struct scale>(model)();
+        */
+        double alpha = 1. / invshape;
+        double beta = mean * invshape;
         auto ss_value = ss.get();
         gamma_sr::draw(get<omega, value>(model), alpha + ss_value.count, beta + ss_value.beta, gen);
         // TRACE("Omega = {}", get<omega, value>(model));
