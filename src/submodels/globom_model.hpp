@@ -77,12 +77,15 @@ struct globom {
 
         auto nucpath_ssw = nucpathssw::make(codon_statespace,
                 one_to_one(codon_submatrix->get()),
-                // one_to_one(get<mg_omega_proxy>(codon_submatrix).get()),
                 one_to_one(path_suffstats->get())
                 );
 
-        OmegaSSW omega_ssw(codon_submatrix->get(), *path_suffstats);
-        // OmegaSSW omega_ssw(get<mg_omega_proxy>(codon_submatrix).get(), *path_suffstats);
+        auto omega_ssw = omegassw::make(
+                one_to_one(codon_submatrix->get()),
+                one_to_one(path_suffstats->get())
+                );
+
+        // OmegaSSW omega_ssw(codon_submatrix->get(), *path_suffstats);
 
         return make_model(                              //
             global_omega_ = move(global_omega),         //
@@ -94,7 +97,8 @@ struct globom {
             bl_suffstats_ = bl_suffstats,               //
             path_suffstats_ = move(path_suffstats),     //
             nucpath_suffstats_ = move(nucpath_ssw),           // 
-            omegapath_suffstats_ = omega_ssw);
+            omegapath_suffstats_ = move(omega_ssw));
+            // omegapath_suffstats_ = omega_ssw);
     }
 
     // =============================================================================================
