@@ -28,9 +28,9 @@ struct siteomega_sm {
     static void gibbs_resample(OmegaModel& model, Proxy<omega_suffstat_t, int>& ss, Gen& gen) {
         /* -- */
         size_t nsite = get<site_omega_array, value>(model).size();
-        double alpha = get<site_omega_array, params, shape>(model)(0);
-        double beta = 1. / get<site_omega_array, params, struct scale>(model)(0);
         for (size_t i=0; i<nsite; i++)  {
+            double alpha = get<site_omega_array, params, shape>(model)(i);
+            double beta = 1. / get<site_omega_array, params, struct scale>(model)(i);
             auto ss_value = ss.get(i);
             gamma_sr::draw(get<site_omega_array, value>(model)[i], alpha + ss_value.count, beta + ss_value.beta, gen);
         }
