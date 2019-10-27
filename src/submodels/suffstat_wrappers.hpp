@@ -5,6 +5,13 @@
 #include "lib/GTRSubMatrix.hpp"
 #include "lib/PhyloProcess.hpp"
 
+/*
+template<class T>
+auto prox_n_to_n(Proxy<T, int>& prox) {
+    return [&prox] (int i) -> T& { return prox.get(i); };
+}
+*/
+
 // =================================================================================================
 class PathSSW final : public Proxy<PathSuffStat&> {
     PathSuffStat _ss;
@@ -44,6 +51,74 @@ class SitePathSSW final : public Proxy<PathSuffStat&, int> {
     }
 };
 
+struct nucpathssw {
+
+    template<class CodonMatrixSelector, class PathSuffStatSelector>
+    class NucPathSSW0 final : public Proxy<NucPathSuffStat&> {
+        NucPathSuffStat _nucss;
+        CodonMatrixSelector _codon_matrix_selector;
+        PathSuffStatSelector _path_suffstat_selector;
+
+        NucPathSuffStat& _get() final { return _nucss; }
+
+      public:
+        NucPathSSW0(const CodonStateSpace* statespace, 
+                CodonMatrixSelector& codon_matrix_selector, 
+                PathSuffStatSelector& path_suffstat_selector) : 
+
+            _nucss(*statespace), 
+            _codon_matrix_selector(codon_matrix_selector),
+            _path_suffstat_selector(path_suffstat_selector) {}
+
+        void gather() final {
+            _nucss.Clear();
+            _nucss.AddSuffStat(_codon_matrix_selector(), _path_suffstat_selector());
+        }
+    };
+
+    template<class CodonMatrixSelector, class PathSuffStatSelector, class Size>
+    class NucPathSSW1 final : public Proxy<NucPathSuffStat&> {
+        NucPathSuffStat _nucss;
+        CodonMatrixSelector _codon_matrix_selector;
+        PathSuffStatSelector _path_suffstat_selector;
+        Size _n;
+
+        NucPathSuffStat& _get() final { return _nucss; }
+
+      public:
+        NucPathSSW1(const CodonStateSpace* statespace, 
+                CodonMatrixSelector& codon_matrix_selector, 
+                PathSuffStatSelector& path_suffstat_selector, 
+                Size n) : 
+
+            _nucss(*statespace), 
+            _codon_matrix_selector(codon_matrix_selector),
+            _path_suffstat_selector(path_suffstat_selector),
+            _n(n) {}
+
+        void gather() final {
+            _nucss.Clear();
+            for (size_t i=0; i<_n; i++)  {
+                _nucss.AddSuffStat(_codon_matrix_selector(i), _path_suffstat_selector(i));
+            }
+        }
+    };
+
+    template<class CodonMatrixSelector, class PathSuffStatSelector>
+    static auto make(const CodonStateSpace* codonstatespace, CodonMatrixSelector codonmat, PathSuffStatSelector pathss) {
+            auto nucss = std::make_unique<NucPathSSW0<CodonMatrixSelector, PathSuffStatSelector>>
+                (codonstatespace, codonmat, pathss);
+            return std::move(nucss);
+    }
+
+    template<class CodonMatrixSelector, class PathSuffStatSelector, class Size>
+    static auto make(const CodonStateSpace* codonstatespace, CodonMatrixSelector codonmat, PathSuffStatSelector pathss, Size n) {
+            auto nucss = std::make_unique<NucPathSSW1<CodonMatrixSelector, PathSuffStatSelector, Size>>
+                (codonstatespace, codonmat, pathss, n);
+            return std::move(nucss);
+    }
+};
+
 // =================================================================================================
 class NucPathSSW final : public Proxy<NucPathSuffStat&> {
     NucPathSuffStat _nucss;
@@ -63,6 +138,7 @@ class NucPathSSW final : public Proxy<NucPathSuffStat&> {
 
 // =================================================================================================
 
+/*
 class ArrayCollectingNucPathSSW final : public Proxy<NucPathSuffStat&> {
     NucPathSuffStat _nucss;
     size_t _nsite;
@@ -92,6 +168,7 @@ class ArrayCollectingNucPathSSW final : public Proxy<NucPathSuffStat&> {
         }
     }
 };
+*/
 
 // =================================================================================================
 class NucMatrixProxy : public Proxy<GTRSubMatrix&> {
