@@ -16,7 +16,7 @@
 #include "submodels/move_reporter.hpp"
 #include "submodels/nucrates_sm.hpp"
 #include "submodels/omega_sm.hpp"
-#include "submodels/codonmatrix_sm.hpp"
+#include "submodels/mg_omega.hpp"
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
 
@@ -35,30 +35,38 @@ struct globom {
     // =============================================================================================
     template <class Gen>
     static auto make(PreparedData& data, Gen& gen) {
-        auto global_omega = omega_sm::make(to_constant(1.0), to_constant(1.0), gen);
+        auto global_omega = omega_sm::make(one_to_const(1.0), one_to_const(1.0), gen);
 
         auto branch_lengths =
-            branchlengths_sm::make(data.parser, *data.tree, to_constant(0.1), to_constant(1.0));
+            branchlengths_sm::make(data.parser, *data.tree, one_to_const(0.1), one_to_const(1.0));
 
-        auto nuc_rates = nucrates_sm::make(to_constant(normalize({1, 1, 1, 1, 1, 1})),
-            to_constant(1. / 6), to_constant(normalize({1, 1, 1, 1})), to_constant(1. / 4), gen);
+        auto nuc_rates = nucrates_sm::make(one_to_const(normalize({1, 1, 1, 1, 1, 1})),
+            one_to_const(1. / 6), one_to_const(normalize({1, 1, 1, 1})), one_to_const(1. / 4), gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
 
-        auto codon_submatrix = codonmatrix_sm::make(codon_statespace, get<nuc_matrix>(nuc_rates), get<omega, value>(global_omega));
+        // auto codon_submatrix = codonmatrix_sm::make(codon_statespace, get<nuc_matrix>(nuc_rates), get<omega, value>(global_omega));
+
+        auto codon_submatrix = mg_omega::make(
+                codon_statespace, 
+                one_to_one(get<nuc_matrix>(nuc_rates)),
+                // [&n = get<nuc_matrix>(nuc_rates)] () ->const SubMatrix& {return n;},
+                one_to_one(get<omega , value>(global_omega))
+                // [&om = get<omega, value>(global_omega)] () -> const double& {return om;}
+            );
 
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
             // branch lengths
             n_to_n(get<bl_array, value>(branch_lengths)),
             // site-specific rates: all equal to 1
-            n_to_constant(1.0),
+            n_to_const(1.0),
             // branch and site specific matrices (here, same matrix for everyone)
-            mn_to_one(get<codon_matrix>(codon_submatrix)),
-            // mn_to_one(*codon_submatrix.get()),
+            // why should I add get??
+            mn_to_one(get<mg_omega_proxy>(codon_submatrix).get()),
             // site-specific matrices for root equilibrium frequencies (here same for all sites)
-            n_to_one(get<codon_matrix>(codon_submatrix)),
-            // n_to_one(*codon_submatrix.get()),
+            // why should I add get??
+            n_to_one(get<mg_omega_proxy>(codon_submatrix).get()),
             // no polymorphism
             nullptr);
 
@@ -67,8 +75,8 @@ struct globom {
         // suff stats
         BranchArrayPoissonSSW bl_suffstats{*data.tree, *phyloprocess};
         auto path_suffstats = std::make_unique<PathSSW>(*phyloprocess);
-        NucPathSSW nucpath_ssw(get<codon_matrix>(codon_submatrix), *path_suffstats);
-        OmegaSSW omega_ssw(get<codon_matrix>(codon_submatrix), *path_suffstats);
+        NucPathSSW nucpath_ssw(get<mg_omega_proxy>(codon_submatrix).get(), *path_suffstats);
+        OmegaSSW omega_ssw(get<mg_omega_proxy>(codon_submatrix).get(), *path_suffstats);
         // NucPathSSW nucpath_ssw(*codon_submatrix, *path_suffstats);
         // OmegaSSW omega_ssw(*codon_submatrix, *path_suffstats);
 
@@ -90,7 +98,7 @@ struct globom {
     static void touch_matrices(Model& model) {
         auto& nuc_matrix_proxy = get<nuc_rates, matrix_proxy>(model);
         nuc_matrix_proxy.gather();
-        auto& cod_matrix_proxy = get<codon_submatrix, codon_matrix_proxy>(model);
+        auto& cod_matrix_proxy = get<codon_submatrix, mg_omega_proxy>(model);
         cod_matrix_proxy.gather();
     }
 };

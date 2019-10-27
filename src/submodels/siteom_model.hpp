@@ -16,7 +16,7 @@
 #include "submodels/move_reporter.hpp"
 #include "submodels/nucrates_sm.hpp"
 #include "submodels/siteomega_sm.hpp"
-#include "submodels/sitecodonmatrix_sm.hpp"
+#include "submodels/mg_omega.hpp"
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
 
@@ -38,20 +38,18 @@ struct siteom {
 
         size_t nsite = data.alignment.GetNsite();
 
-        auto site_omega = siteomega_sm::make(nsite, to_constant(1.0), to_constant(1.0), gen);
+        auto site_omega = siteomega_sm::make(nsite, one_to_const(1.0), one_to_const(1.0), gen);
 
         auto branch_lengths =
-            branchlengths_sm::make(data.parser, *data.tree, to_constant(0.1), to_constant(1.0));
+            branchlengths_sm::make(data.parser, *data.tree, one_to_const(0.1), one_to_const(1.0));
 
-        auto nuc_rates = nucrates_sm::make(to_constant(normalize({1, 1, 1, 1, 1, 1})),
-            to_constant(1. / 6), to_constant(normalize({1, 1, 1, 1})), to_constant(1. / 4), gen);
+        auto nuc_rates = nucrates_sm::make(one_to_const(normalize({1, 1, 1, 1, 1, 1})),
+            one_to_const(1. / 6), one_to_const(normalize({1, 1, 1, 1})), one_to_const(1. / 4), gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
 
-        // auto codon_submatrix_array = sitecodonmatrix_sm::make(codon_statespace, get<nuc_matrix>(nuc_rates), get<site_omega_array, value>(site_omega));
-
-        auto codon_submatrix_array = sitecodonmatrix_sm::make(
+        auto codon_submatrix_array = mg_omega::make(
                 codon_statespace, 
                 n_to_one(get<nuc_matrix>(nuc_rates)),
                 n_to_n(get<site_omega_array, value>(site_omega)),
@@ -62,13 +60,11 @@ struct siteom {
             // branch lengths
             n_to_n(get<bl_array, value>(branch_lengths)),
             // site-specific rates: all equal to 1
-            n_to_constant(1.0),
+            n_to_const(1.0),
             // branch and site specific matrices (here, same matrix for everyone)
-            mn_to_n(get<codon_matrix_array>(codon_submatrix_array)),
-            // [&m = get<codon_matrix_array>(codon_submatrix_array)] (int branch, int site) -> const SubMatrix& { return m[site]; }, 
+            mn_to_n(get<mg_omega_proxy>(codon_submatrix_array)),
             // site-specific matrices for root equilibrium frequencies (here same for all sites)
-            n_to_n(get<codon_matrix_array>(codon_submatrix_array)),
-            // [&m = get<codon_matrix_array>(codon_submatrix_array)] (int site) -> const SubMatrix& { return m[site]; }, 
+            n_to_n(get<mg_omega_proxy>(codon_submatrix_array)),
             // no polymorphism
             nullptr);
 
@@ -82,14 +78,11 @@ struct siteom {
         auto site_path_suffstats = std::make_unique<SitePathSSW>(*phyloprocess);
 
         auto nucpath_ssw = nucpathssw::make(codon_statespace,
-                // n_to_n(get<mgomegacodon_matrix_array_proxy>(codon_submatrix_array)),
-                n_to_n(get<codon_matrix_array>(codon_submatrix_array)),
-                // [&m = get<codon_matrix_array>(codon_submatrix_array)] (int i) { return m[i]; },
+                n_to_n(get<mg_omega_proxy>(codon_submatrix_array)),
                 n_to_n(*site_path_suffstats),
-                // [&p = *site_path_suffstats] (int i) { return p.get(i); },
                 nsite);
 
-        auto site_omega_ssw = std::make_unique<SiteOmegaSSW >(nsite, get<codon_matrix_array>(codon_submatrix_array).GetArray(), *site_path_suffstats);
+        auto site_omega_ssw = std::make_unique<SiteOmegaSSW >(nsite, get<mg_omega_proxy>(codon_submatrix_array).GetArray(), *site_path_suffstats);
 
         return make_model(                              //
             // codon_statespace_ = codon_statespace,       //
@@ -109,7 +102,7 @@ struct siteom {
     static void touch_matrices(Model& model) {
         auto& nuc_matrix_proxy = get<nuc_rates, matrix_proxy>(model);
         nuc_matrix_proxy.gather();
-        auto& cod_matrix_proxy = get<codon_submatrix_array, codon_matrix_array>(model);
+        auto& cod_matrix_proxy = get<codon_submatrix_array, mg_omega_proxy>(model);
         cod_matrix_proxy.gather();
     }
 };
