@@ -38,17 +38,22 @@ struct siteom {
 
         size_t nsite = data.alignment.GetNsite();
 
+        // omega: iid gamma across sites, with constant hyperparameters
         auto site_omega = siteomega_sm::make(nsite, one_to_const(1.0), one_to_const(1.0), gen);
 
+        // bl : iid gamma across sites, with constant hyperparams
         auto branch_lengths =
             branchlengths_sm::make(data.parser, *data.tree, one_to_const(0.1), one_to_const(1.0));
 
+        // nuc exch rates and eq freqs: uniform dirichlet
+        // also creates the gtr matrix
         auto nuc_rates = nucrates_sm::make(one_to_const(normalize({1, 1, 1, 1, 1, 1})),
             one_to_const(1. / 6), one_to_const(normalize({1, 1, 1, 1})), one_to_const(1. / 4), gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
 
+        // an array of MG Omega Codon matrices, with same nucrates but each with its own omega
         auto codon_submatrix_array = mg_omega::make(
                 codon_statespace, 
                 n_to_one(get<nuc_matrix>(nuc_rates)),
@@ -56,6 +61,7 @@ struct siteom {
                 nsite
             );
 
+        // phyloprocess
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
             // branch lengths
             n_to_n(get<bl_array, value>(branch_lengths)),
@@ -63,10 +69,8 @@ struct siteom {
             n_to_const(1.0),
             // branch and site specific matrices (here, same matrix for everyone)
             mn_to_n(*codon_submatrix_array),
-            // mn_to_n(get<mg_omega_proxy>(codon_submatrix_array)),
             // site-specific matrices for root equilibrium frequencies (here same for all sites)
             n_to_n(*codon_submatrix_array),
-            // n_to_n(get<mg_omega_proxy>(codon_submatrix_array)),
             // no polymorphism
             nullptr);
 
@@ -75,18 +79,29 @@ struct siteom {
 
         // suff stats
 
+        // branch lengths
         BranchArrayPoissonSSW bl_suffstats{*data.tree, *phyloprocess};
 
+        // site path suff stats
         auto site_path_suffstats = sitepathssw::make(*phyloprocess);
 
+        // gathering nuc path suffstats across sites: sum stored in a single NucPathSuffStat
         auto nucpath_ssw = nucpathssw::make(codon_statespace,
                 n_to_n(*codon_submatrix_array),
-                // n_to_n(get<mg_omega_proxy>(codon_submatrix_array)),
                 n_to_n(*site_path_suffstats),
                 nsite);
 
-        auto site_omega_ssw = std::make_unique<SiteOmegaSSW >(nsite, codon_submatrix_array->GetArray(), *site_path_suffstats);
-        // auto site_omega_ssw = std::make_unique<SiteOmegaSSW >(nsite, get<mg_omega_proxy>(codon_submatrix_array).GetArray(), *site_path_suffstats);
+        // site-specific OmegaPathSuffStat, each connected to the PathSuffStat and the codon matrix of the corresponding site
+        // constructor is general (can also be used for mixture models)
+        // here, used in a n-to-n pattern
+        auto site_omega_ssw = omegassw::make(
+                nsite,                          // size of the vector of OmegaPathSuffStat
+                [] (int i) {return i;},         // ith. site maps onto ith. OmegaPathSuffStat)
+                n_to_n(*codon_submatrix_array), // ith. OmegaPathSuffStat depends on ith. codon matrix
+                n_to_n(*site_path_suffstats),   // ith. OmegaPathSuffStat collects stats from ith. PathSuffStat
+                nsite);                         // number of elements over which to iterate the AddSuffStat command
+
+        // auto site_omega_ssw = std::make_unique<SiteOmegaSSW >(nsite, codon_submatrix_array->GetArray(), *site_path_suffstats);
 
         return make_model(                              //
             // codon_statespace_ = codon_statespace,       //
