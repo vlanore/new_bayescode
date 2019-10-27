@@ -5,16 +5,20 @@
 #include "lib/CodonSubMatrix.hpp"
 
 TOKEN(codon_matrix_array)
-TOKEN(codon_matrix_array_proxy)
+TOKEN(nuccodon_matrix_array_proxy)
+TOKEN(omegacodon_matrix_array_proxy)
 
-class MGOmegaCodonMatrixArrayProxy : public Proxy<MGOmegaCodonSubMatrix&, int> {
+class OmegaCodonMatrixArrayProxy : public Proxy<OmegaCodonSubMatrix&, int> {
     std::vector<MGOmegaCodonSubMatrix>& _mat;
     std::vector<double>& _omega;
 
-    MGOmegaCodonSubMatrix& _get(int i) final { return _mat[i]; }
+    OmegaCodonSubMatrix& _get(int i) final { 
+        assert(i < _mat.size());
+        return _mat[i];
+    }
 
   public:
-    MGOmegaCodonMatrixArrayProxy(std::vector<MGOmegaCodonSubMatrix>& mat, std::vector<double>& omega)
+    OmegaCodonMatrixArrayProxy(std::vector<MGOmegaCodonSubMatrix>& mat, std::vector<double>& omega)
         : _mat(mat), _omega(omega) {}
 
     void gather() final {
@@ -22,6 +26,28 @@ class MGOmegaCodonMatrixArrayProxy : public Proxy<MGOmegaCodonSubMatrix&, int> {
             _mat[i].SetOmega(_omega[i]);
             _mat[i].CorruptMatrix();
         }
+    }
+};
+
+class NucCodonMatrixArrayProxy : public Proxy<NucCodonSubMatrix&, int> {
+    std::vector<MGOmegaCodonSubMatrix>& _mat;
+    // const SubMatrix& _nucmatrix;
+
+    NucCodonSubMatrix& _get(int i) final {
+        assert(i < _mat.size());
+        return _mat[i];
+    }
+
+  public:
+    NucCodonMatrixArrayProxy(std::vector<MGOmegaCodonSubMatrix>& mat) : _mat(mat) {}
+    /*
+    NucCodonMatrixArrayProxy(std::vector<MGOmegaCodonSubMatrix>& mat, const SubMatrix& nucmatrix) :
+        _mat(mat), _nucmat(nucmat) {}
+    */
+
+    void gather() final {
+        std::cerr << "error: in nuccodon gather\n";
+        exit(1);
     }
 };
 
@@ -36,11 +62,15 @@ struct sitecodonmatrix_sm {
             (*codon_matrix_array.get())[i].CorruptMatrix();
         }
 
-        auto codon_matrix_array_proxy = MGOmegaCodonMatrixArrayProxy(*codon_matrix_array.get(), omega_array);
+        auto nuccodon_matrix_array_proxy = NucCodonMatrixArrayProxy(*codon_matrix_array.get());
+        auto omegacodon_matrix_array_proxy = OmegaCodonMatrixArrayProxy(*codon_matrix_array.get(), omega_array);
+        std::cerr << "in siteom matrix: " << omegacodon_matrix_array_proxy.get(0).GetNstate() << '\n';
+        std::cerr << "in siteom matrix: " << omegacodon_matrix_array_proxy.get(0).GetOmega() << '\n';
 
         return make_model(
             codon_matrix_array_ = std::move(codon_matrix_array),
-            codon_matrix_array_proxy_ = codon_matrix_array_proxy
+            nuccodon_matrix_array_proxy_ = nuccodon_matrix_array_proxy,
+            omegacodon_matrix_array_proxy_ = omegacodon_matrix_array_proxy
         );
     }
 };
