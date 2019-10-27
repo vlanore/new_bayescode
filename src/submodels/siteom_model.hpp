@@ -49,7 +49,15 @@ struct siteom {
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
 
-        auto codon_submatrix_array = sitecodonmatrix_sm::make(codon_statespace, get<nuc_matrix>(nuc_rates), get<site_omega_array, value>(site_omega));
+        // auto codon_submatrix_array = sitecodonmatrix_sm::make(codon_statespace, get<nuc_matrix>(nuc_rates), get<site_omega_array, value>(site_omega));
+
+        auto codon_submatrix_array = sitecodonmatrix_sm::make(
+                codon_statespace, 
+                n_to_one(get<nuc_matrix>(nuc_rates)),
+                n_to_n(get<site_omega_array, value>(site_omega)),
+                nsite
+            );
+
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
             // branch lengths
             n_to_n(get<bl_array, value>(branch_lengths)),
@@ -81,7 +89,7 @@ struct siteom {
                 // [&p = *site_path_suffstats] (int i) { return p.get(i); },
                 nsite);
 
-        auto site_omega_ssw = std::make_unique<SiteOmegaSSW >(nsite, get<codon_matrix_array>(codon_submatrix_array), *site_path_suffstats);
+        auto site_omega_ssw = std::make_unique<SiteOmegaSSW >(nsite, get<codon_matrix_array>(codon_submatrix_array).GetArray(), *site_path_suffstats);
 
         return make_model(                              //
             // codon_statespace_ = codon_statespace,       //
@@ -101,7 +109,7 @@ struct siteom {
     static void touch_matrices(Model& model) {
         auto& nuc_matrix_proxy = get<nuc_rates, matrix_proxy>(model);
         nuc_matrix_proxy.gather();
-        auto& cod_matrix_proxy = get<codon_submatrix_array, mgomegacodon_matrix_array_proxy>(model);
+        auto& cod_matrix_proxy = get<codon_submatrix_array, codon_matrix_array>(model);
         cod_matrix_proxy.gather();
     }
 };
