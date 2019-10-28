@@ -83,13 +83,13 @@ class Tracer {
         for (auto& f : set_from_stream) f(is);
     }
 
-    void process_declaration(std::string name, double& d) {
+    void process_declaration(std::string name, double d) {
         header_to_stream.emplace_back([name](std::ostream& os) { os << name; });
         data_to_stream.emplace_back([&d](std::ostream& os) { os << d; });
         set_from_stream.emplace_back([&d](std::istream& is) { is >> d; });
     }
 
-    void process_declaration(std::string name, int& d) {
+    void process_declaration(std::string name, int d) {
         header_to_stream.emplace_back([name](std::ostream& os) { os << name; });
         data_to_stream.emplace_back([&d](std::ostream& os) { os << d; });
         set_from_stream.emplace_back([&d](std::istream& is) { is >> d; });
