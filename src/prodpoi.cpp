@@ -26,21 +26,6 @@ license and that you accept its terms.*/
 
 #include <iostream>
 #include "bayes_toolbox.hpp"
-/*
-#include "basic_moves.hpp"
-#include "distributions/gamma.hpp"
-#include "detfunctions/product.hpp"
-#include "distributions/poisson.hpp"
-#include "mcmc_utils.hpp"
-#include "operations/backup.hpp"
-#include "operations/logprob.hpp"
-#include "operations/raw_value.hpp"
-#include "operations/set_value.hpp"
-#include "structure/View.hpp"
-#include "structure/array_utils.hpp"
-#include "suffstat_utils.hpp"
-#include "tagged_tuple/src/fancy_syntax.hpp"
-*/
 using namespace std;
 
 TOKEN(lambda1)
@@ -86,8 +71,9 @@ void scaling_move(Node& node, MB blanket, Gen& gen, IndexArgs... args) {
 int main() {
     auto gen = make_generator();
 
-    constexpr size_t nb_it{100'000}, n1{5}, n2{10};
-    auto m = poisson_product(n1, n2);
+    size_t n1 = 2;
+    size_t n2 = 3;
+    auto m = poisson_product(5, 10);
 
     // auto v = make_collection(lambda1_(m), lambda2_(m));
     // vector<vector<int>> initK(n1, vector<int>(n2,1));
@@ -97,14 +83,14 @@ int main() {
         cerr << "draw model\n";
         draw(lambda1_(m), gen);
         draw(lambda2_(m), gen);
-        // gather(mrate_(m));
+        gather(mrate_(m));
         draw(K_(m), gen);
         cerr << "draw model ok\n";
 
         for (size_t i=0; i<n1; i++) {
             for (size_t j=0; j<n2; j++) {
-                cerr << get<lambda1,value>(m)[i];
-                cerr << '\t' << get<lambda2,value>(m)[i];
+                cerr << i << '\t' << j;
+                cerr << '\t' << get<lambda1,value>(m)[i] * get<lambda2,value>(m)[j];
                 cerr << '\t' << get<mrate,value>(m)[i][j];
                 cerr << '\t' << get<K,value>(m)[i][j];
                 cerr << '\n';
@@ -114,6 +100,7 @@ int main() {
     cerr << '\n' << '\n';
 
     /*
+    size_t it = 100000;
     for (size_t it = 0; it < nb_it; it++) {
 
         for (size_t i=0; i<n1; i++) {
