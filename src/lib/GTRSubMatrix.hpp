@@ -29,10 +29,6 @@ class GTRSubMatrix : public virtual SubMatrix {
     //! done each time this vector has been modified
     void CopyStationary(const std::vector<double> &instat);
 
-    bool operator==(const GTRSubMatrix &other) const {
-        return mRelativeRate == other.mRelativeRate && mStationary == other.mStationary;
-    }
-
   protected:
     void ComputeArray(int i) const override;
     void ComputeStationary() const override {}
