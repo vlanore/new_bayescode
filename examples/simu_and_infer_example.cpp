@@ -118,7 +118,7 @@ int main() {
     ChainDriver chain_driver{chain_name, every, nb_it};
 
     ConsoleLogger console_logger;
-    ChainCheckpoint chain_checkpoint(chain_name + ".param", chain_driver, m);
+    // ChainCheckpoint chain_checkpoint(chain_name + ".param", chain_driver, m);
     StandardTracer trace(m, chain_name);
 
     // registering components to chain driver
