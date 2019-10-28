@@ -65,9 +65,13 @@ set(BASE_LIBS
 add_executable(globom "src/globom.cpp")
 target_link_libraries(globom ${BASE_LIBS})
 
-# Single omega (siteom)
+# Site-specific omega (siteom)
 add_executable(siteom "src/siteom.cpp")
 target_link_libraries(siteom ${BASE_LIBS})
+
+# Mixture-model omega (mixom)
+add_executable(mixom "src/mixom.cpp")
+target_link_libraries(mixom ${BASE_LIBS})
 
 # tests
 add_executable(all_tests "src/all_tests.cpp")

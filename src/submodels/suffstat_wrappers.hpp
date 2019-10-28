@@ -60,6 +60,49 @@ struct sitepathssw  {
     }
 };
 
+// an array of path suffstats susceptible to collect from a certain range of path suffstats
+struct pathssarrayw {
+
+    template<class IndexSelector, class PathSuffStatSelector, class Size>
+    class PathSSArrayW final : public Proxy<PathSuffStat&, int> {
+        IndexSelector _index_selector;
+        PathSuffStatSelector _path_suffstat_selector;
+        size_t _n;
+        std::vector<PathSuffStat> _ss;
+
+        PathSuffStat& _get(int i) final {
+            assert(i < _ss.size());
+            return _ss[i]; 
+        }
+
+      public:
+        PathSSArrayW(size_t k, IndexSelector& index_selector, PathSuffStatSelector& path_suffstat_selector, Size n):
+            _index_selector(index_selector),
+            _path_suffstat_selector(path_suffstat_selector),
+            _n(n),
+            _ss(k) {}
+
+
+        void gather() final {
+            for (size_t i=0; i<_ss.size(); i++) {
+                _ss[i].Clear();
+            }
+            for (size_t i=0; i<_n; i++)   {
+                auto index = _index_selector(i);
+                assert(index >= 0 && index < _ss.size());
+                _ss[index].Add(_path_suffstat_selector(i));
+            }
+        }
+    };
+
+    template<class IndexSelector, class PathSuffStatSelector, class Size>
+    static auto make(size_t k, IndexSelector index, PathSuffStatSelector pathss, Size n) {
+            auto ret = std::make_unique<PathSSArrayW<IndexSelector, PathSuffStatSelector, Size>>
+                (k, index, pathss, n);
+            return std::move(ret);
+    }
+};
+
 // a single nucpathsuffstat collecting suffstats from
 // either a single (codonmatrix,pathsuffstat) pair
 // or an indexed series of (codonmatrix,pathsuffstat) pairs
