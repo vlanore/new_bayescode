@@ -65,6 +65,10 @@ set(BASE_LIBS
 add_executable(globom "src/globom.cpp")
 target_link_libraries(globom ${BASE_LIBS})
 
+# Single omega (prodpoi)
+add_executable(prodpoi "src/prodpoi.cpp")
+target_link_libraries(prodpoi ${BASE_LIBS})
+
 # Site-specific omega (siteom)
 add_executable(siteom "src/siteom.cpp")
 target_link_libraries(siteom ${BASE_LIBS})
