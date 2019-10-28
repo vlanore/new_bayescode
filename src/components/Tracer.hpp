@@ -95,6 +95,12 @@ class Tracer {
         set_from_stream.emplace_back([&d](std::istream& is) { is >> d; });
     }
 
+    void process_declaration(std::string name, size_t d) {
+        header_to_stream.emplace_back([name](std::ostream& os) { os << name; });
+        data_to_stream.emplace_back([&d](std::ostream& os) { os << d; });
+        set_from_stream.emplace_back([&d](std::istream& is) { is >> d; });
+    }
+
     template <class T>
     void process_declaration(
         std::string name, std::vector<T>& v, Partition partition = Partition(IndexSet(), 0)) {
