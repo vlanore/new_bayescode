@@ -26,12 +26,24 @@ SubMatrix::SubMatrix(int inNstate, bool innormalise) : Nstate(inNstate), normali
     Create();
 }
 
-/*
 SubMatrix::SubMatrix(const SubMatrix& from) : Nstate(from.Nstate), normalise(from.normalise) {
     ndiagfailed = 0;
     Create();
 }
-*/
+
+bool SubMatrix::operator==(const SubMatrix& other)   {
+
+    double tot = 0;
+    for (int i=0; i<Nstate; i++)    {
+        tot += fabs(mStationary[i] - other.mStationary[i]);
+    }
+    for (int i=0; i<Nstate; i++)    {
+        for (int j=0; j<Nstate; j++)    {
+            tot += fabs(Q(i,j) - other.Q(i,j));
+        }
+    }
+    return (tot < 1e-8);
+}
 
 void SubMatrix::Create() {
     Q = EMatrix(Nstate, Nstate);

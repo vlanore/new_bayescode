@@ -30,9 +30,11 @@ class SubMatrix {
     //! \brief base constructor: should always give the dimension (Nstate) of the
     //! matrix and whether we want it to be normalized
     SubMatrix(int inNstate, bool innormalise = false);
-    // SubMatrix(const SubMatrix& from);
+    SubMatrix(const SubMatrix& from);
     // SubMatrix& operator=(const SubMatrix& from);
     virtual ~SubMatrix();
+
+    bool operator==(const SubMatrix& from);
 
     //! const access to entry at ith row and jth column (checked for current
     //! update status, see UpdateMatrix)
