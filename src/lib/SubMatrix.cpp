@@ -35,14 +35,14 @@ bool SubMatrix::operator==(const SubMatrix& other)   {
 
     double tot = 0;
     for (int i=0; i<Nstate; i++)    {
-        tot += fabs(mStationary[i] - other.mStationary[i]);
+        tot += fabs(Stationary(i) - other.Stationary(i));
     }
     for (int i=0; i<Nstate; i++)    {
         for (int j=0; j<Nstate; j++)    {
-            tot += fabs(Q(i,j) - other.Q(i,j));
+            tot += fabs((*this)(i,j) - other(i,j));
         }
     }
-    return (tot < 1e-8);
+    return (tot < 1e-6);
 }
 
 void SubMatrix::Create() {
