@@ -34,13 +34,13 @@ struct globom {
     // =============================================================================================
     template <class Gen>
     static auto make(PreparedData& data, Gen& gen) {
-        auto global_omega = omega_sm::make(to_constant(1.0), to_constant(1.0), gen);
+        auto global_omega = omega_sm::make(one_to_const(1.0), one_to_const(1.0), gen);
 
         auto branch_lengths =
-            branchlengths_sm::make(data.parser, *data.tree, to_constant(0.1), to_constant(1.0));
+            branchlengths_sm::make(data.parser, *data.tree, one_to_const(0.1), one_to_const(1.0));
 
-        auto nuc_rates = nucrates_sm::make(to_constant(normalize({1, 1, 1, 1, 1, 1})),
-            to_constant(1. / 6), to_constant(normalize({1, 1, 1, 1})), to_constant(1. / 4), gen);
+        auto nuc_rates = nucrates_sm::make(one_to_const(normalize({1, 1, 1, 1, 1, 1})),
+            one_to_const(1. / 6), one_to_const(normalize({1, 1, 1, 1})), one_to_const(1. / 4), gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
@@ -52,7 +52,7 @@ struct globom {
             // branch lengths
             n_to_n(get<bl_array, value>(branch_lengths)),
             // site-specific rates: all equal to 1
-            n_to_constant(1.0),
+            n_to_const(1.0),
             // branch and site specific matrices (here, same matrix for everyone)
             mn_to_one(*codon_sub_matrix.get()),
             // site-specific matrices for root equilibrium frequencies (here same for all sites)
@@ -77,7 +77,7 @@ struct globom {
             phyloprocess_ = move(phyloprocess),         //
             bl_suffstats_ = bl_suffstats,               //
             path_suffstats_ = move(path_suffstats),     //
-            nucpath_suffstats_ = nucpath_ssw,                 // 
+            nucpath_suffstats_ = nucpath_ssw,           //
             omegapath_suffstats_ = omega_ssw);
     }
 
