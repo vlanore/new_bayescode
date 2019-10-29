@@ -21,6 +21,9 @@ class CodonSubMatrix : public virtual SubMatrix {
     CodonSubMatrix(const CodonStateSpace *instatespace, bool innormalise)
         : SubMatrix(instatespace->GetNstate(), innormalise), statespace(instatespace) {}
 
+    CodonSubMatrix(const CodonSubMatrix& from) :
+        SubMatrix(from), statespace(from.statespace) {}
+
     const CodonStateSpace *GetCodonStateSpace() const { return statespace; }
 
     //! see CodonStateSpace::Synonymous
@@ -55,6 +58,12 @@ class NucCodonSubMatrix : public virtual CodonSubMatrix {
           CodonSubMatrix(instatespace, innormalise),
           NucMatrix(nullptr) {}
 
+    NucCodonSubMatrix(const NucCodonSubMatrix& from) :
+        SubMatrix(from),
+        CodonSubMatrix(from),
+        NucMatrix(from.NucMatrix) {}
+
+    // [[deprecated]]
     NucCodonSubMatrix(
         const CodonStateSpace *instatespace, const SubMatrix *inNucMatrix, bool innormalise)
         : SubMatrix(instatespace->GetNstate(), innormalise),
@@ -67,7 +76,6 @@ class NucCodonSubMatrix : public virtual CodonSubMatrix {
         return NucMatrix; 
     }
 
-  protected:
     void SetNucMatrix(const SubMatrix *inmatrix) {
         NucMatrix = inmatrix;
         if (NucMatrix->GetNstate() != Nnuc) {
@@ -92,6 +100,12 @@ class OmegaCodonSubMatrix : public virtual CodonSubMatrix {
           CodonSubMatrix(instatespace, normalise),
           omega(1.0) {}
 
+    OmegaCodonSubMatrix(const OmegaCodonSubMatrix& from) :
+        SubMatrix(from),
+        CodonSubMatrix(from),
+        omega(from.omega) {}
+
+    // [[deprecated]]
     OmegaCodonSubMatrix(const CodonStateSpace *instatespace, double inomega, bool innormalise)
         : SubMatrix(instatespace->GetNstate(), innormalise),
           CodonSubMatrix(instatespace, normalise),
@@ -122,13 +136,18 @@ class MGCodonSubMatrix : public NucCodonSubMatrix {
           CodonSubMatrix(instatespace, innormalise),
           NucCodonSubMatrix(instatespace, innormalise) {}
 
+    MGCodonSubMatrix(const MGCodonSubMatrix& from) :
+        SubMatrix(from),
+        CodonSubMatrix(from),
+        NucCodonSubMatrix(from) {}
+
     MGCodonSubMatrix(
         const CodonStateSpace *instatespace, const SubMatrix *inNucMatrix, bool innormalise = false)
         : SubMatrix(instatespace->GetNstate(), innormalise),
           CodonSubMatrix(instatespace, innormalise),
           NucCodonSubMatrix(instatespace, inNucMatrix, innormalise) {}
 
-    void CorruptMatrix() override { SubMatrix::CorruptMatrix(); }
+    void CorruptMatrix() override { std::cerr << "corrupt matrix\n"; SubMatrix::CorruptMatrix(); }
 
   protected:
     void ComputeArray(int i) const override;
@@ -148,6 +167,12 @@ class MGOmegaCodonSubMatrix : public MGCodonSubMatrix, public OmegaCodonSubMatri
           MGCodonSubMatrix(instatespace, innormalise),
           OmegaCodonSubMatrix(instatespace, innormalise) {}
 
+    MGOmegaCodonSubMatrix(MGOmegaCodonSubMatrix& from) :
+        SubMatrix(from),
+        CodonSubMatrix(from),
+        MGCodonSubMatrix(from),
+        OmegaCodonSubMatrix(from)   {}
+
     MGOmegaCodonSubMatrix(const CodonStateSpace *instatespace, const SubMatrix *inNucMatrix,
         double inomega, bool innormalise = false)
         : SubMatrix(instatespace->GetNstate(), innormalise),
@@ -158,8 +183,12 @@ class MGOmegaCodonSubMatrix : public MGCodonSubMatrix, public OmegaCodonSubMatri
     MGOmegaCodonSubMatrix(const MGOmegaCodonSubMatrix& from) :
         SubMatrix(from.GetNstate(), from.isNormalised()),
         CodonSubMatrix(from.GetCodonStateSpace(), from.isNormalised()),
-        MGCodonSubMatrix(from.GetCodonStateSpace(), from.GetNucMatrix(), from.isNormalised()),
-        OmegaCodonSubMatrix(from.GetCodonStateSpace(), from.GetOmega(), from.isNormalised()) {
+        // MGCodonSubMatrix(from.GetCodonStateSpace(), from.GetNucMatrix(), from.isNormalised()),
+        // OmegaCodonSubMatrix(from.GetCodonStateSpace(), from.GetOmega(), from.isNormalised()) {}
+        MGCodonSubMatrix(from.GetCodonStateSpace(), from.isNormalised()),
+        OmegaCodonSubMatrix(from.GetCodonStateSpace(), from.isNormalised()) {
+            SetNucMatrix(from.NucMatrix);
+            SetOmega(from.omega);
         }
 
   protected:

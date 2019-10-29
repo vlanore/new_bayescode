@@ -55,11 +55,15 @@ class SubMatrix {
 
     //! compute the row of the generator corresponding to rates away from given
     //! state (should be defined in derived classes)
-    virtual void ComputeArray(int state) const = 0;
+    virtual void ComputeArray(int state) const {
+        assert(false);
+    }
 
     //! compute the vector of stationary probabilities (equilibrium frequencies --
     //! should be defined in derived classes)
-    virtual void ComputeStationary() const = 0;
+    virtual void ComputeStationary() const {
+        assert(false);
+    }
 
     //! whether or not the matrix is normalized (i.e. the expected rate of
     //! substitution per unit of time is 1)
