@@ -4,59 +4,28 @@
 #include "lib/CodonSuffStat.hpp"
 #include "lib/GTRSubMatrix.hpp"
 #include "lib/PhyloProcess.hpp"
+#include "structure/suffstat.hpp"
 
 // a single path suffstat attached to a phyloprocess (site- and time-homogeneous)
 struct pathssw  {
-
-    class PathSSW final : public Proxy<PathSuffStat&> {
-        PathSuffStat _ss;
-        PhyloProcess& _phyloprocess;
-
-        PathSuffStat& _get() final { return _ss; }
-
-      public:
-        PathSSW(PhyloProcess& phyloprocess) : _phyloprocess(phyloprocess) {}
-
-        void gather() final {
-            auto& local_ss = _ss;
-            local_ss.Clear();
-            _phyloprocess.AddPathSuffStat( [&local_ss] (int branch, int site) -> PathSuffStat& { return local_ss; } );
-        }
-    };
-
     static auto make(PhyloProcess& phyloprocess)    {
-        auto pathss = std::make_unique<PathSSW>(phyloprocess);
-        return std::move(pathss);
+        auto path_suffstat = ss_factory::make_suffstat<PathSuffStat>(
+                [&phyloprocess] (auto& ss)
+                    { phyloprocess.AddPathSuffStat( [&ss] (int branch, int site) -> PathSuffStat& { return ss; } ); });
+
+        return std::move(path_suffstat);
     }
 };
 
 // an array of site-specific path suffstats attached to a phyloprocess (site-heterogeneous, time-homogeneous)
 struct sitepathssw  {
-
-    class SitePathSSW final : public Proxy<PathSuffStat&, int> {
-        std::vector<PathSuffStat> _ss;
-        PhyloProcess& _phyloprocess;
-
-        PathSuffStat& _get(int i) final {
-            assert(i < _ss.size());
-            return _ss[i]; 
-        }
-
-      public:
-        SitePathSSW(PhyloProcess& phyloprocess) : _ss(phyloprocess.GetNsite()), _phyloprocess(phyloprocess) {}
-
-        void gather() final {
-            for (size_t i=0; i<_ss.size(); i++) {
-                _ss[i].Clear();
-            }
-            auto& local_ss = _ss;
-            _phyloprocess.AddPathSuffStat( [&local_ss] (int branch, int site) -> PathSuffStat& { return local_ss[site]; } );
-        }
-    };
-
     static auto make(PhyloProcess& phyloprocess)    {
-        auto sitepathss = std::make_unique<SitePathSSW>(phyloprocess);
-        return std::move(sitepathss);
+        auto site_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
+                phyloprocess.GetNsite(),
+                [&phyloprocess] (auto& site_ss)
+                    { phyloprocess.AddPathSuffStat( [&site_ss] (int branch, int site) -> PathSuffStat& { return site_ss[site]; } ); });
+
+        return std::move(site_path_suffstats);
     }
 };
 
