@@ -47,13 +47,13 @@ int main(int argc, char* argv[]) {
 
     ConsoleLogger console_logger;
     // ChainCheckpoint chain_checkpoint(cmd.chain_name() + ".param", chain_driver, model);
-    StandardTracer trace(model, cmd.chain_name());
+    // StandardTracer trace(model, cmd.chain_name());
 
     // registering components to chain driver
     chain_driver.add(scheduler);
     chain_driver.add(console_logger);
     // chain_driver.add(chain_checkpoint);
-    chain_driver.add(trace);
+    // chain_driver.add(trace);
     chain_driver.add(ms);
 
     // launching chain!

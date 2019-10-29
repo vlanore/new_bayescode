@@ -90,8 +90,8 @@ struct mixom {
         auto codon_submatrix_array = make_dnode_array_with_init<mgomega>(
                 ncomp,
                 {codon_statespace},
-                [&mat = get<nuc_matrix>(nuc_rates)] (int i) -> const SubMatrix& { return mat; },
-                // n_to_one(get<nuc_matrix>(nuc_rates)),
+                [&mat = get<nuc_matrix, value>(nuc_rates)] (int i) -> const SubMatrix& { return mat; },
+                // n_to_one(get<nuc_matrix, value>(nuc_rates)),
                 n_to_n(get<site_omega_array, value>(omega))
             );
 
@@ -111,7 +111,7 @@ struct mixom {
         // suff stats
 
         // branch lengths
-        BranchArrayPoissonSSW bl_suffstats{*data.tree, *phyloprocess};
+        auto bl_suffstats = pathss_factory::make_bl_suffstats(*phyloprocess);
 
         // site path suff stats
         auto site_path_ss = pathss_factory::make_site_path_suffstat(*phyloprocess);
@@ -134,32 +134,31 @@ struct mixom {
                     { omss[i].AddSuffStat(mat[i], pss.get(i)); },
                 ncomp);
 
-        return make_model(                              //
-            // codon_statespace_ = codon_statespace,       //
-            branch_lengths_ = move(branch_lengths),     //
-            nuc_rates_ = move(nuc_rates),               //
+        return make_model(
+            // codon_statespace_ = codon_statespace,
+            branch_lengths_ = move(branch_lengths),
+            nuc_rates_ = move(nuc_rates),
 
             mixture_weights_ = move(weights),
             mixture_allocs_ = move(alloc),
 
-            omega_array_ = move(omega),         //
-            codon_submatrix_array_ = move(codon_submatrix_array),  //
+            omega_array_ = move(omega),
+            codon_submatrix_array_ = move(codon_submatrix_array),
 
-            phyloprocess_ = move(phyloprocess),         //
+            phyloprocess_ = move(phyloprocess),
 
-            bl_suffstats_ = bl_suffstats,               //
+            bl_suffstats_ = move(bl_suffstats),
 
-            site_path_suffstats_ = move(site_path_ss),     //
-            comp_path_suffstats_ = move(comp_path_ss),     //
-            nucpath_suffstats_ = move(nucpath_ss),           // 
+            site_path_suffstats_ = move(site_path_ss),
+            comp_path_suffstats_ = move(comp_path_ss),
+            nucpath_suffstats_ = move(nucpath_ss),
             comp_omegapath_suffstats_ = move(comp_omega_ss));
     }
 
     // =============================================================================================
     template <class Model>
     static void touch_matrices(Model& model) {
-        auto& nuc_matrix_proxy = get<nuc_rates, matrix_proxy>(model);
-        nuc_matrix_proxy.gather();
+        gather(get<nuc_rates, nuc_matrix>(model));
         gather(codon_submatrix_array_(model));
     }
 };

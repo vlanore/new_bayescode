@@ -36,7 +36,7 @@ struct omega_sm {
     }
 
     template <class OmegaModel, class Gen>
-    static void gibbs_resample(OmegaModel& model, Proxy<omega_suffstat_t>& ss, Gen& gen) {
+    static void gibbs_resample(OmegaModel& model, Proxy<OmegaPathSuffStat&>& ss, Gen& gen) {
         /* -- */
         double mean = get<omega, params, gam_mean>(model)();
         double invshape = get<omega, params, gam_invshape>(model)();

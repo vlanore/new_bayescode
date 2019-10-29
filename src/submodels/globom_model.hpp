@@ -16,9 +16,10 @@
 #include "submodels/move_reporter.hpp"
 #include "submodels/nucrates_sm.hpp"
 #include "submodels/omega_sm.hpp"
-#include "submodels/mg_omega.hpp"
+#include "submodels/mgomega.hpp"
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
+#include "bayes_toolbox.hpp"
 
 TOKEN(global_omega)
 TOKEN(branch_lengths)
@@ -46,11 +47,15 @@ struct globom {
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
 
-        auto codon_submatrix = mg_omega::make(
-                codon_statespace, 
-                one_to_one(get<nuc_matrix>(nuc_rates)),
-                one_to_one(get<omega , value>(global_omega))
-            );
+        std::cerr << "codon matrix\n";
+
+        auto codon_submatrix = make_dnode_with_init<mgomega>(
+                {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
+                [&mat = get<nuc_matrix, value>(nuc_rates)] () -> const SubMatrix& { return mat; },
+                [&om = get<omega, value>(global_omega)] () {return om; } );
+
+        std::cerr << "codon matrix ok\n";
+        gather(codon_submatrix);
 
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
             // branch lengths
@@ -58,56 +63,52 @@ struct globom {
             // site-specific rates: all equal to 1
             n_to_const(1.0),
             // branch and site specific matrices (here, same matrix for everyone)
-            // why should I add get??
-            mn_to_one(codon_submatrix->get()),
-            // mn_to_one(get<mg_omega_proxy>(codon_submatrix).get()),
+            [&m = get<value>(codon_submatrix)] (int branch, int site) {return m;},
+            // mn_to_one(codon_submatrix),
             // site-specific matrices for root equilibrium frequencies (here same for all sites)
-            // why should I add get??
-            n_to_one(codon_submatrix->get()),
-            // n_to_one(get<mg_omega_proxy>(codon_submatrix).get()),
+            [&m = get<value>(codon_submatrix)] (int site) {return m;},
+            // n_to_one(codon_submatrix),
             // no polymorphism
             nullptr);
 
         phyloprocess->Unfold();
+        std::cerr << "lnL: " << phyloprocess->GetLogLikelihood() << '\n';
 
         // suff stats
-        BranchArrayPoissonSSW bl_suffstats{*data.tree, *phyloprocess};
+
+        auto bl_suffstats = pathss_factory::make_bl_suffstats(*phyloprocess);
 
         auto path_suffstats = pathss_factory::make_path_suffstat(*phyloprocess);
 
-        auto nucpath_ssw = nucpathssw::make(codon_statespace,
-                one_to_one(codon_submatrix->get()),
-                one_to_one(path_suffstats->get())
-                );
+        // gathering nuc path suffstats across sites: sum stored in a single NucPathSuffStat
+        auto nucpath_ss = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
+                {*codon_statespace},
+                [&mat = get<value>(codon_submatrix), &pss = *path_suffstats] (auto& nucss) 
+                    { nucss.AddSuffStat(mat, pss.get()); });
 
-        auto omega_ssw = omegassw::make(
-                one_to_one(codon_submatrix->get()),
-                one_to_one(path_suffstats->get())
-                );
+        auto omega_ss = ss_factory::make_suffstat<OmegaPathSuffStat>(
+                [&mat = get<value>(codon_submatrix), &pss = *path_suffstats] (auto& omss)
+                    { omss.AddSuffStat(mat, pss.get()); });
 
-        // OmegaSSW omega_ssw(codon_submatrix->get(), *path_suffstats);
+        std::cerr << "return model\n";
 
-        return make_model(                              //
-            global_omega_ = move(global_omega),         //
-            branch_lengths_ = move(branch_lengths),     //
-            nuc_rates_ = move(nuc_rates),               //
-            // codon_statespace_ = codon_statespace,       //
-            codon_submatrix_ = move(codon_submatrix),  //
-            phyloprocess_ = move(phyloprocess),         //
-            bl_suffstats_ = bl_suffstats,               //
-            path_suffstats_ = move(path_suffstats),     //
-            nucpath_suffstats_ = move(nucpath_ssw),           // 
-            omegapath_suffstats_ = move(omega_ssw));
-            // omegapath_suffstats_ = omega_ssw);
+        return make_model(
+            global_omega_ = move(global_omega),
+            branch_lengths_ = move(branch_lengths),
+            nuc_rates_ = move(nuc_rates),
+            // codon_statespace_ = codon_statespace,
+            codon_submatrix_ = move(codon_submatrix),
+            phyloprocess_ = move(phyloprocess),
+            bl_suffstats_ = move(bl_suffstats),
+            path_suffstats_ = move(path_suffstats),
+            nucpath_suffstats_ = move(nucpath_ss),
+            omegapath_suffstats_ = move(omega_ss));
     }
 
     // =============================================================================================
     template <class Model>
     static void touch_matrices(Model& model) {
-        auto& nuc_matrix_proxy = get<nuc_rates, matrix_proxy>(model);
-        nuc_matrix_proxy.gather();
-        auto& cod_matrix_proxy = get<codon_submatrix>(model);
-        // auto& cod_matrix_proxy = get<codon_submatrix, mg_omega_proxy>(model);
-        cod_matrix_proxy.gather();
+        gather(get<nuc_rates, nuc_matrix>(model));
+        gather(codon_submatrix_(model));
     }
 };

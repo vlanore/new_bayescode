@@ -58,8 +58,8 @@ struct siteom {
         auto codon_submatrix_array = make_dnode_array_with_init<mgomega>(
                 nsite,
                 {codon_statespace},
-                [&mat = get<nuc_matrix>(nuc_rates)] (int i) -> const SubMatrix& { return mat; },
-                // n_to_one(get<nuc_matrix>(nuc_rates)),
+                [&mat = get<nuc_matrix, value>(nuc_rates)] (int i) -> const SubMatrix& { return mat; },
+                // n_to_one(get<nuc_matrix, value>(nuc_rates)),
                 n_to_n(get<site_omega_array, value>(site_omega))
             );
 
@@ -84,7 +84,7 @@ struct siteom {
         // suff stats
 
         // branch lengths
-        BranchArrayPoissonSSW bl_suffstats{*data.tree, *phyloprocess};
+        auto bl_suffstats = pathss_factory::make_bl_suffstats(*phyloprocess);
 
         // site path suff stats
         auto site_path_suffstats = pathss_factory::make_site_path_suffstat(*phyloprocess);
@@ -103,24 +103,23 @@ struct siteom {
                     { omss[i].AddSuffStat(mat[i], pss.get(i)); },
                 nsite);
 
-        return make_model(                              //
-            // codon_statespace_ = codon_statespace,       //
-            site_omega_ = move(site_omega),         //
-            branch_lengths_ = move(branch_lengths),     //
-            nuc_rates_ = move(nuc_rates),               //
-            codon_submatrix_array_ = move(codon_submatrix_array),  //
-            phyloprocess_ = move(phyloprocess),         //
-            bl_suffstats_ = bl_suffstats,               //
-            site_path_suffstats_ = move(site_path_suffstats),     //
-            nucpath_suffstats_ = move(nucpath_ss),           // 
+        return make_model(
+            // codon_statespace_ = codon_statespace,
+            site_omega_ = move(site_omega),
+            branch_lengths_ = move(branch_lengths),
+            nuc_rates_ = move(nuc_rates),
+            codon_submatrix_array_ = move(codon_submatrix_array),
+            phyloprocess_ = move(phyloprocess),
+            bl_suffstats_ = move(bl_suffstats),
+            site_path_suffstats_ = move(site_path_suffstats),
+            nucpath_suffstats_ = move(nucpath_ss),
             site_omegapath_suffstats_ = move(site_omega_ss));
     }
 
     // =============================================================================================
     template <class Model>
     static void touch_matrices(Model& model) {
-        auto& nuc_matrix_proxy = get<nuc_rates, matrix_proxy>(model);
-        nuc_matrix_proxy.gather();
-        // gather(codon_submatrix_array_(model));
+        gather(get<nuc_rates, nuc_matrix>(model));
+        gather(codon_submatrix_array_(model));
     }
 };

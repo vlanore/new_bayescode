@@ -1,23 +1,14 @@
 #pragma once
 
-#include "bayes_toolbox/src/basic_moves.hpp"
-#include "bayes_toolbox/src/distributions/dirichlet.hpp"
-#include "bayes_toolbox/src/distributions/exponential.hpp"
-#include "bayes_toolbox/src/distributions/gamma.hpp"
-#include "bayes_toolbox/src/operations/draw.hpp"
-#include "bayes_toolbox/src/operations/logprob.hpp"
-#include "bayes_toolbox/src/structure/array_utils.hpp"
-#include "bayes_toolbox/src/structure/model.hpp"
-#include "bayes_toolbox/src/structure/node.hpp"
-#include "bayes_toolbox/utils/tagged_tuple/src/fancy_syntax.hpp"
+#include "bayes_toolbox.hpp"
 #include "bayes_utils/src/logging.hpp"
 #include "lib/GTRSubMatrix.hpp"
 #include "tree/implem.hpp"
+#include "mgomega.hpp"
 
 TOKEN(eq_freq)
 TOKEN(exch_rates)
 TOKEN(nuc_matrix)
-TOKEN(matrix_proxy)
 
 // @todo: move elsewhere
 std::vector<double> normalize(const std::vector<double>& vec) {
@@ -45,16 +36,15 @@ struct nucrates_sm {
         DEBUG("GTR model: equilibrium frequencies are {}.",
             vector_to_string(get<value>(equilibrium_frequencies)));
 
-        auto nuc_matrix = std::make_unique<GTRSubMatrix>(
-            4, get<value>(exchangeability_rates), get<value>(equilibrium_frequencies), true);
-
-        auto matrix_proxy = NucMatrixProxy(*nuc_matrix, get<value>(equilibrium_frequencies));
+        auto nuc_matrix = make_dnode_with_init<gtr>(
+                {4, get<value>(exchangeability_rates), get<value>(equilibrium_frequencies), true},
+                get<value>(exchangeability_rates),
+                get<value>(equilibrium_frequencies));
 
         return make_model(                                   //
             exch_rates_ = std::move(exchangeability_rates),  //
             eq_freq_ = std::move(equilibrium_frequencies),   //
-            nuc_matrix_ = std::move(nuc_matrix),             //
-            matrix_proxy_ = matrix_proxy);
+            nuc_matrix_ = std::move(nuc_matrix));
     }
 
     template <class SubModel, class LogProb, class Update, class Gen, class Reporter = NoReport>
@@ -132,10 +122,10 @@ struct nucrates_sm {
         Reporter reporter = {}) {
 
         auto logprob = [&model, &ss]() {
-            return ss.get().GetLogProb(matrix_proxy_(model).get());
+            return ss.get().GetLogProb(get<nuc_matrix, value>(model));
         };
 
-        auto update = [&model]() {matrix_proxy_(model).gather();};
+        auto update = [&model]() {gather(nuc_matrix_(model));};
 
         move_nucrates(model, logprob, update, gen, nrep, tuning, reporter);
     }
