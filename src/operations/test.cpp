@@ -5,11 +5,11 @@
 
 using namespace std;
 
-class MyProxy : public Proxy {
+class MyProxyMPI : public ProxyMPI {
     int& target;
 
   public:
-    MyProxy(int& target) : target(target) {}
+    MyProxyMPI(int& target) : target(target) {}
     void acquire() final { target += 1; }
     void release() final { target *= 2; }
 };
@@ -17,9 +17,9 @@ class MyProxy : public Proxy {
 TEST_CASE("ForAll test") {
     int a = 1;
     int b = 1;
-    MyProxy p1(a);
-    MyProxy p2(b);
-    MyProxy p3(a);
+    MyProxyMPI p1(a);
+    MyProxyMPI p2(b);
+    MyProxyMPI p3(a);
     CHECK(a == 1);
     CHECK(b == 1);
 
@@ -47,12 +47,12 @@ TEST_CASE("ForAll test") {
 TEST_CASE("Group test") {
     int a = 1;
     int b = 1;
-    unique_ptr<Proxy> p1(dynamic_cast<Proxy*>(new MyProxy(b)));
+    unique_ptr<ProxyMPI> p1(dynamic_cast<ProxyMPI*>(new MyProxyMPI(b)));
     // clang-format off
     Group group(
-        unique_ptr<Proxy>(dynamic_cast<Proxy*>(new MyProxy(a))),
+        unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(new MyProxyMPI(a))),
         move(p1),
-        unique_ptr<Proxy>(dynamic_cast<Proxy*>(new MyProxy(b)))
+        unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(new MyProxyMPI(b)))
     );
     // clang-format on
     CHECK(p1.get() == nullptr);
@@ -62,10 +62,10 @@ TEST_CASE("Group test") {
     CHECK(a == 4);
     CHECK(b == 12);
 
-    p1.reset(dynamic_cast<Proxy*>(new MyProxy(a)));
+    p1.reset(dynamic_cast<ProxyMPI*>(new MyProxyMPI(a)));
     group.add(move(p1));
     CHECK(p1.get() == nullptr);
-    group.add(unique_ptr<Proxy>(dynamic_cast<Proxy*>(new MyProxy(b))));
+    group.add(unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(new MyProxyMPI(b))));
 
     group.acquire();  // 3 b and 2 a
     group.release();
@@ -76,18 +76,18 @@ TEST_CASE("Group test") {
 TEST_CASE("Group order test") {
     stringstream ss;
 
-    struct MyStreamProxy : public Proxy {
+    struct MyStreamProxyMPI : public ProxyMPI {
         stringstream& ss;
         int i;
-        MyStreamProxy(stringstream& ss, int i) : ss(ss), i(i) {}
+        MyStreamProxyMPI(stringstream& ss, int i) : ss(ss), i(i) {}
         void acquire() final { ss << "+" << i; }
         void release() final { ss << "-" << i; }
     };
     // clang-format off
     Group group(
-        unique_ptr<Proxy>(dynamic_cast<Proxy*>(new MyStreamProxy{ss, 1})),
-        unique_ptr<Proxy>(dynamic_cast<Proxy*>(new MyStreamProxy{ss, 2})),
-        unique_ptr<Proxy>(dynamic_cast<Proxy*>(new MyStreamProxy{ss, 3}))
+        unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(new MyStreamProxyMPI{ss, 1})),
+        unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(new MyStreamProxyMPI{ss, 2})),
+        unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(new MyStreamProxyMPI{ss, 3}))
     );
     // clang-format on
 
@@ -100,13 +100,13 @@ TEST_CASE("Group order test") {
 TEST_CASE("make_* functions") {
     int a = 1;
     int b = 1;
-    unique_ptr<Proxy> p1(dynamic_cast<Proxy*>(new MyProxy(b)));
-    MyProxy p3(a);
-    MyProxy p4(b);
+    unique_ptr<ProxyMPI> p1(dynamic_cast<ProxyMPI*>(new MyProxyMPI(b)));
+    MyProxyMPI p3(a);
+    MyProxyMPI p4(b);
 
     // clang-format off
     auto group = make_group(
-        unique_ptr<Proxy>(dynamic_cast<Proxy*>(new MyProxy(b))),
+        unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(new MyProxyMPI(b))),
         move(p1)
     );
     auto forall = make_forall(&p3, &p4, group.get());
@@ -161,7 +161,7 @@ TEST_CASE("ForInContainer test") {
         {[&ss]() { ss << "*2"; }, [&ss]() { ss << "/2"; } },
         {[&ss]() { ss << "*3"; }, [&ss]() { ss << "/3"; } }
     };
-    ForInContainer<vector<MyStruct>> group(v, [](MyStruct& s) -> Proxy& { return s.op; });
+    ForInContainer<vector<MyStruct>> group(v, [](MyStruct& s) -> ProxyMPI& { return s.op; });
     ForInContainer<vector<Operation>> group2(v2);
     // clang-format on
 
@@ -182,7 +182,7 @@ TEST_CASE("make_for_in_container") {
         {[&ss]() { ss << "*2"; }, [&ss]() { ss << "/2"; }},
         {[&ss]() { ss << "*3"; }, [&ss]() { ss << "/3"; }}
     };
-    auto group = make_for_in_container(v, [](MyStruct& s) -> Proxy& { return s.op; });
+    auto group = make_for_in_container(v, [](MyStruct& s) -> ProxyMPI& { return s.op; });
     auto group2 = make_for_in_container(v2);
     // clang-format on
 

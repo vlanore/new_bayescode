@@ -6,7 +6,7 @@
 /*==================================================================================================
   ScatterMaster
 ==================================================================================================*/
-class ScatterMaster : public Proxy {
+class ScatterMaster : public ProxyMPI {
     Partition partition;
     PartitionedBufferManager manager;
 
@@ -29,7 +29,7 @@ class ScatterMaster : public Proxy {
 /*==================================================================================================
   ScatterSlave
 ==================================================================================================*/
-class ScatterSlave : public Proxy {
+class ScatterSlave : public ProxyMPI {
     BufferManager manager;
     Partition partition;
 
@@ -57,14 +57,14 @@ class ScatterSlave : public Proxy {
   component depending on the process
 ==================================================================================================*/
 template <class... Variables>
-std::unique_ptr<Proxy> scatter(Partition partition, Variables&&... vars) {
+std::unique_ptr<ProxyMPI> scatter(Partition partition, Variables&&... vars) {
     if (!MPI::p->rank) {  // master
         auto scatterer = new ScatterMaster(partition);
         scatterer->add(std::forward<Variables>(vars)...);
-        return std::unique_ptr<Proxy>(dynamic_cast<Proxy*>(scatterer));
+        return std::unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(scatterer));
     } else {  // slave
         auto scatterer = new ScatterSlave(partition);
         scatterer->add(std::forward<Variables>(vars)...);
-        return std::unique_ptr<Proxy>(dynamic_cast<Proxy*>(scatterer));
+        return std::unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(scatterer));
     }
 }

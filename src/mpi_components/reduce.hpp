@@ -10,7 +10,7 @@
   An object responsible for Reducing the values of specified fields to other processes
   is meant to communicate with one ReducerSlave per other process
 ==================================================================================================*/
-class ReducerMaster : public Proxy {
+class ReducerMaster : public ProxyMPI {
     BufferManager manager;
 
     std::vector<int> zeroes_int;
@@ -60,7 +60,7 @@ class ReducerMaster : public Proxy {
 /*==================================================================================================
   ReducerSlave
 ==================================================================================================*/
-class ReducerSlave : public Proxy {
+class ReducerSlave : public ProxyMPI {
     BufferManager manager;
 
   public:
@@ -102,14 +102,14 @@ class ReducerSlave : public Proxy {
   component depending on the process
 ==================================================================================================*/
 template <class... Variables>
-std::unique_ptr<Proxy> reduce(Variables&&... vars) {
+std::unique_ptr<ProxyMPI> reduce(Variables&&... vars) {
     if (!MPI::p->rank) {  // master
         auto reducer = new ReducerMaster();
         reducer->add(std::forward<Variables>(vars)...);
-        return std::unique_ptr<Proxy>(dynamic_cast<Proxy*>(reducer));
+        return std::unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(reducer));
     } else {  // slave
         auto reducer = new ReducerSlave();
         reducer->add(std::forward<Variables>(vars)...);
-        return std::unique_ptr<Proxy>(dynamic_cast<Proxy*>(reducer));
+        return std::unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(reducer));
     }
 }

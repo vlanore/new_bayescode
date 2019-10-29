@@ -6,7 +6,7 @@
 /*==================================================================================================
   GatherMaster
 ==================================================================================================*/
-class GatherMaster : public Proxy {
+class GatherMaster : public ProxyMPI {
     Partition partition;
     PartitionedBufferManager manager;
 
@@ -30,7 +30,7 @@ class GatherMaster : public Proxy {
 /*==================================================================================================
   GatherSlave
 ==================================================================================================*/
-class GatherSlave : public Proxy {
+class GatherSlave : public ProxyMPI {
     BufferManager manager;
     Partition partition;
 
@@ -57,14 +57,14 @@ class GatherSlave : public Proxy {
   component depending on the process
 ==================================================================================================*/
 template <class... Variables>
-std::unique_ptr<Proxy> gather(Partition partition, Variables&&... vars) {
+std::unique_ptr<ProxyMPI> gather(Partition partition, Variables&&... vars) {
     if (!MPI::p->rank) {  // master
         auto gatherer = new GatherMaster(partition);
         gatherer->add(std::forward<Variables>(vars)...);
-        return std::unique_ptr<Proxy>(dynamic_cast<Proxy*>(gatherer));
+        return std::unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(gatherer));
     } else {  // slave
         auto gatherer = new GatherSlave(partition);
         gatherer->add(std::forward<Variables>(vars)...);
-        return std::unique_ptr<Proxy>(dynamic_cast<Proxy*>(gatherer));
+        return std::unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(gatherer));
     }
 }

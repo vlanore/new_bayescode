@@ -9,7 +9,7 @@
   An object responsible for broadcasting the values of specified fields to other processes
   is meant to communicate with one BroadcasterSlave per other process
 ==================================================================================================*/
-class BroadcasterMaster : public Proxy {
+class BroadcasterMaster : public ProxyMPI {
     BufferManager buf;
 
   public:
@@ -30,7 +30,7 @@ class BroadcasterMaster : public Proxy {
 /*==================================================================================================
   BroadcasterSlave
 ==================================================================================================*/
-class BroadcasterSlave : public Proxy {
+class BroadcasterSlave : public ProxyMPI {
     BufferManager buf;
 
   public:
@@ -55,14 +55,14 @@ class BroadcasterSlave : public Proxy {
   component depending on the process
 ==================================================================================================*/
 template <class... Variables>
-std::unique_ptr<Proxy> broadcast(Variables&&... vars) {
+std::unique_ptr<ProxyMPI> broadcast(Variables&&... vars) {
     if (!MPI::p->rank) {  // master
         auto broadcaster = new BroadcasterMaster();
         broadcaster->add(std::forward<Variables>(vars)...);
-        return std::unique_ptr<Proxy>(dynamic_cast<Proxy*>(broadcaster));
+        return std::unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(broadcaster));
     } else {  // slave
         auto broadcaster = new BroadcasterSlave();
         broadcaster->add(std::forward<Variables>(vars)...);
-        return std::unique_ptr<Proxy>(dynamic_cast<Proxy*>(broadcaster));
+        return std::unique_ptr<ProxyMPI>(dynamic_cast<ProxyMPI*>(broadcaster));
     }
 }

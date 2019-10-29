@@ -1,8 +1,8 @@
 #pragma once
 
-class Proxy {
+class ProxyMPI {
   public:
     virtual void acquire() {}
     virtual void release() {}
-    virtual ~Proxy() = default;
+    virtual ~ProxyMPI() = default;
 };

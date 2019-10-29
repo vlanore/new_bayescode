@@ -82,25 +82,25 @@ template <class Model, class Class>
 using decl_pointer_t = void (Model::*)(RegistrarBase<Class>&);
 
 template <class MasterClass, class SlaveClass, class Model, class... ConstructorArgs>
-std::unique_ptr<Proxy> instantiate_and_declare(Model& m,
+std::unique_ptr<ProxyMPI> instantiate_and_declare(Model& m,
     decl_pointer_t<Model, MasterClass> f_master, decl_pointer_t<Model, SlaveClass> f_slave,
     filter_t filter, ConstructorArgs&&... args) {
     /* -- */
-    std::unique_ptr<Proxy> result{nullptr};
+    std::unique_ptr<ProxyMPI> result{nullptr};
     if (!MPI::p->rank) {
         auto component = new MasterClass(std::forward<ConstructorArgs>(args)...);
         component->register_from_method(m, f_master, filter);
-        result.reset(dynamic_cast<Proxy*>(component));
+        result.reset(dynamic_cast<ProxyMPI*>(component));
     } else {
         auto component = new SlaveClass(std::forward<ConstructorArgs>(args)...);
         component->register_from_method(m, f_slave, filter);
-        result.reset(dynamic_cast<Proxy*>(component));
+        result.reset(dynamic_cast<ProxyMPI*>(component));
     }
     return result;
 }
 
 template <class MasterClass, class SlaveClass, class Model, class... ConstructorArgs>
-std::unique_ptr<Proxy> instantiate_and_declare_from_model(
+std::unique_ptr<ProxyMPI> instantiate_and_declare_from_model(
     Model& m, filter_t filter, ConstructorArgs&&... args) {
     /* -- */
     return instantiate_and_declare<MasterClass, SlaveClass, Model>(m, &Model::declare_model,
