@@ -18,10 +18,11 @@
 #include "submodels/siteomega_sm.hpp"
 #include "distributions/dirichlet.hpp"
 #include "distributions/categorical.hpp"
-#include "submodels/mg_omega.hpp"
+#include "submodels/mgomega.hpp"
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
 #include "structure/suffstat.hpp"
+#include "bayes_toolbox.hpp"
 
 TOKEN(branch_lengths)
 TOKEN(nuc_rates)
@@ -86,28 +87,31 @@ struct mixom {
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
 
         // an array of MG Omega Codon matrices, with same nucrates but each with its own omega
+        /*
         auto codon_submatrix_array = mg_omega::make(
                 codon_statespace, 
                 n_to_one(get<nuc_matrix>(nuc_rates)),
                 n_to_n(get<site_omega_array, value>(omega)),
                 ncomp
             );
+        */
 
-        /*
-        auto codon_submatrix_array = make_dnode_array_from<MGOmegaCodonSubMatrix>(
+        auto codon_submatrix_array = make_dnode_array_with_init<mgomega>(
                 ncomp,
                 {codon_statespace},
-                n_to_one(get<nuc_matrix>(nuc_rates)),
+                [&mat = get<nuc_matrix>(nuc_rates)] (int i) -> const SubMatrix& { return mat; },
+                // n_to_one(get<nuc_matrix>(nuc_rates)),
                 n_to_n(get<site_omega_array, value>(omega))
             );
-            */
 
         // phyloprocess
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
             n_to_n(get<bl_array, value>(branch_lengths)),
             n_to_const(1.0),
-            mn_to_mixn(*codon_submatrix_array, alloc),
-            n_to_mix(*codon_submatrix_array, alloc),
+            [&m = get<value>(codon_submatrix_array), &z = get<value>(alloc)] (int branch, int site) {return m[z[site]];},
+            // mn_to_mixn(get<value>(codon_submatrix_array), alloc),
+            [&m = get<value>(codon_submatrix_array), &z = get<value>(alloc)] (int site) {return m[z[site]];},
+            // n_to_mix(get<value>(codon_submatrix_array), alloc),
             nullptr);
 
         phyloprocess->Unfold();
@@ -120,13 +124,6 @@ struct mixom {
 
         // site path suff stats
         auto site_path_suffstats = sitepathssw::make(*phyloprocess);
-        /*
-        auto site_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
-                nsite,
-                [&phylo = *phyloprocess] (auto& site_ss)
-                    { phylo.AddPathSuffStat( [&site_ss] (int branch, int site) -> PathSuffStat& { return site_ss[site]; } ); });
-        */
-
 
         auto comp_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
                 ncomp,
@@ -136,14 +133,14 @@ struct mixom {
 
         auto nucpath_ssw = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
                 {*codon_statespace},
-                [&mat = *codon_submatrix_array, &pss = *comp_path_suffstats] (auto& nucss, int i) 
-                    { nucss.AddSuffStat(mat.get(i), pss.get(i)); },
+                [&mat = get<value>(codon_submatrix_array), &pss = *comp_path_suffstats] (auto& nucss, int i) 
+                    { nucss.AddSuffStat(mat[i], pss.get(i)); },
                 ncomp);
 
         auto comp_omega_ssw = ss_factory::make_suffstat_array<OmegaPathSuffStat>(
                 ncomp,
-                [&mat = *codon_submatrix_array, &pss = *comp_path_suffstats] (auto& omss, int i) 
-                    { omss[i].AddSuffStat(mat.get(i), pss.get(i)); },
+                [&mat = get<value>(codon_submatrix_array), &pss = *comp_path_suffstats] (auto& omss, int i) 
+                    { omss[i].AddSuffStat(mat[i], pss.get(i)); },
                 ncomp);
 
         return make_model(                              //
@@ -172,7 +169,6 @@ struct mixom {
     static void touch_matrices(Model& model) {
         auto& nuc_matrix_proxy = get<nuc_rates, matrix_proxy>(model);
         nuc_matrix_proxy.gather();
-        auto& cod_matrix_proxy = get<codon_submatrix_array>(model);
-        cod_matrix_proxy.gather();
+        gather(codon_submatrix_array_(model));
     }
 };
