@@ -24,7 +24,7 @@
 
 class NucPathSuffStat : public SuffStat {
   public:
-    NucPathSuffStat(const CodonStateSpace& incod = CodonStateSpace(Universal))
+    NucPathSuffStat(const CodonStateSpace &incod = CodonStateSpace(Universal))
         : rootcount(4, 0),
           paircount(4, std::vector<int>(4, 0)),
           pairbeta(4, std::vector<double>(4, 0)),
@@ -214,7 +214,12 @@ class NucPathSuffStat : public SuffStat {
     std::vector<int> rootcount;
     std::vector<std::vector<int>> paircount;
     std::vector<std::vector<double>> pairbeta;
-    const CodonStateSpace& cod;
+    const CodonStateSpace &cod;
+
+    bool operator==(NucPathSuffStat &other) const {
+        return rootcount == other.rootcount && paircount == other.paircount &&
+               pairbeta == other.pairbeta;
+    }
 };
 
 template <>
