@@ -96,5 +96,9 @@ class PoissonSuffStat : public SuffStat {
     // protected:
     int count;
     double beta;
+
+    bool operator==(const PoissonSuffStat& other) const {
+        return count == other.count && beta == other.beta;
+    }
 };
 
