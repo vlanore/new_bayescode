@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     MoveStatsRegistry ms;
 
     // move schedule
-    auto scheduler = make_move_scheduler([&gen, &model, &ms]() {
+    auto scheduler = make_move_scheduler([&gen, &model]() {
         // move phyloprocess
         globom::touch_matrices(model);
         phyloprocess_(model).Move(1.0);

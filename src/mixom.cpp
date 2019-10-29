@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     MoveStatsRegistry ms;
 
     // move schedule
-    auto scheduler = make_move_scheduler([&gen, &model, &ms]() {
+    auto scheduler = make_move_scheduler([&gen, &model]() {
         // move phyloprocess
         std::cerr << "touch\n";
         mixom::touch_matrices(model);
@@ -43,7 +43,8 @@ int main(int argc, char* argv[]) {
             std::cerr << "gather om path\n";
             comp_omegapath_suffstats_(model).gather();
             std::cerr << "gibbs resample \n";
-            siteomega_sm::gibbs_resample(omega_array_(model), comp_omegapath_suffstats_(model), gen);
+            siteomega_sm::gibbs_resample(
+                omega_array_(model), comp_omegapath_suffstats_(model), gen);
             // realloc move
 
             std::cerr << "nuc\n";

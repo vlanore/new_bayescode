@@ -13,7 +13,7 @@ struct pathssw  {
                 [&phyloprocess] (auto& ss)
                     { phyloprocess.AddPathSuffStat( [&ss] (int branch, int site) -> PathSuffStat& { return ss; } ); });
 
-        return std::move(path_suffstat);
+        return path_suffstat;
     }
 };
 
@@ -25,7 +25,7 @@ struct sitepathssw  {
                 [&phyloprocess] (auto& site_ss)
                     { phyloprocess.AddPathSuffStat( [&site_ss] (int branch, int site) -> PathSuffStat& { return site_ss[site]; } ); });
 
-        return std::move(site_path_suffstats);
+        return site_path_suffstats;
     }
 };
 
@@ -68,7 +68,7 @@ struct pathssarrayw {
     static auto make(size_t k, IndexSelector index, PathSuffStatSelector pathss, Size n) {
             auto ret = std::make_unique<PathSSArrayW<IndexSelector, PathSuffStatSelector, Size>>
                 (k, index, pathss, n);
-            return std::move(ret);
+            return ret;
     }
 };
 
@@ -133,14 +133,14 @@ struct nucpathssw {
     static auto make(const CodonStateSpace* codonstatespace, CodonMatrixSelector codonmat, PathSuffStatSelector pathss) {
             auto nucss = std::make_unique<NucPathSSW0<CodonMatrixSelector, PathSuffStatSelector>>
                 (codonstatespace, codonmat, pathss);
-            return std::move(nucss);
+            return nucss;
     }
 
     template<class CodonMatrixSelector, class PathSuffStatSelector, class Size>
     static auto make(const CodonStateSpace* codonstatespace, CodonMatrixSelector codonmat, PathSuffStatSelector pathss, Size n) {
             auto nucss = std::make_unique<NucPathSSW1<CodonMatrixSelector, PathSuffStatSelector, Size>>
                 (codonstatespace, codonmat, pathss, n);
-            return std::move(nucss);
+            return nucss;
     }
 };
 
@@ -252,20 +252,20 @@ struct omegassw {
     template<class CodonMatrixSelector, class PathSuffStatSelector>
     static auto make(CodonMatrixSelector codonmat, PathSuffStatSelector pathss) {
             auto omegass = std::make_unique<OmegaSSW0<CodonMatrixSelector, PathSuffStatSelector>>(codonmat, pathss);
-            return std::move(omegass);
+            return omegass;
     }
 
     template<class CodonMatrixSelector, class PathSuffStatSelector, class Size>
     static auto make(CodonMatrixSelector codonmat, PathSuffStatSelector pathss, Size n) {
             auto omegass = std::make_unique<OmegaSSW1<CodonMatrixSelector, PathSuffStatSelector, Size>>(codonmat, pathss, n);
-            return std::move(omegass);
+            return omegass;
     }
 
     template<class IndexSelector, class CodonMatrixSelector, class PathSuffStatSelector, class Size>
     static auto make(size_t k, IndexSelector index, CodonMatrixSelector codonmat, PathSuffStatSelector pathss, Size n) {
             auto omegass = std::make_unique<OmegaSSArrayW<IndexSelector, CodonMatrixSelector, PathSuffStatSelector, Size>>
                 (k, index, codonmat, pathss, n);
-            return std::move(omegass);
+            return omegass;
     }
 };
 
