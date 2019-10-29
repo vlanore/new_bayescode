@@ -21,6 +21,7 @@
 #include "submodels/mg_omega.hpp"
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
+#include "structure/suffstat.hpp"
 
 TOKEN(branch_lengths)
 TOKEN(nuc_rates)
@@ -92,6 +93,15 @@ struct mixom {
                 ncomp
             );
 
+        /*
+        auto codon_submatrix_array = make_dnode_array_from<MGOmegaCodonSubMatrix>(
+                ncomp,
+                {codon_statespace},
+                n_to_one(get<nuc_matrix>(nuc_rates)),
+                n_to_n(get<site_omega_array, value>(omega))
+            );
+            */
+
         // phyloprocess
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
             n_to_n(get<bl_array, value>(branch_lengths)),
@@ -111,37 +121,23 @@ struct mixom {
         // site path suff stats
         auto site_path_suffstats = sitepathssw::make(*phyloprocess);
 
-        // gathering site-pathsuffstats component-wise
-        auto comp_path_suffstats = pathssarrayw::make(
-                ncomp,                          // size of the vector of (component) PathSufFStats
-                n_to_mix(alloc),                // ith. iteration maps onto alloc[i].th (component) PathSuffStat
-                n_to_n(*site_path_suffstats),   // ith. iteration gets suffstats from ith. (site) PathSuffStat
-                nsite);                         // iteration range (here, over sites)
+        auto comp_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
+                ncomp,
+                [&site_ss = *site_path_suffstats, &z = get<value>(alloc)] (auto& comp_ss, int i) 
+                    { comp_ss[z[i]].Add(site_ss.get(i)); },
+                nsite);
 
-        // gathering nuc path suffstats across components: sum stored in a single NucPathSuffStat
-        auto nucpath_ssw = nucpathssw::make(codon_statespace,
-                n_to_n(*codon_submatrix_array),
-                n_to_n(*comp_path_suffstats),
+        auto nucpath_ssw = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
+                {*codon_statespace},
+                [&mat = *codon_submatrix_array, &pss = *comp_path_suffstats] (auto& nucss, int i) 
+                    { nucss.AddSuffStat(mat.get(i), pss.get(i)); },
                 ncomp);
 
-        // component-specific OmegaPathSuffStat, each connected to the PathSuffStat and the codon matrix of the corresponding component
-        // here, used in a ncomp-to-ncomp pattern
-        auto comp_omega_ssw = omegassw::make(
-                ncomp,                          // size of the vector of OmegaPathSuffStat
-                [] (int i) {return i;},         // ith. component maps onto ith. OmegaPathSuffStat
-                n_to_n(*codon_submatrix_array), // ith. OmegaPathSuffStat depends on ith. codon matrix
-                n_to_n(*comp_path_suffstats),   // ith. OmegaPathSuffStat gets suffstats from ith. PathSuffStat
-                ncomp);                         // iteration range (here, over components)
-
-        // computationally less efficient
-        /*
-        auto comp_omega_ssw = omegassw::make(
+        auto comp_omega_ssw = ss_factory::make_suffstat_array<OmegaPathSuffStat>(
                 ncomp,
-                n_to_alloc(alloc),
-                n_to_alloc(*codon_submatrix_array, alloc),
-                n_to_n(*site_path_suffstats),
-                nsite);
-        */
+                [&mat = *codon_submatrix_array, &pss = *comp_path_suffstats] (auto& omss, int i) 
+                    { omss[i].AddSuffStat(mat.get(i), pss.get(i)); },
+                ncomp);
 
         return make_model(                              //
             // codon_statespace_ = codon_statespace,       //
@@ -157,6 +153,7 @@ struct mixom {
             phyloprocess_ = move(phyloprocess),         //
 
             bl_suffstats_ = bl_suffstats,               //
+
             site_path_suffstats_ = move(site_path_suffstats),     //
             comp_path_suffstats_ = move(comp_path_suffstats),     //
             nucpath_suffstats_ = move(nucpath_ssw),           // 
