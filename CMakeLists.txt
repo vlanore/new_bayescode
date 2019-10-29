@@ -95,3 +95,6 @@ target_link_libraries(simu_and_infer ${BASE_LIBS})
 
 add_executable(coin_tosses_mpi "src/coin_tosses_beta_MPI.cpp")
 target_link_libraries(coin_tosses_mpi ${MPI_LIBRARIES})
+add_executable(coin_tosses_modular_mpi "src/coin_tosses_beta_modular_MPI.cpp")
+target_link_libraries(coin_tosses_modular_mpi ${MPI_LIBRARIES})
+
