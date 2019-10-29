@@ -144,24 +144,6 @@ struct nucpathssw {
     }
 };
 
-/*
-class NucPathSSW final : public Proxy<NucPathSuffStat&> {
-    NucPathSuffStat _nucss;
-    NucCodonSubMatrix& _codon_submatrix;
-    Proxy<PathSuffStat&>& _path_suffstat;
-
-    NucPathSuffStat& _get() final { return _nucss; }
-
-  public:
-    NucPathSSW(NucCodonSubMatrix& codon_submatrix, Proxy<PathSuffStat&>& path_suffstat) : _nucss(*codon_submatrix.GetCodonStateSpace()), _codon_submatrix(codon_submatrix), _path_suffstat(path_suffstat) {}
-
-    void gather() final {
-        _nucss.Clear();
-        _nucss.AddSuffStat(_codon_submatrix, _path_suffstat.get());
-    }
-};
-*/
-
 // =================================================================================================
 class NucMatrixProxy : public Proxy<GTRSubMatrix&> {
     GTRSubMatrix& _mat;
@@ -333,29 +315,3 @@ class OmegaSSW final : public Proxy<omega_suffstat_t> {  // SSW = suff stat wrap
     }
 };
 
-class SiteOmegaSSW final : public Proxy<omega_suffstat_t, int> {  // SSW = suff stat wrapper
-    const std::vector<MGOmegaCodonSubMatrix>& _codon_submatrix_array;
-    // Proxy<OmegaCodonSubMatrix&, int>& _codon_submatrix_array;
-    Proxy<PathSuffStat&, int>& _path_suffstat_array;
-    std::vector<OmegaPathSuffStat> _ss;
-
-    omega_suffstat_t _get(int i) final {
-        assert(i < _ss.size());
-        return {_ss[i].GetCount(), _ss[i].GetBeta()}; 
-    }
-
-  public:
-    SiteOmegaSSW(size_t nsite, const std::vector<MGOmegaCodonSubMatrix>& codon_submatrix_array, Proxy<PathSuffStat&, int>& pathsuffstatarray)
-    // SiteOmegaSSW(size_t nsite, Proxy<OmegaCodonSubMatrix&, int>& codon_submatrix_array, Proxy<PathSuffStat&, int>& pathsuffstatarray)
-        : _codon_submatrix_array(codon_submatrix_array), _path_suffstat_array(pathsuffstatarray), _ss(nsite) {}
-
-    void gather() final {
-        for (size_t i=0; i<_ss.size(); i++) {
-            // std::cerr << i << '\t' << _ss.size() << '\n';
-            _ss[i].Clear();
-
-            // _ss[i].AddSuffStat(_codon_submatrix_array.get(i), _path_suffstat_array.get(i));
-            _ss[i].AddSuffStat(_codon_submatrix_array[i], _path_suffstat_array.get(i));
-        }
-    }
-};
