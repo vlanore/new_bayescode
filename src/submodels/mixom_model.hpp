@@ -120,6 +120,13 @@ struct mixom {
 
         // site path suff stats
         auto site_path_suffstats = sitepathssw::make(*phyloprocess);
+        /*
+        auto site_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
+                nsite,
+                [&phylo = *phyloprocess] (auto& site_ss)
+                    { phylo.AddPathSuffStat( [&site_ss] (int branch, int site) -> PathSuffStat& { return site_ss[site]; } ); });
+        */
+
 
         auto comp_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
                 ncomp,
