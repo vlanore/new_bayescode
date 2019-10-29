@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include "Proxy.hpp"
@@ -7,68 +8,31 @@
 #include "structure/suffstat.hpp"
 
 // a single path suffstat attached to a phyloprocess (site- and time-homogeneous)
-struct pathssw  {
-    static auto make(PhyloProcess& phyloprocess)    {
+struct pathss_factory {
+
+    static auto make_path_suffstat(PhyloProcess& phyloprocess)    {
         auto path_suffstat = ss_factory::make_suffstat<PathSuffStat>(
                 [&phyloprocess] (auto& ss)
                     { phyloprocess.AddPathSuffStat( [&ss] (int branch, int site) -> PathSuffStat& { return ss; } ); });
 
         return path_suffstat;
     }
-};
 
-// an array of site-specific path suffstats attached to a phyloprocess (site-heterogeneous, time-homogeneous)
-struct sitepathssw  {
-    static auto make(PhyloProcess& phyloprocess)    {
+    static auto make_site_path_suffstat(PhyloProcess& phyloprocess)    {
         auto site_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
                 phyloprocess.GetNsite(),
                 [&phyloprocess] (auto& site_ss)
                     { phyloprocess.AddPathSuffStat( [&site_ss] (int branch, int site) -> PathSuffStat& { return site_ss[site]; } ); });
-
         return site_path_suffstats;
     }
-};
 
-// an array of path suffstats susceptible to collect from a certain range of path suffstats
-struct pathssarrayw {
-
-    template<class IndexSelector, class PathSuffStatSelector, class Size>
-    class PathSSArrayW final : public Proxy<PathSuffStat&, int> {
-        IndexSelector _index_selector;
-        PathSuffStatSelector _path_suffstat_selector;
-        size_t _n;
-        std::vector<PathSuffStat> _ss;
-
-        PathSuffStat& _get(int i) final {
-            assert(i < _ss.size());
-            return _ss[i]; 
-        }
-
-      public:
-        PathSSArrayW(size_t k, IndexSelector& index_selector, PathSuffStatSelector& path_suffstat_selector, Size n):
-            _index_selector(index_selector),
-            _path_suffstat_selector(path_suffstat_selector),
-            _n(n),
-            _ss(k) {}
-
-
-        void gather() final {
-            for (size_t i=0; i<_ss.size(); i++) {
-                _ss[i].Clear();
-            }
-            for (size_t i=0; i<_n; i++)   {
-                auto index = _index_selector(i);
-                assert(index >= 0 && index < _ss.size());
-                _ss[index].Add(_path_suffstat_selector(i));
-            }
-        }
-    };
-
-    template<class IndexSelector, class PathSuffStatSelector, class Size>
-    static auto make(size_t k, IndexSelector index, PathSuffStatSelector pathss, Size n) {
-            auto ret = std::make_unique<PathSSArrayW<IndexSelector, PathSuffStatSelector, Size>>
-                (k, index, pathss, n);
-            return ret;
+    static auto make_reduced_path_suffstat(int ncomp, Proxy<PathSuffStat,int>& site_path_suffstat, const std::vector<int>& alloc)  {
+        auto comp_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
+                ncomp,
+                [&site_ss = site_path_suffstat, &z = alloc] (auto& comp_ss, int i) 
+                    { comp_ss[z[i]].Add(site_ss.get(i)); },
+                alloc.size());
+        return comp_path_suffstats;
     }
 };
 

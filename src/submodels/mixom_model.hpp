@@ -87,15 +87,6 @@ struct mixom {
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
 
         // an array of MG Omega Codon matrices, with same nucrates but each with its own omega
-        /*
-        auto codon_submatrix_array = mg_omega::make(
-                codon_statespace, 
-                n_to_one(get<nuc_matrix>(nuc_rates)),
-                n_to_n(get<site_omega_array, value>(omega)),
-                ncomp
-            );
-        */
-
         auto codon_submatrix_array = make_dnode_array_with_init<mgomega>(
                 ncomp,
                 {codon_statespace},
@@ -123,23 +114,23 @@ struct mixom {
         BranchArrayPoissonSSW bl_suffstats{*data.tree, *phyloprocess};
 
         // site path suff stats
-        auto site_path_suffstats = sitepathssw::make(*phyloprocess);
+        auto site_path_ss = pathss_factory::make_site_path_suffstat(*phyloprocess);
 
-        auto comp_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
+        auto comp_path_ss = ss_factory::make_suffstat_array<PathSuffStat>(
                 ncomp,
-                [&site_ss = *site_path_suffstats, &z = get<value>(alloc)] (auto& comp_ss, int i) 
+                [&site_ss = *site_path_ss, &z = get<value>(alloc)] (auto& comp_ss, int i) 
                     { comp_ss[z[i]].Add(site_ss.get(i)); },
                 nsite);
 
-        auto nucpath_ssw = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
+        auto nucpath_ss = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
                 {*codon_statespace},
-                [&mat = get<value>(codon_submatrix_array), &pss = *comp_path_suffstats] (auto& nucss, int i) 
+                [&mat = get<value>(codon_submatrix_array), &pss = *comp_path_ss] (auto& nucss, int i) 
                     { nucss.AddSuffStat(mat[i], pss.get(i)); },
                 ncomp);
 
-        auto comp_omega_ssw = ss_factory::make_suffstat_array<OmegaPathSuffStat>(
+        auto comp_omega_ss = ss_factory::make_suffstat_array<OmegaPathSuffStat>(
                 ncomp,
-                [&mat = get<value>(codon_submatrix_array), &pss = *comp_path_suffstats] (auto& omss, int i) 
+                [&mat = get<value>(codon_submatrix_array), &pss = *comp_path_ss] (auto& omss, int i) 
                     { omss[i].AddSuffStat(mat[i], pss.get(i)); },
                 ncomp);
 
@@ -158,10 +149,10 @@ struct mixom {
 
             bl_suffstats_ = bl_suffstats,               //
 
-            site_path_suffstats_ = move(site_path_suffstats),     //
-            comp_path_suffstats_ = move(comp_path_suffstats),     //
-            nucpath_suffstats_ = move(nucpath_ssw),           // 
-            comp_omegapath_suffstats_ = move(comp_omega_ssw));
+            site_path_suffstats_ = move(site_path_ss),     //
+            comp_path_suffstats_ = move(comp_path_ss),     //
+            nucpath_suffstats_ = move(nucpath_ss),           // 
+            comp_omegapath_suffstats_ = move(comp_omega_ss));
     }
 
     // =============================================================================================

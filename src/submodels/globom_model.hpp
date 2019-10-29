@@ -73,7 +73,7 @@ struct globom {
         // suff stats
         BranchArrayPoissonSSW bl_suffstats{*data.tree, *phyloprocess};
 
-        auto path_suffstats = pathssw::make(*phyloprocess);
+        auto path_suffstats = pathss_factory::make_path_suffstat(*phyloprocess);
 
         auto nucpath_ssw = nucpathssw::make(codon_statespace,
                 one_to_one(codon_submatrix->get()),
