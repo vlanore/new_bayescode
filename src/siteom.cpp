@@ -21,30 +21,21 @@ int main(int argc, char* argv[]) {
     // move schedule
     auto scheduler = make_move_scheduler([&gen, &model]() {
         // move phyloprocess
-        std::cerr << "touch\n";
         siteom::touch_matrices(model);
-        std::cerr << "sub\n";
         phyloprocess_(model).Move(1.0);
-        std::cerr << "subok\n";
 
         // move omega
         for (int rep = 0; rep < 30; rep++) {
             // move branch lengths
-            std::cerr << "bl\n";
             bl_suffstats_(model).gather();
             branchlengths_sm::gibbs_resample(branch_lengths_(model), bl_suffstats_(model), gen);
 
-            std::cerr << "omega\n";
             // move omega
-            std::cerr << "gather sit path\n";
             site_path_suffstats_(model).gather();
-            std::cerr << "gather om path\n";
             site_omegapath_suffstats_(model).gather();
-            std::cerr << "gibbs resample \n";
             siteomega_sm::gibbs_resample(site_omega_(model), site_omegapath_suffstats_(model), gen);
             // omega_sm::move_hyper(site_omega_(model), site_omegapath_suffstats_(model), gen);
 
-            std::cerr << "nuc\n";
             // move nuc rates
             nucpath_suffstats_(model).gather();
             nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);

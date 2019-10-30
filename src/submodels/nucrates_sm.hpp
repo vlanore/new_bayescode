@@ -4,7 +4,8 @@
 #include "bayes_utils/src/logging.hpp"
 #include "lib/GTRSubMatrix.hpp"
 #include "tree/implem.hpp"
-#include "mgomega.hpp"
+
+#include "gtr.hpp"
 
 TOKEN(eq_freq)
 TOKEN(exch_rates)
@@ -40,6 +41,8 @@ struct nucrates_sm {
                 {4, get<value>(exchangeability_rates), get<value>(equilibrium_frequencies), true},
                 get<value>(exchangeability_rates),
                 get<value>(equilibrium_frequencies));
+
+        gather(nuc_matrix);
 
         return make_model(                                   //
             exch_rates_ = std::move(exchangeability_rates),  //

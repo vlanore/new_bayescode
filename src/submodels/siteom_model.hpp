@@ -57,7 +57,8 @@ struct siteom {
         // an array of MG Omega Codon matrices, with same nucrates but each with its own omega
         auto codon_submatrix_array = make_dnode_array_with_init<mgomega>(
                 nsite,
-                {codon_statespace},
+                // {codon_statespace},
+                {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
                 [&mat = get<nuc_matrix, value>(nuc_rates)] (int i) -> const SubMatrix& { return mat; },
                 // n_to_one(get<nuc_matrix, value>(nuc_rates)),
                 n_to_n(get<site_omega_array, value>(site_omega))
@@ -70,10 +71,10 @@ struct siteom {
             // site-specific rates: all equal to 1
             n_to_const(1.0),
             // branch and site specific matrices (here, same matrix for everyone)
-            [&m = get<value>(codon_submatrix_array)] (int branch, int site) {return m[site];},
+            [&m = get<value>(codon_submatrix_array)] (int branch, int site) -> const SubMatrix& {return m[site];},
             // mn_to_n(*codon_submatrix_array),
             // site-specific matrices for root equilibrium frequencies (here same for all sites)
-            [&m = get<value>(codon_submatrix_array)] (int site) {return m[site];},
+            [&m = get<value>(codon_submatrix_array)] (int site) -> const SubMatrix& {return m[site];},
             // n_to_n(*codon_submatrix_array),
             // no polymorphism
             nullptr);

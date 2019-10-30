@@ -89,7 +89,8 @@ struct mixom {
         // an array of MG Omega Codon matrices, with same nucrates but each with its own omega
         auto codon_submatrix_array = make_dnode_array_with_init<mgomega>(
                 ncomp,
-                {codon_statespace},
+                // {codon_statespace},
+                {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
                 [&mat = get<nuc_matrix, value>(nuc_rates)] (int i) -> const SubMatrix& { return mat; },
                 // n_to_one(get<nuc_matrix, value>(nuc_rates)),
                 n_to_n(get<site_omega_array, value>(omega))
@@ -99,9 +100,9 @@ struct mixom {
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
             n_to_n(get<bl_array, value>(branch_lengths)),
             n_to_const(1.0),
-            [&m = get<value>(codon_submatrix_array), &z = get<value>(alloc)] (int branch, int site) {return m[z[site]];},
+            [&m = get<value>(codon_submatrix_array), &z = get<value>(alloc)] (int branch, int site) -> const SubMatrix& {return m[z[site]];},
             // mn_to_mixn(get<value>(codon_submatrix_array), alloc),
-            [&m = get<value>(codon_submatrix_array), &z = get<value>(alloc)] (int site) {return m[z[site]];},
+            [&m = get<value>(codon_submatrix_array), &z = get<value>(alloc)] (int site) -> const SubMatrix& {return m[z[site]];},
             // n_to_mix(get<value>(codon_submatrix_array), alloc),
             nullptr);
 

@@ -147,7 +147,7 @@ class MGCodonSubMatrix : public NucCodonSubMatrix {
           CodonSubMatrix(instatespace, innormalise),
           NucCodonSubMatrix(instatespace, inNucMatrix, innormalise) {}
 
-    void CorruptMatrix() override { std::cerr << "corrupt matrix\n"; SubMatrix::CorruptMatrix(); }
+    void CorruptMatrix() override { SubMatrix::CorruptMatrix(); }
 
   protected:
     void ComputeArray(int i) const override;
@@ -161,11 +161,13 @@ class MGCodonSubMatrix : public NucCodonSubMatrix {
 
 class MGOmegaCodonSubMatrix : public MGCodonSubMatrix, public OmegaCodonSubMatrix {
   public:
+    /*
     MGOmegaCodonSubMatrix(const CodonStateSpace *instatespace, bool innormalise = false)
         : SubMatrix(instatespace->GetNstate(), innormalise),
           CodonSubMatrix(instatespace, innormalise),
           MGCodonSubMatrix(instatespace, innormalise),
           OmegaCodonSubMatrix(instatespace, innormalise) {}
+    */
 
     MGOmegaCodonSubMatrix(MGOmegaCodonSubMatrix& from) :
         SubMatrix(from),
