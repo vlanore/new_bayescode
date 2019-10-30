@@ -47,3 +47,29 @@ template <class... Entries>
 auto make_trace(Entries... entries) {
     return TraceableCollection<Entries...>(entries...);
 }
+
+template <class Tag>
+class TagTracer : public ChainComponent {
+    Tracer model_tracer;
+    std::string file_name;
+
+  public:
+    template <class M>
+    TagTracer(M& m, std::string file_name)
+        : model_tracer(m, processing::HasTag<Tag>()), file_name(file_name) {}
+
+    void start() final {
+        std::ofstream model_os{chain_file(file_name), std::ios_base::trunc};
+        model_tracer.write_header(model_os);
+    }
+
+    void savepoint(int) final {
+        std::ofstream model_os{chain_file(file_name), std::ios_base::app};
+        model_tracer.write_line(model_os);
+    }
+
+    static std::string chain_file(std::string file_name) { return file_name; }
+};
+
+using ModelTracer = TagTracer<ModelNode>;
+using StatTracer = TagTracer<Stat>;

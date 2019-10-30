@@ -55,8 +55,8 @@ int main(int argc, char* argv[]) {
     ChainDriver chain_driver{cmd.chain_name(), args.every.getValue(), args.until.getValue()};
 
     ConsoleLogger console_logger;
-    StandardTracer chain(model, cmd.chain_name());
-    StandardTracer trace(t, cmd.chain_name() + "_trace");
+    ModelTracer chain(model, cmd.chain_name() + ".chain");
+    StatTracer trace(t, cmd.chain_name() + ".trace");
 
     // registering components to chain driver
     chain_driver.add(scheduler);
