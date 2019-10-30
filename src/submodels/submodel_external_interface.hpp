@@ -5,6 +5,7 @@
 
 template <class MetaData, class... Fields>
 struct external_interface<tagged_tuple<MetaData, Fields...>> {
+    using ThisClass = external_interface<tagged_tuple<MetaData, Fields...>>;
     using TTuple = tagged_tuple<MetaData, Fields...>;
 
     template <class Info, class Field, class Key>
@@ -22,10 +23,14 @@ struct external_interface<tagged_tuple<MetaData, Fields...>> {
     template <class Info, class Field, class Key>
     static void declare_field(unknown_tag, Info info, Field& field, Key) {}
 
+    template <class Info, class Field, class Key>
+    static void declare_field(dnode_tag, Info info, Field& field, Key) {}
+
     template <class Info, class... Keys>
     static void declare_interface_helper(Info info, TTuple& target, std::tuple<Keys...>) {
         std::vector<int> ignore = {
-            (declare_field(type_tag(get<Keys>(target)), info, get<Keys>(target), Keys{}), 0)...};
+            (ThisClass::declare_field(type_tag(get<Keys>(target)), info, get<Keys>(target), Keys{}),
+                0)...};
     }
 
     template <class Info>

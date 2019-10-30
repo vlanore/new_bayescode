@@ -53,12 +53,12 @@ int main(int argc, char* argv[]) {
     ChainDriver chain_driver{cmd.chain_name(), args.every.getValue(), args.until.getValue()};
 
     ConsoleLogger console_logger;
-    // ModelTracer chain(model, cmd.chain_name() + ".chain");
+    ModelTracer chain(model, cmd.chain_name() + ".chain");
 
     // registering components to chain driver
     chain_driver.add(scheduler);
     chain_driver.add(console_logger);
-    // chain_driver.add(chain);
+    chain_driver.add(chain);
     chain_driver.add(trace);
     chain_driver.add(ms);
 
