@@ -33,13 +33,12 @@ int main(int argc, char* argv[]) {
             // move omega
             site_path_suffstats_(model).gather();
             site_omegapath_suffstats_(model).gather();
-            siteomega_sm::gibbs_resample(site_omega_(model), site_omegapath_suffstats_(model), gen);
+            iidgamma_mi::gibbs_resample(site_omega_(model), site_omegapath_suffstats_(model), gen);
             // omega_sm::move_hyper(site_omega_(model), site_omegapath_suffstats_(model), gen);
 
             // move nuc rates
             nucpath_suffstats_(model).gather();
             nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
-            // nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0, ms);
         }
     });
 

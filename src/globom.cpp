@@ -38,7 +38,6 @@ int main(int argc, char* argv[]) {
             // move nuc rates
             nucpath_suffstats_(model).gather();
             nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
-            // nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0, ms);
         }
     });
 

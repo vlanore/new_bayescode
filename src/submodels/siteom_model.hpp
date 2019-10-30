@@ -15,7 +15,7 @@
 #include "submodels/branchlength_sm.hpp"
 #include "submodels/move_reporter.hpp"
 #include "submodels/nucrates_sm.hpp"
-#include "submodels/siteomega_sm.hpp"
+#include "submodels/iidgamma_mi.hpp"
 #include "submodels/mgomega.hpp"
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
@@ -40,7 +40,7 @@ struct siteom {
         size_t nsite = data.alignment.GetNsite();
 
         // omega: iid gamma across sites, with constant hyperparameters
-        auto site_omega = siteomega_sm::make(nsite, one_to_const(1.0), one_to_const(1.0), gen);
+        auto site_omega = iidgamma_mi::make(nsite, one_to_const(1.0), one_to_const(1.0), gen);
 
         // bl : iid gamma across sites, with constant hyperparams
         auto branch_lengths =
@@ -61,7 +61,7 @@ struct siteom {
                 {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
                 [&mat = get<nuc_matrix, value>(nuc_rates)] (int i) -> const SubMatrix& { return mat; },
                 // n_to_one(get<nuc_matrix, value>(nuc_rates)),
-                n_to_n(get<site_omega_array, value>(site_omega))
+                n_to_n(get<gamma_array, value>(site_omega))
             );
 
         // phyloprocess

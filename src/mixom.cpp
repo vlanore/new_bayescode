@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
             site_path_suffstats_(model).gather();
             comp_path_suffstats_(model).gather();
             comp_omegapath_suffstats_(model).gather();
-            siteomega_sm::gibbs_resample(
+            iidgamma_mi::gibbs_resample(
                 omega_array_(model), comp_omegapath_suffstats_(model), gen);
             // realloc move
 

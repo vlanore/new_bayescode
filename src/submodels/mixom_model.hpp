@@ -15,7 +15,7 @@
 #include "submodels/branchlength_sm.hpp"
 #include "submodels/move_reporter.hpp"
 #include "submodels/nucrates_sm.hpp"
-#include "submodels/siteomega_sm.hpp"
+#include "submodels/iidgamma_mi.hpp"
 #include "distributions/dirichlet.hpp"
 #include "distributions/categorical.hpp"
 #include "submodels/mgomega.hpp"
@@ -81,7 +81,7 @@ struct mixom {
         auto alloc = make_node_array<categorical>(nsite, n_to_one(weights));
 
         // omega: iid gamma across sites, with constant hyperparameters
-        auto omega = siteomega_sm::make(ncomp, one_to_const(1.0), one_to_const(1.0), gen);
+        auto omega_array = iidgamma_mi::make(ncomp, one_to_const(1.0), one_to_const(1.0), gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
@@ -93,7 +93,7 @@ struct mixom {
                 {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
                 [&mat = get<nuc_matrix, value>(nuc_rates)] (int i) -> const SubMatrix& { return mat; },
                 // n_to_one(get<nuc_matrix, value>(nuc_rates)),
-                n_to_n(get<site_omega_array, value>(omega))
+                n_to_n(get<gamma_array, value>(omega_array))
             );
 
         // phyloprocess
@@ -143,7 +143,7 @@ struct mixom {
             mixture_weights_ = move(weights),
             mixture_allocs_ = move(alloc),
 
-            omega_array_ = move(omega),
+            omega_array_ = move(omega_array),
             codon_submatrix_array_ = move(codon_submatrix_array),
 
             phyloprocess_ = move(phyloprocess),
