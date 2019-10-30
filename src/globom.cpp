@@ -46,9 +46,9 @@ int main(int argc, char* argv[]) {
 
     // trace
     int youpi = 2;
-    auto t = make_trace(                                   //
-        trace_entry("a", [&youpi]() { return youpi; }),    //
-        trace_entry("b", get<global_omega, omega>(model))  //
+    auto trace = make_custom_tracer(cmd.chain_name() + ".trace",  //
+        trace_entry("a", [&youpi]() { return youpi; }),           //
+        trace_entry("b", get<global_omega, omega>(model))         //
     );
 
     // initializing components
@@ -56,7 +56,6 @@ int main(int argc, char* argv[]) {
 
     ConsoleLogger console_logger;
     ModelTracer chain(model, cmd.chain_name() + ".chain");
-    StatTracer trace(t, cmd.chain_name() + ".trace");
 
     // registering components to chain driver
     chain_driver.add(scheduler);

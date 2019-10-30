@@ -73,3 +73,31 @@ class TagTracer : public ChainComponent {
 
 using ModelTracer = TagTracer<ModelNode>;
 using StatTracer = TagTracer<Stat>;
+
+template <class... Entries>
+class CustomTracer : public ChainComponent {
+    TraceableCollection<Entries...> colec;
+    Tracer model_tracer;
+    std::string file_name;
+
+  public:
+    CustomTracer(std::string file_name, Entries... entries)
+        : colec(entries...), model_tracer(colec, processing::True{}), file_name(file_name) {}
+
+    void start() final {
+        std::ofstream model_os{chain_file(file_name), std::ios_base::trunc};
+        model_tracer.write_header(model_os);
+    }
+
+    void savepoint(int) final {
+        std::ofstream model_os{chain_file(file_name), std::ios_base::app};
+        model_tracer.write_line(model_os);
+    }
+
+    static std::string chain_file(std::string file_name) { return file_name; }
+};
+
+template <class... Entries>
+auto make_custom_tracer(std::string file_name, Entries... entries) {
+    return CustomTracer<Entries...>(file_name, entries...);
+}
