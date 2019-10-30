@@ -18,7 +18,6 @@ TOKEN(gamma_array)
 struct iidgamma_mi {
     template <class Mean, class InvShape, class Gen>
     static auto make(size_t size, Mean mean, InvShape invshape, Gen& gen)    {
-        DEBUG("Making id gamma with parameters mean={} and invshape={}", mean(), invshape());
         auto gamma_array = make_node_array<gamma_mi>(size, mean, invshape);
         // auto gamma_array = make_node_array<gamma_ss>(size, [invshape] (int) {return 1. / invshape();}, [mean, invshape] (int) {return mean() * invshape();});
         draw(gamma_array, gen);

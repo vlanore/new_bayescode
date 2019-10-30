@@ -201,10 +201,6 @@ class NucPathSuffStat : public SuffStat {
         return *this;
     }
 
-    bool operator==(const NucPathSuffStat& other)   {
-        return (rootcount == other.rootcount) && (paircount == other.paircount) && (pairbeta == pairbeta);
-    }
-
     template <class T>
     void serialization_interface(T &x) {
         x.add(rootcount, paircount, pairbeta);
