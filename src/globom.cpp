@@ -1,4 +1,5 @@
 #include "submodels/globom_model.hpp"
+#include "traceable_collection.hpp"
 
 int main(int argc, char* argv[]) {
     // parsing command-line arguments
@@ -19,7 +20,7 @@ int main(int argc, char* argv[]) {
     MoveStatsRegistry ms;
 
     // move schedule
-    auto scheduler = make_move_scheduler([&gen, &model, &ms]() {
+    auto scheduler = make_move_scheduler([&gen, &model]() {
         // move phyloprocess
         globom::touch_matrices(model);
         phyloprocess_(model).Move(1.0);
@@ -38,21 +39,29 @@ int main(int argc, char* argv[]) {
             // move nuc rates
             nucpath_suffstats_(model).gather();
             nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
-            // nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0, ms);
+            // nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0,
+            // ms);
         }
     });
+
+    // trace
+    int youpi = 2;
+    auto t = make_trace(                                   //
+        trace_entry("a", [&youpi]() { return youpi; }),    //
+        trace_entry("b", get<global_omega, omega>(model))  //
+    );
 
     // initializing components
     ChainDriver chain_driver{cmd.chain_name(), args.every.getValue(), args.until.getValue()};
 
     ConsoleLogger console_logger;
-    // ChainCheckpoint chain_checkpoint(cmd.chain_name() + ".param", chain_driver, model);
-    StandardTracer trace(model, cmd.chain_name());
+    StandardTracer chain(model, cmd.chain_name());
+    StandardTracer trace(t, cmd.chain_name() + "_trace");
 
     // registering components to chain driver
     chain_driver.add(scheduler);
     chain_driver.add(console_logger);
-    // chain_driver.add(chain_checkpoint);
+    chain_driver.add(chain);
     chain_driver.add(trace);
     chain_driver.add(ms);
 
