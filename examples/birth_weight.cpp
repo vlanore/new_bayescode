@@ -82,7 +82,7 @@ auto poisson_gamma(size_t size, std::vector<int> sex_table) {
     auto muf_ =  make_node<uniform>(2500.0, 5000.0); 
     auto mug_ =  make_node<uniform>(2500.0, 5000.0);
 
-    make_node_array<normal>(size, [& muf = get<value>(muf_), & mug = get<value>(mug_), & sex_table](int i) { return muf * sex_table[i] + mug * (1 - sex_table[i]) }, sigma_);
+    make_node_array<normal>(size, [& muf = get<value>(muf_), & mug = get<value>(mug_), & sex_table](int i) { return muf * sex_table[i] + mug * (1 - sex_table[i]); }, sigma_);
 
 
     auto K = make_node_matrix<poisson>(
