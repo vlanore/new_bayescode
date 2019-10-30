@@ -81,7 +81,7 @@ struct mixom {
         auto alloc = make_node_array<categorical>(nsite, n_to_one(weights));
 
         // omega: iid gamma across sites, with constant hyperparameters
-        auto omega_array = iidgamma_mi::make(ncomp, one_to_const(1.0), one_to_const(1.0), gen);
+        auto omega_array = iidgamma_mi::make(ncomp, n_to_const(1.0), n_to_const(1.0), gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());

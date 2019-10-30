@@ -40,7 +40,7 @@ struct siteom {
         size_t nsite = data.alignment.GetNsite();
 
         // omega: iid gamma across sites, with constant hyperparameters
-        auto site_omega = iidgamma_mi::make(nsite, one_to_const(1.0), one_to_const(1.0), gen);
+        auto site_omega = iidgamma_mi::make(nsite, n_to_const(1.0), n_to_const(1.0), gen);
 
         // bl : iid gamma across sites, with constant hyperparams
         auto branch_lengths =
