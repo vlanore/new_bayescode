@@ -61,8 +61,6 @@ struct globom {
             n_to_const(1.0),
             // branch and site specific matrices (here, same matrix for everyone)
             [&m = get<value>(codon_submatrix)] (int branch, int site) -> const SubMatrix& {return m;},
-            // this one makes a seg fault:
-            // [&m = get<value>(codon_submatrix)] (int branch, int site) {return m;},
             // mn_to_one(codon_submatrix),
             // site-specific matrices for root equilibrium frequencies (here same for all sites)
             [&m = get<value>(codon_submatrix)] (int site) -> const SubMatrix& {return m;},
@@ -79,7 +77,7 @@ struct globom {
 
         auto path_suffstats = pathss_factory::make_path_suffstat(*phyloprocess);
 
-        // gathering nuc path suffstats across sites: sum stored in a single NucPathSuffStat
+        // gathering nuc path suffstat from path suff stat
         auto nucpath_ss = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
                 {*codon_statespace},
                 [&mat = get<value>(codon_submatrix), &pss = *path_suffstats] (auto& nucss) 
