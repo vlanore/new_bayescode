@@ -80,3 +80,6 @@ target_link_libraries(mpi_example ${MPI_LIBRARIES})
 
 add_executable(simu_and_infer "examples/simu_and_infer_example.cpp")
 target_link_libraries(simu_and_infer ${BASE_LIBS})
+
+add_executable(birth_weight "examples/birth_weight.cpp")
+target_link_libraries(birth_weight ${BASE_LIBS})
