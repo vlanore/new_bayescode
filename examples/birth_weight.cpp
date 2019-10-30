@@ -72,35 +72,39 @@ sigma ~ dunif(200, 800)
 
 using namespace std;
 
-TOKEN(alpha_)
-TOKEN(beta_)
-TOKEN(lambda)
-TOKEN(K)
+TOKEN(sigma_)
+TOKEN(muf_)
+TOKEN(mug_)
+TOKEN(weights_)
 
 auto poisson_gamma(size_t size, std::vector<int> sex_table) {
     auto sigma_ = make_node<uniform>(200.0, 800.0);
     auto muf_ =  make_node<uniform>(2500.0, 5000.0); 
     auto mug_ =  make_node<uniform>(2500.0, 5000.0);
 
-    make_node_array<normal>(size, [& muf = get<value>(muf_), & mug = get<value>(mug_), & sex_table](int i) { return muf * sex_table[i] + mug * (1 - sex_table[i]); }, sigma_);
+    auto weights_ = make_node_array<normal>(size, [& muf = get<value>(muf_), & mug = get<value>(mug_), & sex_table](int i) { return muf * sex_table[i] + mug * (1 - sex_table[i]); }, n_to_one(sigma_));
 
-
-    auto K = make_node_matrix<poisson>(
-        size, size2, [& v = get<value>(lambda)](int i, int) { return v[i]; });
     // clang-format off
     return make_model(
-         alpha__ = move(alpha_),
-            beta__ = move(beta_),
-        lambda_ = move(lambda),
-             K_ = move(K)
+         sigma__ = move(sigma_),
+         muf__ = move(muf_),
+         mug__ = move(mug_),
+         weights__ = move(weights_)
     );  // clang-format on
 }
 
 
 int main() {
+
+//Data
+vector<int> sex {0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1};
+vector<int> weight {3300, 3300, 4100, 2900, 2820, 3040, 4120, 4200, 3100, 3330, 3410, 3420, 2450, 2885, 3235, 3320, 3600, 3720, 3720, 3820, 3840, 3880, 3960, 4465, 2980, 3040, 3060, 3100, 3120, 3205, 3220, 4100, 3100, 3720, 3720, 3900, 3990, 4050, 4080, 4100, 4460, 5220, 3300, 3400, 4000, 4030, 3220, 4270};
+
+
     auto gen = make_generator();
-    std::string chain_name = "simu_and_infer_chain";
-    constexpr size_t nb_it{100'000}, len_lambda{20}, len_K{200}, every(1);
+    std::string chain_name = "birth_weight_chain";
+    constexpr size_t nb_it{100'000};
+    , len_lambda{20}, len_K{200}, every(1);
     auto m = poisson_gamma(len_lambda, len_K);
 
 
