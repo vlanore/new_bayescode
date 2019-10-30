@@ -1,9 +1,10 @@
 #include "PhyloProcess.hpp"
 #include <algorithm>
 #include "PathSuffStat.hpp"
-#include "PolySuffStat.hpp"
+// #include "PolySuffStat.hpp"
 #include "bayes_utils/src/logging.hpp"
 
+using namespace std;
 
 // generic
 PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
@@ -20,121 +21,6 @@ PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
       submatrixarray(insubmatrixarray),
       rootsubmatrixarray(inrootsubmatrixarray),
       polyprocess(inpolyprocess) {
-    Nstate = data->GetNstate();
-    taxon_table = data->GetTaxonSet()->get_index_table(tree);
-    reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
-    maxtrial = DEFAULTMAXTRIAL;
-}
-
-// specialized for one matrix for all sites and all branches
-/*
-PhyloProcess::PhyloProcess(const Tree* intree, const SequenceAlignment* indata,
-    const std::vector<double>& inbranchlength,
-    const SubMatrix* insubmatrix,
-    PolyProcess* inpolyprocess):
-
-    tree(intree),
-    data(indata),
-    branchlength([inbranchlength] (int j) {return inbranchlength[j];}),
-    submatrixarray([insubmatrix] (int, int) -> const SubMatrix& {return *insubmatrix;}),
-    rootsubmatrixarray([insubmatrix] (int) -> const SubMatrix& {return *insubmatrix;}),
-    polyprocess(inpolyprocess) {
-        Nstate = data->GetNstate();
-        taxon_table = data->GetTaxonSet()->get_index_table(tree);
-        reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
-        maxtrial = DEFAULTMAXTRIAL;
-}
-*/
-
-using namespace std;
-
-// generic deprecated
-PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-    const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-    const BranchSiteSelector<SubMatrix> *insubmatrixarray,
-    const Selector<SubMatrix> *inrootsubmatrixarray, PolyProcess *inpolyprocess)
-    : tree(intree),
-      data(indata),
-      branchlength([inbranchlength](int j) { return inbranchlength->GetVal(j); }),
-      submatrixarray([insubmatrixarray](int i, int j) -> const SubMatrix & {
-          return insubmatrixarray->GetVal(i, j);
-      }),
-      rootsubmatrixarray([inrootsubmatrixarray](int i) -> const SubMatrix & {
-          return inrootsubmatrixarray->GetVal(i);
-      }),
-      polyprocess(inpolyprocess) {
-    if (insiterate) {
-        siterate = [insiterate](int i) { return insiterate->GetVal(i); };
-    }
-    Nstate = data->GetNstate();
-    taxon_table = data->GetTaxonSet()->get_index_table(tree);
-    reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
-    maxtrial = DEFAULTMAXTRIAL;
-}
-
-// specialized for one matrix, old style
-PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-    const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-    const SubMatrix *insubmatrix, PolyProcess *inpolyprocess)
-    :
-
-      tree(intree),
-      data(indata),
-      branchlength([inbranchlength](int j) { return inbranchlength->GetVal(j); }),
-      submatrixarray([insubmatrix](int i, int j) -> const SubMatrix & { return *insubmatrix; }),
-      rootsubmatrixarray([insubmatrix](int) -> const SubMatrix & { return *insubmatrix; }),
-      polyprocess(inpolyprocess) {
-    if (insiterate) {
-        siterate = [insiterate](int i) { return insiterate->GetVal(i); };
-    }
-    Nstate = data->GetNstate();
-    taxon_table = data->GetTaxonSet()->get_index_table(tree);
-    reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
-    maxtrial = DEFAULTMAXTRIAL;
-}
-
-// specialized for an array of matrices across sites, old style
-PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-    const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-    const Selector<SubMatrix> *insubmatrixarray, PolyProcess *inpolyprocess)
-    :
-
-      tree(intree),
-      data(indata),
-      branchlength([inbranchlength](int j) { return inbranchlength->GetVal(j); }),
-      submatrixarray([insubmatrixarray](int i, int j) -> const SubMatrix & {
-          return insubmatrixarray->GetVal(i);
-      }),
-      rootsubmatrixarray(
-          [insubmatrixarray](int i) -> const SubMatrix & { return insubmatrixarray->GetVal(i); }),
-      polyprocess(inpolyprocess) {
-    if (insiterate) {
-        siterate = [insiterate](int i) { return insiterate->GetVal(i); };
-    }
-    Nstate = data->GetNstate();
-    taxon_table = data->GetTaxonSet()->get_index_table(tree);
-    reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
-    maxtrial = DEFAULTMAXTRIAL;
-}
-
-// specialized for a branch array of matrices (same for all sites), old style
-PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-    const BranchSelector<double> *inbranchlength, const Selector<double> *insiterate,
-    const BranchSelector<SubMatrix> *insubmatrixbrancharray, const SubMatrix *insubmatrix,
-    PolyProcess *inpolyprocess)
-    :
-
-      tree(intree),
-      data(indata),
-      branchlength([inbranchlength](int j) { return inbranchlength->GetVal(j); }),
-      submatrixarray([insubmatrixbrancharray](int i, int j) -> const SubMatrix & {
-          return insubmatrixbrancharray->GetVal(j);
-      }),
-      rootsubmatrixarray([insubmatrix](int) -> const SubMatrix & { return *insubmatrix; }),
-      polyprocess(inpolyprocess) {
-    if (insiterate) {
-        siterate = [insiterate](int i) { return insiterate->GetVal(i); };
-    }
     Nstate = data->GetNstate();
     taxon_table = data->GetTaxonSet()->get_index_table(tree);
     reverse_taxon_table = data->GetTaxonSet()->get_reverse_index_table(tree);
@@ -698,6 +584,7 @@ BranchSitePath *PhyloProcess::ResampleUniformized(
     return path;
 }
 
+/*
 void PhyloProcess::AddPolySuffStat(PolySuffStat &polysuffstat) const {
     assert(polyprocess != nullptr);
     for (int site = 0; site < GetNsite(); site++) {
@@ -716,7 +603,80 @@ void PhyloProcess::AddPolySuffStat(Array<PolySuffStat> &suffstatarray) const {
         }
     }
 }
+*/
 
+/*
+void PhyloProcess::AddPathSuffStat(std::function<PathSuffStat&(int,int)> suffstat) const    {
+    RecursiveAddPathSuffStat(GetRoot(), suffstat);
+}
+
+void PhyloProcess::RecursiveAddPathSuffStat(Tree::NodeIndex from, std::function<PathSuffStat&(int,int)>& suffstat) const    {
+    LocalAddPathSuffStat(from, suffstat);
+    for (auto c : tree->children(from)) { RecursiveAddPathSuffStat(c, suffstat); }
+}
+
+void PhyloProcess::LocalAddPathSuffStat(Tree::NodeIndex from, std::function<PathSuffStat&(int,int)>& suffstat) const    {
+
+    for (int i = 0; i < GetNsite(); i++) {
+        if (missingmap[from][i] == 2) {
+            suffstat(from,i).IncrementRootCount(statemap[from][i]);
+        } else if (missingmap[from][i] == 1) {
+            if (tree->is_root(from)) {
+                cerr << "error in missing map\n";
+                exit(1);
+            }
+            pathmap[from][i]->AddPathSuffStat(suffstat(from,i), GetBranchLength(from) * GetSiteRate(i));
+        }
+    }
+}
+
+void PhyloProcess::AddLengthSuffStat(std::function<PoissonSuffStat&(int,int)> suffstat) const {
+    RecursiveAddLengthSuffStat(GetRoot(), suffstat);
+}
+
+void PhyloProcess::RecursiveAddLengthSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const  {
+    if (!tree->is_root(from)) {
+        LocalAddLengthSuffStat(from, suffstat);
+    }
+    for (auto c : tree->children(from)) {
+        RecursiveAddLengthSuffStat(c, suffstat);
+    }
+}
+
+void PhyloProcess::LocalAddLengthSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const  {
+    int index = GetBranchIndex(from);
+    for (int i = 0; i < GetNsite(); i++) {
+        if (missingmap[from][i] == 1) {
+            pathmap[from][i]->AddLengthSuffStat(suffstat(index,i), GetSiteRate(i), GetSubMatrix(from, i));
+        }
+    }
+}
+
+void PhyloProcess::AddRateSuffStat(std::function<PoissonSuffStat&(int,int)> suffstat) const {
+    RecursiveAddRateSuffStat(GetRoot(), suffstat);
+}
+
+void PhyloProcess::RecursiveAddRateSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const    {
+    if (!tree->is_root(from)) {
+        LocalAddRateSuffStat(from, suffstat); 
+    }
+    for (auto c : tree->children(from)) {
+        RecursiveAddRateSuffStat(c, suffstat); 
+    }
+}
+
+void PhyloProcess::LocalAddRateSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const    {
+    double length = GetBranchLength(from);
+    int index = GetBranchIndex(from);
+    for (int i = 0; i < GetNsite(); i++) {
+        if (missingmap[from][i] == 1) {
+            pathmap[from][i]->AddLengthSuffStat(suffstat(index,i), length, GetSubMatrix(from, i));
+        }
+    }
+}
+*/
+
+/*
 void PhyloProcess::AddPathSuffStat(PathSuffStat &suffstat) const {
     RecursiveAddPathSuffStat(GetRoot(), suffstat);
 }
@@ -866,3 +826,4 @@ void PhyloProcess::LocalAddRateSuffStat(
         }
     }
 }
+*/

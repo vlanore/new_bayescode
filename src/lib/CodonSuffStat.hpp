@@ -2,7 +2,7 @@
 
 #include <cassert>
 #include <typeinfo>
-#include "CodonSubMatrixArray.hpp"
+// #include "CodonSubMatrixArray.hpp"
 #include "PathSuffStat.hpp"
 #include "PoissonSuffStat.hpp"
 
@@ -95,12 +95,7 @@ class NucPathSuffStat : public SuffStat {
         }
     }
 
-    //! \brief compute the 4x4 path suff stats out of 61x61 codonpathsuffstats
-    //! over a one-dim array, and sum them up into this
-    //!
-    //! Note that this function assumes that each codonpathsuffstat given by the
-    //! second array has a potentially different codon matrix, such as specified
-    //! by the first array.
+    /*
     void AddSuffStat(const MGOmegaCodonSubMatrixArray &codonmatrixarray,
         const PathSuffStatArray &codonpathsuffstatarray) {
         for (int i = 0; i < codonmatrixarray.GetSize(); i++) {
@@ -135,6 +130,7 @@ class NucPathSuffStat : public SuffStat {
                 tree, c, codonmatrixtree, rootcodonmatrix, codonpathsuffstatnodearray);
         }
     }
+    */
 
     //! \brief return the log probability as a function of a nucleotide matrix
     //!
@@ -205,6 +201,10 @@ class NucPathSuffStat : public SuffStat {
         return *this;
     }
 
+    bool operator==(const NucPathSuffStat& other)   {
+        return (rootcount == other.rootcount) && (paircount == other.paircount) && (pairbeta == pairbeta);
+    }
+
     template <class T>
     void serialization_interface(T &x) {
         x.add(rootcount, paircount, pairbeta);
@@ -222,8 +222,10 @@ class NucPathSuffStat : public SuffStat {
     }
 };
 
+/*
 template <>
 struct has_custom_serialization<NucPathSuffStat> : std::true_type {};
+*/
 
 /**
  * \brief A sufficient statistic for substitution histories, as a function of
@@ -285,18 +287,14 @@ class OmegaPathSuffStat : public PoissonSuffStat {
         PoissonSuffStat::AddSuffStat(tmpcount, tmpbeta);
     }
 
-    //! \brief get count and beta stats from an array of 61x61 codon path suffstat
-    //! and sum them up into this suff stat
-    //!
-    //! This method assumes that each codonpathsuffstat given by the second array
-    //! has a potentially different codon matrix, such as specified by the first
-    //! array.
+    /*
     void AddSuffStat(const Selector<AAMutSelOmegaCodonSubMatrix> &codonsubmatrixarray,
         const Selector<PathSuffStat> &pathsuffstatarray) {
         for (int i = 0; i < codonsubmatrixarray.GetSize(); i++) {
             AddSuffStat(codonsubmatrixarray.GetVal(i), pathsuffstatarray.GetVal(i));
         }
     }
+    */
 
     double GetLogProb(double omega) const { return count * log(omega) - beta * omega; }
 };
@@ -305,6 +303,7 @@ class OmegaPathSuffStat : public PoissonSuffStat {
  * \brief An array of omega suff stats
  */
 
+/*
 class OmegaPathSuffStatArray : public SimpleArray<OmegaPathSuffStat>,
                                public Array<PoissonSuffStat> {
   public:
@@ -313,15 +312,15 @@ class OmegaPathSuffStatArray : public SimpleArray<OmegaPathSuffStat>,
 
     //! need to redefine GetSize(), because of mutiple inheritance, as an array of
     //! PoissonSuffstat and OmegaPathSuffStat
-    int GetSize() const /*override*/ { return array.size(); }
+    int GetSize() const  { return array.size(); }
 
     //! need to re-define GetVal(), by explicitly returning a const
     //! OmegaPathSuffStat&, because of multiple inheritance
-    const OmegaPathSuffStat &GetVal(int i) const /*override*/ { return array[i]; }
+    const OmegaPathSuffStat &GetVal(int i) const { return array[i]; }
 
     //! need to re-define operator[], by explicitly returning an
     //! OmegaPathSuffStat&, because of multiple inheritance
-    OmegaPathSuffStat &operator[](int i) /*override*/ { return array[i]; }
+    OmegaPathSuffStat &operator[](int i) { return array[i]; }
 
     //! set all suff stats to 0
     void Clear() {
@@ -401,11 +400,13 @@ class OmegaPathSuffStatArray : public SimpleArray<OmegaPathSuffStat>,
         return total;
     }
 };
+*/
 
 /**
  * \brief A BranchArray of omega suff stats
  */
 
+/*
 class OmegaPathSuffStatBranchArray : public SimpleBranchArray<OmegaPathSuffStat>,
                                      public BranchArray<PoissonSuffStat> {
   public:
@@ -416,17 +417,17 @@ class OmegaPathSuffStatBranchArray : public SimpleBranchArray<OmegaPathSuffStat>
 
     //! need to redefine GetTree(), because of mutiple inheritance, as an array of
     //! PoissonSuffstat and OmegaPathSuffStat
-    const Tree &GetTree() const /*override*/ { return tree; }
+    const Tree &GetTree() const  { return tree; }
 
     int GetNbranch() const { return GetTree().nb_nodes() - 1; }
 
     //! need to re-define GetVal(), by explicitly returning a const
     //! OmegaPathSuffStat&, because of multiple inheritance
-    const OmegaPathSuffStat &GetVal(int i) const /*override*/ { return array[i]; }
+    const OmegaPathSuffStat &GetVal(int i) const  { return array[i]; }
 
     //! need to re-define operator[], by explicitly returning an
     //! OmegaPathSuffStat&, because of multiple inheritance
-    OmegaPathSuffStat &operator[](int i) /*override*/ { return array[i]; }
+    OmegaPathSuffStat &operator[](int i) { return array[i]; }
 
     //! set all suff stats to 0
     void Clear() {
@@ -483,3 +484,4 @@ class OmegaPathSuffStatBranchArray : public SimpleBranchArray<OmegaPathSuffStat>
   private:
     const Tree &tree;
 };
+*/

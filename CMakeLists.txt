@@ -65,6 +65,18 @@ set(BASE_LIBS
 add_executable(globom "src/globom.cpp")
 target_link_libraries(globom ${BASE_LIBS})
 
+# Single omega (prodpoi)
+add_executable(prodpoi "src/prodpoi.cpp")
+target_link_libraries(prodpoi ${BASE_LIBS})
+
+# Site-specific omega (siteom)
+add_executable(siteom "src/siteom.cpp")
+target_link_libraries(siteom ${BASE_LIBS})
+
+# Mixture-model omega (mixom)
+add_executable(mixom "src/mixom.cpp")
+target_link_libraries(mixom ${BASE_LIBS})
+
 # tests
 add_executable(all_tests "src/all_tests.cpp")
 target_link_libraries(all_tests ${BASE_LIBS} ${MPI_LIBRARIES})
@@ -80,3 +92,4 @@ target_link_libraries(mpi_example ${MPI_LIBRARIES})
 
 add_executable(simu_and_infer "examples/simu_and_infer_example.cpp")
 target_link_libraries(simu_and_infer ${BASE_LIBS})
+

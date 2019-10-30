@@ -1,110 +1,48 @@
+
 #pragma once
 
 #include "Proxy.hpp"
 #include "lib/CodonSuffStat.hpp"
 #include "lib/GTRSubMatrix.hpp"
+#include "lib/PhyloProcess.hpp"
+#include "structure/suffstat.hpp"
 
-// =================================================================================================
-class PathSSW final : public Proxy<PathSuffStat&> {
-    PathSuffStat _ss;
-    PhyloProcess& _phyloprocess;
+struct pathss_factory {
 
-    PathSuffStat& _get() final { return _ss; }
+    // a single path suffstat attached to a phyloprocess (site- and time-homogeneous)
+    static auto make_path_suffstat(PhyloProcess& phyloprocess)    {
+        auto path_suffstat = ss_factory::make_suffstat<PathSuffStat>(
+                [&phyloprocess] (auto& ss)
+                    { phyloprocess.AddPathSuffStat( [&ss] (int branch, int site) -> PathSuffStat& { return ss; } ); });
 
-  public:
-    PathSSW(PhyloProcess& phyloprocess) : _phyloprocess(phyloprocess) {}
+        return path_suffstat;
+    }
 
-    void gather() final {
-        _ss.Clear();
-        _ss.AddSuffStat(_phyloprocess);
+    // an array of path suffstats attached to a phyloprocess (site-hetero and time-homogeneous)
+    static auto make_site_path_suffstat(PhyloProcess& phyloprocess)    {
+        auto site_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
+                phyloprocess.GetNsite(),
+                [&phyloprocess] (auto& site_ss)
+                    { phyloprocess.AddPathSuffStat( [&site_ss] (int branch, int site) -> PathSuffStat& { return site_ss[site]; } ); });
+        return site_path_suffstats;
+    }
+
+    // reducing site path suff stats into component path suff stats (not tried yet)
+    static auto make_reduced_path_suffstat(int ncomp, Proxy<PathSuffStat,int>& site_path_suffstat, const std::vector<int>& alloc)  {
+        auto comp_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
+                ncomp,
+                [&site_ss = site_path_suffstat, &z = alloc] (auto& comp_ss, int i) 
+                    { comp_ss[z[i]].Add(site_ss.get(i)); },
+                alloc.size());
+        return comp_path_suffstats;
+    }
+
+    static auto make_bl_suffstats(PhyloProcess& phyloprocess)   {
+        auto bl_suffstats = ss_factory::make_suffstat_array<PoissonSuffStat>(
+                phyloprocess.GetNnode() - 1,
+                [&phyloprocess] (auto& bl_ss)
+                    { phyloprocess.AddLengthSuffStat( [&bl_ss] (int branch, int site) -> PoissonSuffStat& { return bl_ss[branch]; } ); });
+        return bl_suffstats;
     }
 };
 
-// =================================================================================================
-class NucPathSSW final : public Proxy<NucPathSuffStat&> {
-    NucPathSuffStat _nucss;
-    NucCodonSubMatrix& _codon_submatrix;
-    Proxy<PathSuffStat&>& _path_suffstat;
-
-    NucPathSuffStat& _get() final { return _nucss; }
-
-  public:
-    // OmegaSSW(const OmegaCodonSubMatrix& codon_submatrix, Proxy<PathSuffStat&>& pathsuffstat)
-    NucPathSSW(NucCodonSubMatrix& codon_submatrix, Proxy<PathSuffStat&>& path_suffstat) : _nucss(*codon_submatrix.GetCodonStateSpace()), _codon_submatrix(codon_submatrix), _path_suffstat(path_suffstat) {}
-
-    void gather() final {
-        _nucss.Clear();
-        _nucss.AddSuffStat(_codon_submatrix, _path_suffstat.get());
-    }
-};
-
-// =================================================================================================
-class NucMatrixProxy : public Proxy<GTRSubMatrix&> {
-    GTRSubMatrix& _mat;
-    const std::vector<double>& _eq_freqs;
-
-    GTRSubMatrix& _get() final { return _mat; }
-
-  public:
-    NucMatrixProxy(GTRSubMatrix& mat, const std::vector<double>& eq_freqs)
-        : _mat(mat), _eq_freqs(eq_freqs) {}
-
-    void gather() final {
-        _mat.CopyStationary(_eq_freqs);
-        _mat.CorruptMatrix();
-    }
-};
-
-// =================================================================================================
-struct omega_suffstat_t {
-    int count;
-    double beta;
-    bool operator==(const omega_suffstat_t& other) const {
-        return count == other.count && beta == other.beta;
-    }
-};
-
-class OmegaSSW final : public Proxy<omega_suffstat_t> {  // SSW = suff stat wrapper
-    const OmegaCodonSubMatrix& _codon_submatrix;
-    Proxy<PathSuffStat&>& _path_suffstat;
-    OmegaPathSuffStat _ss;
-
-    omega_suffstat_t _get() final { return {_ss.GetCount(), _ss.GetBeta()}; }
-
-  public:
-    OmegaSSW(const OmegaCodonSubMatrix& codon_submatrix, Proxy<PathSuffStat&>& pathsuffstat)
-        : _codon_submatrix(codon_submatrix), _path_suffstat(pathsuffstat) {}
-
-    void gather() final {
-        _ss.Clear();
-        _ss.AddSuffStat(_codon_submatrix, _path_suffstat.get());
-    }
-};
-
-// =================================================================================================
-struct brancharray_poisson_suffstat_t {
-    int count;
-    double beta;
-    bool operator==(const brancharray_poisson_suffstat_t& other) const {
-        return count == other.count && beta == other.beta;
-    }
-};
-
-class BranchArrayPoissonSSW final : public Proxy<brancharray_poisson_suffstat_t, int> {
-    PoissonSuffStatBranchArray _ss;
-    PhyloProcess& _phyloprocess;
-
-    brancharray_poisson_suffstat_t _get(int i) final {
-        auto& local_ss = _ss.GetVal(i);
-        return {local_ss.GetCount(), local_ss.GetBeta()};
-    }
-
-  public:
-    BranchArrayPoissonSSW(const Tree& tree, PhyloProcess& phyloprocess)
-        : _ss(tree), _phyloprocess(phyloprocess) {}
-
-    void gather() final {
-        _ss.Clear();
-        _ss.AddLengthPathSuffStat(_phyloprocess);
-    }
-};

@@ -30,7 +30,14 @@ class SubMatrix {
     //! \brief base constructor: should always give the dimension (Nstate) of the
     //! matrix and whether we want it to be normalized
     SubMatrix(int inNstate, bool innormalise = false);
+    SubMatrix(const SubMatrix& from);
+    SubMatrix& operator=(const SubMatrix& from) {
+        std::cerr << "operator = in submatrix\n";
+        exit(1);
+    }
     virtual ~SubMatrix();
+
+    bool operator==(const SubMatrix& from);
 
     //! const access to entry at ith row and jth column (checked for current
     //! update status, see UpdateMatrix)
@@ -51,11 +58,11 @@ class SubMatrix {
 
     //! compute the row of the generator corresponding to rates away from given
     //! state (should be defined in derived classes)
-    virtual void ComputeArray(int state) const = 0;
+    virtual void ComputeArray(int state) const = 0; // {}
 
     //! compute the vector of stationary probabilities (equilibrium frequencies --
     //! should be defined in derived classes)
-    virtual void ComputeStationary() const = 0;
+    virtual void ComputeStationary() const = 0; // {}
 
     //! whether or not the matrix is normalized (i.e. the expected rate of
     //! substitution per unit of time is 1)

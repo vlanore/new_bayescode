@@ -26,6 +26,25 @@ SubMatrix::SubMatrix(int inNstate, bool innormalise) : Nstate(inNstate), normali
     Create();
 }
 
+SubMatrix::SubMatrix(const SubMatrix& from) : Nstate(from.Nstate), normalise(from.normalise) {
+    ndiagfailed = 0;
+    Create();
+}
+
+bool SubMatrix::operator==(const SubMatrix& other)   {
+
+    double tot = 0;
+    for (int i=0; i<Nstate; i++)    {
+        tot += fabs(Stationary(i) - other.Stationary(i));
+    }
+    for (int i=0; i<Nstate; i++)    {
+        for (int j=0; j<Nstate; j++)    {
+            tot += fabs((*this)(i,j) - other(i,j));
+        }
+    }
+    return (tot < 1e-6);
+}
+
 void SubMatrix::Create() {
     Q = EMatrix(Nstate, Nstate);
     u = EMatrix(Nstate, Nstate);
@@ -308,18 +327,33 @@ void SubMatrix::ToStream(ostream &os) const {
     for (int i = 0; i < GetNstate(); i++) { os << Stationary(i) << '\t'; }
     os << '\n';
 
-    os << "rate matrix\n";
+    /*
+    os << "rate matrix: direct access\n";
     for (int i = 0; i < GetNstate(); i++) {
         for (int j = 0; j < GetNstate(); j++) {
             os << Q(i, j) << '\t';
-            // os << Q[i][j] << '\t';
+        }
+        os << '\n';
+    }
+    os << '\n';
+    os << '\n';
+    */
+
+    os << "rate matrix: checked access\n";
+    for (int i = 0; i < GetNstate(); i++) {
+        for (int j = 0; j < GetNstate(); j++) {
+            os << (*this)(i, j) << '\t';
         }
         os << '\n';
     }
 
+    /*
     os << '\n';
+    Diagonalise();
+    os << "eigen values:\n";
     for (int i = 0; i < GetNstate(); i++) { os << v[i] << '\t'; }
     os << '\n';
+    */
 }
 
 void SubMatrix::CheckReversibility() const {

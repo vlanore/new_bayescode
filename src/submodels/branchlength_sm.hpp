@@ -13,7 +13,6 @@
 #include "tree/implem.hpp"
 
 TOKEN(bl_array)
-TOKEN(suffstats)
 
 /* Array of branch lengths, gamma iid with fixed mean and invshape.
 Initialized with branch length from input tree. */
@@ -39,7 +38,7 @@ struct branchlengths_sm {
 
     template <class BLModel, class Gen>
     static auto gibbs_resample(
-        BLModel& model, Proxy<brancharray_poisson_suffstat_t, int>& ss, Gen& gen) {
+        BLModel& model, Proxy<PoissonSuffStat&, int>& ss, Gen& gen) {
         /* -- */
         auto& raw_vec = get<bl_array, value>(model);
 
