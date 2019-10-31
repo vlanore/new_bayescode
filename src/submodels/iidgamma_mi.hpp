@@ -19,20 +19,14 @@ struct iidgamma_mi {
     template <class Mean, class InvShape, class Gen>
     static auto make(size_t size, Mean mean, InvShape invshape, Gen& gen)    {
         auto gamma_array = make_node_array<gamma_mi>(size, mean, invshape);
-        // auto gamma_array = make_node_array<gamma_ss>(size, [invshape] (int) {return 1. / invshape();}, [mean, invshape] (int) {return mean() * invshape();});
         draw(gamma_array, gen);
         return make_model(gamma_array_ = std::move(gamma_array));
     }
 
-    template <class IIDGammaModel, class Gen>
-    static void gibbs_resample(IIDGammaModel& model, Proxy<OmegaPathSuffStat&, int>& ss, Gen& gen) {
-    // static void gibbs_resample(IIDGammaModel& model, Proxy<PoissonSuffStat&, int>& ss, Gen& gen) {
+    template <class IIDGammaModel, class SS, class Gen>
+    static void gibbs_resample(IIDGammaModel& model, Proxy<SS&, int>& ss, Gen& gen) {
         size_t nsite = get<gamma_array, value>(model).size();
         for (size_t i=0; i<nsite; i++)  {
-            /*
-            double alpha = get<gamma_array, params, shape>(model)(i);
-            double beta = 1.0 / get<gamma_array, params, struct scale>(model)(i);
-            */
             double mean = get<gamma_array, params, gam_mean>(model)(i);
             double invshape = get<gamma_array, params, gam_invshape>(model)(i);
             double alpha = 1. / invshape;
