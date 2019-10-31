@@ -72,14 +72,14 @@ test: all
 	make --no-print-directory globom
 	@echo "\n\n\e[35m\e[1m== Globom MPI ====================================================================\e[0m"
 	make --no-print-directory globom
-	
+
 .PHONY: globom
 globom: all
 	@_build/globom -a data/toy_bl.ali -t data/toy_bl.nhx -u 50 tmp
 
 .PHONY: globomMPI
-globom: all
-	@_build/globomMPI -a data/toy_bl.ali -t data/toy_bl.nhx -u 50 tmp
+globomMPI: all
+	mpirun --oversubscribe -np 3 valgrind _build/globomMPI -a data/toy_bl.ali -t data/toy_bl.nhx -u 50 tmp
 
 .PHONY: globom_dbg
 globom_dbg: all
