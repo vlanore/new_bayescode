@@ -51,25 +51,35 @@ struct globom {
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
 
         auto codon_submatrix = make_dnode_with_init<mgomega>(
+
                 {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
-                static_cast<SubMatrix&>(get<nuc_matrix, value>(nuc_rates)),
+
+                one_to_one(get<nuc_matrix,value>(nuc_rates)),
                 // [&mat = get<nuc_matrix, value>(nuc_rates)] () -> const SubMatrix& { return mat; },
-                get<omega, value>(global_omega));
+                // static_cast<SubMatrix&>(get<nuc_matrix, value>(nuc_rates)),
+
+                one_to_one(get<omega, value>(global_omega)) );;
                 // [&om = get<omega, value>(global_omega)] () {return om; } );
+                // get<omega, value>(global_omega));
 
         gather(codon_submatrix);
             
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
+
             // branch lengths
             n_to_n(get<bl_array, value>(branch_lengths)),
-            // site-specific rates: all equal to 1
+
+            // site-specific rates
             n_to_const(1.0),
+
             // branch and site specific matrices (here, same matrix for everyone)
-            [&m = get<value>(codon_submatrix)] (int branch, int site) -> const SubMatrix& {return m;},
-            // mn_to_one(codon_submatrix),
+            mn_to_one(get<value>(codon_submatrix)),
+            // [&m = get<value>(codon_submatrix)] (int branch, int site) -> const SubMatrix& {return m;},
+            
             // site-specific matrices for root equilibrium frequencies (here same for all sites)
-            [&m = get<value>(codon_submatrix)] (int site) -> const SubMatrix& {return m;},
-            // n_to_one(codon_submatrix),
+            n_to_one(get<value>(codon_submatrix)),
+            // [&m = get<value>(codon_submatrix)] (int site) -> const SubMatrix& {return m;},
+
             // no polymorphism
             nullptr);
 

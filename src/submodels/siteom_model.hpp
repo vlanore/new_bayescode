@@ -58,23 +58,27 @@ struct siteom {
         auto codon_submatrix_array = make_dnode_array_with_init<mgomega>(
                 nsite,
                 {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
-                [&mat = get<nuc_matrix, value>(nuc_rates)] (int i) -> const SubMatrix& { return mat; },
-                // n_to_one(get<nuc_matrix, value>(nuc_rates)),
+                n_to_one(get<nuc_matrix, value>(nuc_rates)),
                 n_to_n(get<gamma_array, value>(site_omega))
             );
 
         // phyloprocess
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
+
             // branch lengths
             n_to_n(get<bl_array, value>(branch_lengths)),
+
             // site-specific rates: all equal to 1
             n_to_const(1.0),
-            // branch and site specific matrices (here, same matrix for everyone)
-            [&m = get<value>(codon_submatrix_array)] (int branch, int site) -> const SubMatrix& {return m[site];},
-            // mn_to_n(*codon_submatrix_array),
-            // site-specific matrices for root equilibrium frequencies (here same for all sites)
-            [&m = get<value>(codon_submatrix_array)] (int site) -> const SubMatrix& {return m[site];},
-            // n_to_n(*codon_submatrix_array),
+
+            // branch and site specific matrices 
+            mn_to_n(get<value>(codon_submatrix_array)),
+            // [&m = get<value>(codon_submatrix_array)] (int branch, int site) -> const SubMatrix& {return m[site];},
+
+            // site-specific matrices for root equilibrium frequencies
+            n_to_n(get<value>(codon_submatrix_array)),
+            // [&m = get<value>(codon_submatrix_array)] (int site) -> const SubMatrix& {return m[site];},
+
             // no polymorphism
             nullptr);
 
