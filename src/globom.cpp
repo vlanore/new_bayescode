@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
     auto data = prepare_data(args.alignment.getValue(), args.treefile.getValue());
 
     // random generator
-    auto gen = make_generator();
+    auto gen = make_generator(42);
 
     // model
     auto model = globom::make(data, gen);
