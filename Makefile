@@ -66,14 +66,20 @@ test: all
 	_build/tree_test
 	@echo "\n\n\e[35m\e[1m== All sequential tests =======================================================\e[0m"
 	_build/all_tests
-	# @echo "\n\n\e[35m\e[1m== MPI par test ===============================================================\e[0m"
-	# mpirun --oversubscribe -np 3 _build/mpi_par_test
+	@echo "\n\n\e[35m\e[1m== MPI par test ===============================================================\e[0m"
+	mpirun --oversubscribe -np 3 _build/mpi_par_test
 	@echo "\n\n\e[35m\e[1m== Globom ====================================================================\e[0m"
 	make --no-print-directory globom
-
+	@echo "\n\n\e[35m\e[1m== Globom MPI ====================================================================\e[0m"
+	make --no-print-directory globom
+	
 .PHONY: globom
 globom: all
 	@_build/globom -a data/toy_bl.ali -t data/toy_bl.nhx -u 50 tmp
+
+.PHONY: globomMPI
+globom: all
+	@_build/globomMPI -a data/toy_bl.ali -t data/toy_bl.nhx -u 50 tmp
 
 .PHONY: globom_dbg
 globom_dbg: all
