@@ -87,19 +87,27 @@ struct globom {
         std::cerr << "lnL: " << phyloprocess->GetLogLikelihood() << '\n';
 
         // suff stats
-        auto bl_suffstats = pathss_factory::make_bl_suffstats(*phyloprocess);
+        auto bl_suffstats = pathss_factory::make_bl_suffstat(*phyloprocess);
 
         auto path_suffstats = pathss_factory::make_path_suffstat(*phyloprocess);
 
         // gathering nuc path suffstat from path suff stat
+        auto nucpath_ss = pathss_factory::make_nucpath_suffstat(codon_statespace, get<value>(codon_submatrix), *path_suffstats);
+        /*
+        // full version:
         auto nucpath_ss = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
                 {*codon_statespace},
                 [&mat = get<value>(codon_submatrix), &pss = *path_suffstats] (auto& nucss) 
                     { nucss.AddSuffStat(mat, pss.get()); });
+        */
 
+        auto omega_ss = pathss_factory::make_omega_suffstat(get<value>(codon_submatrix), *path_suffstats);
+        /*
+        // full version:
         auto omega_ss = ss_factory::make_suffstat<OmegaPathSuffStat>(
                 [&mat = get<value>(codon_submatrix), &pss = *path_suffstats] (auto& omss)
                     { omss.AddSuffStat(mat, pss.get()); });
+        */
 
         return make_model(
             global_omega_ = move(global_omega),

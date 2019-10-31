@@ -88,24 +88,30 @@ struct siteom {
         // suff stats
 
         // branch lengths
-        auto bl_suffstats = pathss_factory::make_bl_suffstats(*phyloprocess);
+        auto bl_suffstats = pathss_factory::make_bl_suffstat(*phyloprocess);
 
         // site path suff stats
         auto site_path_suffstats = pathss_factory::make_site_path_suffstat(*phyloprocess);
 
         // gathering nuc path suffstats across sites: sum stored in a single NucPathSuffStat
+        auto nucpath_ss = pathss_factory::make_nucpath_suffstat(codon_statespace, get<value>(codon_submatrix_array), *site_path_suffstats);
+        /*
         auto nucpath_ss = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
                 {*codon_statespace},
                 [&mat = get<value>(codon_submatrix_array), &pss = *site_path_suffstats] (auto& nucss, int i) 
                     { nucss.AddSuffStat(mat[i], pss.get(i)); },
                 nsite);
+        */
 
         // site omega suff stats
+        auto site_omega_ss = pathss_factory::make_omega_suffstat(get<value>(codon_submatrix_array), *site_path_suffstats);
+        /*
         auto site_omega_ss = ss_factory::make_suffstat_array<OmegaPathSuffStat>(
                 nsite,
                 [&mat = get<value>(codon_submatrix_array), &pss = *site_path_suffstats] (auto& omss, int i) 
                     { omss[i].AddSuffStat(mat[i], pss.get(i)); },
                 nsite);
+        */
 
         return make_model(
             // codon_statespace_ = codon_statespace,

@@ -100,31 +100,40 @@ struct mixom {
         // suff stats
 
         // branch lengths
-        auto bl_suffstats = pathss_factory::make_bl_suffstats(*phyloprocess);
+        auto bl_suffstats = pathss_factory::make_bl_suffstat(*phyloprocess);
 
         // site path suff stats
         auto site_path_ss = pathss_factory::make_site_path_suffstat(*phyloprocess);
 
         // collecting path suff stats across sites, component-wise
+        auto comp_path_ss = pathss_factory::make_reduced_path_suffstat(ncomp, *site_path_ss, get<value>(alloc));
+        /*
         auto comp_path_ss = ss_factory::make_suffstat_array<PathSuffStat>(
                 ncomp,
                 [&site_ss = *site_path_ss, &z = get<value>(alloc)] (auto& comp_ss, int i) 
                     { comp_ss[z[i]].Add(site_ss.get(i)); },
                 nsite);
+        */
 
         // reducing (summing) nuc path suff stats across components
+        auto nucpath_ss = pathss_factory::make_nucpath_suffstat(codon_statespace, get<value>(codon_submatrix_array), *comp_path_ss);
+        /*
         auto nucpath_ss = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
                 {*codon_statespace},
                 [&mat = get<value>(codon_submatrix_array), &pss = *comp_path_ss] (auto& nucss, int i) 
                     { nucss.AddSuffStat(mat[i], pss.get(i)); },
                 ncomp);
+        */
 
         // gathering (collecting) omega suff stats across components
+        auto comp_omega_ss = pathss_factory::make_omega_suffstat(get<value>(codon_submatrix_array), *comp_path_ss);
+        /*
         auto comp_omega_ss = ss_factory::make_suffstat_array<OmegaPathSuffStat>(
                 ncomp,
                 [&mat = get<value>(codon_submatrix_array), &pss = *comp_path_ss] (auto& omss, int i) 
                     { omss[i].AddSuffStat(mat[i], pss.get(i)); },
                 ncomp);
+        */
 
         return make_model(
             // codon_statespace_ = codon_statespace,
