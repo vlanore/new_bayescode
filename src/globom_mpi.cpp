@@ -1,5 +1,6 @@
 #include "mpi_components/broadcast.hpp"
 #include "mpi_components/gather.hpp"
+#include "mpi_components/reduce.hpp"
 #include "mpi_components/unique_ptr_utils.hpp"
 #include "submodels/globom_mpi_model.hpp"
 #include "submodels/submodel_external_interface.hpp"
@@ -31,63 +32,82 @@ int compute(int argc, char* argv[]) {
         MPI::p->message(data->alignment.GetNsite());
     }
     // random generator
-    auto gen = make_generator();
+    auto gen = make_generator(42);
+    Random::InitRandom(42);
 
-    // model
-    auto model = slave_only_ptr([&]() { return globom::make(*data, gen); });
+    // Model declarations
+    auto model = globom_common::make(gen);
+    auto slave_m = slave_only_ptr([&data, &gen]() { return globom_slave::make(*data, gen); });
+
+    // Shared omega suffstat between models
+    auto omega_ss = ss_factory::make_suffstat<OmegaPathSuffStat>([&slave_m](auto& omss) {
+        omss.AddSuffStat(
+            get<codon_submatrix, value>(*slave_m), get<path_suffstats>(*slave_m).get());
+    });
+
+    // communication between processes
+    auto reduce_omega_ss = reduce(omega_ss->get().beta, omega_ss->get().count);
+    auto omega_broadcast = broadcast(get<global_omega, omega, value>(model));
+
+    // Draw omega @master and broadcast it
+    draw(get<global_omega, omega>(model), gen);
+    master_to_slave(omega_broadcast);
 
     // move success stats
     MoveStatsRegistry ms;
 
-    if (!master) {
-        // move schedule
-        auto scheduler = make_move_scheduler([&gen, &model]() {
-            // move phyloprocess
-            globom::touch_matrices(*model);
-            phyloprocess_(*model).Move(1.0);
+    // move schedule
+    auto scheduler = make_move_scheduler([&]() {
+        // move phyloprocess
+        if (!master) {
+            globom_slave::touch_matrices(*slave_m);
+            phyloprocess_(*slave_m).Move(1.0);
+        }
 
-            // move omega
-            for (int rep = 0; rep < 30; rep++) {
+        for (int rep = 0; rep < 30; rep++) {
+            if (!master) {
                 // move branch lengths
-                bl_suffstats_(*model).gather();
+                bl_suffstats_(*slave_m).gather();
                 branchlengths_sm::gibbs_resample(
-                    branch_lengths_(*model), bl_suffstats_(*model), gen);
-
-                // move omega
-                path_suffstats_(*model).gather();
-                omegapath_suffstats_(*model).gather();
-                omega_sm::gibbs_resample(global_omega_(*model), omegapath_suffstats_(*model), gen);
-
+                    branch_lengths_(*slave_m), bl_suffstats_(*slave_m), gen);
                 // move nuc rates
-                nucpath_suffstats_(*model).gather();
+                nucpath_suffstats_(*slave_m).gather();
                 nucrates_sm::move_nucrates(
-                    nuc_rates_(*model), nucpath_suffstats_(*model), gen, 1, 1.0);
+                    nuc_rates_(*slave_m), nucpath_suffstats_(*slave_m), gen, 1, 1.0);
+
+                // gather omega suffstats
+                path_suffstats_(*slave_m).gather();
+                omega_ss->gather();
             }
-        });
+            slave_to_master(reduce_omega_ss);
+            // Move omega
+            if (master) { omega_sm::gibbs_resample(global_omega_(model), *omega_ss, gen); }
+            master_to_slave(omega_broadcast);
+        }
+    });
 
-        // trace
-        int youpi = 2;
-        auto trace = make_custom_tracer(cmd.chain_name() + ".trace",  //
-            trace_entry("a", [&youpi]() { return youpi; }),           //
-            trace_entry("b", get<global_omega, omega>(*model))        //
-        );
+    // trace
+    auto trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".trace",  //
+        trace_entry("omega", get<global_omega, omega>(model))                       //
+        // trace_entry("nucrates", get<nuc_rates, eq_freq>(*slave_m))  //
+    );
 
-        // initializing components
-        ChainDriver chain_driver{cmd.chain_name(), args.every.getValue(), args.until.getValue()};
+    // initializing components
+    ChainDriver chain_driver{cmd.chain_name(), args.every.getValue(), args.until.getValue()};
 
-        ConsoleLogger console_logger;
-        ModelTracer chain(*model, cmd.chain_name() + to_string(rank) + ".chain");
+    ConsoleLogger console_logger;
+    ModelTracer chain(model, cmd.chain_name() + to_string(rank) + ".chain");
 
-        // registering components to chain driver
-        chain_driver.add(scheduler);
-        chain_driver.add(console_logger);
-        chain_driver.add(chain);
-        chain_driver.add(trace);
-        chain_driver.add(ms);
+    // registering components to chain driver
+    chain_driver.add(scheduler);
+    chain_driver.add(console_logger);
+    chain_driver.add(chain);
+    chain_driver.add(trace);
+    chain_driver.add(ms);
 
-        // launching chain!
-        chain_driver.go();
-    }
+    // launching chain!
+    chain_driver.go();
+
     return 0;
 }
 

@@ -79,7 +79,7 @@ globom: all
 
 .PHONY: globomMPI
 globomMPI: all
-	mpirun --oversubscribe -np 3 _build/globomMPI -a data/toy_bl.ali -t data/toy_bl.nhx -u 1 tmp
+	mpirun --oversubscribe -np 10 _build/globomMPI -a data/toy_bl.ali -t data/toy_bl.nhx -u 5 tmp
 
 .PHONY: globomMPI_dbg
 globomMPI_dbg: all
