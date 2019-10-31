@@ -91,7 +91,7 @@ int compute(char, char**) {
 
     // Slaves simulate tosses, master has nullptr
 
-    auto bern = slave_only_ptr([&m]() {
+    auto bern = slave_only_ptr([n_coins, n_obs, &m]() {
         return make_node_matrix<bernoulli>(
             n_coins, n_obs, [&v = get<p, value>(m)](int i, int) { return v[i]; });
     });

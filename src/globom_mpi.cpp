@@ -23,8 +23,8 @@ int compute(int argc, char* argv[]) {
     cmd.parse();
 
     // input data
-    auto data = slave_only_ptr(
-        [&args]() { return prepare_data(args.alignment.getValue(), args.treefile.getValue()); });
+    std::unique_ptr<PreparedData> data =
+        master ? nullptr : prepare_data_ptr(args.alignment.getValue(), args.treefile.getValue());
 
     if (!master) {
         MPI::p->message(data->tree->nb_nodes());
