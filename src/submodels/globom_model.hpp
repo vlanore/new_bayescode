@@ -39,7 +39,7 @@ struct globom {
         auto global_omega = omega_sm::make(one_to_const(1.0), one_to_const(1.0), gen);
 
         auto branch_lengths =
-            branchlengths_sm::make(data.parser, *data.tree, one_to_const(0.1), one_to_const(1.0));
+            branchlengths_sm::make(data.parser, *data.tree, 0.1, 1.0);
 
         auto nuc_rates = nucrates_sm::make(one_to_const(normalize({1, 1, 1, 1, 1, 1})),
             one_to_const(1. / 6), one_to_const(normalize({1, 1, 1, 1})), one_to_const(1. / 4), gen);

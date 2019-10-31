@@ -18,7 +18,11 @@ TOKEN(bl_array)
 Initialized with branch length from input tree. */
 struct branchlengths_sm {
     template<class Mean, class InvShape>
-    static auto make(TreeParser& parser, const Tree& tree, Mean mean, InvShape invshape)    {
+    static auto make(TreeParser& parser, const Tree& tree, Mean&& _mean, InvShape&& _invshape)    {
+
+        auto mean = make_param<double>(std::forward<Mean>(_mean));
+        auto invshape = make_param<double>(std::forward<InvShape>(_invshape));
+
         DEBUG("Getting branch lengths from tree");
         const size_t nb_branches = parser.get_tree().nb_nodes() - 1;
         auto initial_bl = branch_container_from_parser<double>(

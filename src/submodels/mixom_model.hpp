@@ -67,7 +67,7 @@ struct mixom {
 
         // bl : iid gamma across sites, with constant hyperparams
         auto branch_lengths =
-            branchlengths_sm::make(data.parser, *data.tree, one_to_const(0.1), one_to_const(1.0));
+            branchlengths_sm::make(data.parser, *data.tree, 0.1, 1.0);
 
         // nuc exch rates and eq freqs: uniform dirichlet
         // also creates the gtr matrix
