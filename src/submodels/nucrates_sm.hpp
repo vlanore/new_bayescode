@@ -24,18 +24,13 @@ struct nucrates_sm {
     template <class RRCenter, class RRInvConc, class StatCenter, class StatInvConc, class Gen>
     static auto make(RRCenter rrcenter, RRInvConc rrinvconc, StatCenter statcenter, StatInvConc statinvconc, Gen& gen)  {
         /* -- */
-        auto exchangeability_rates = make_node<dirichlet_cic>(rrcenter, rrinvconc);
-        set_value(exchangeability_rates, std::vector<double>(6, 0));
+        auto exchangeability_rates = 
+            make_node_with_init<dirichlet_cic>(std::vector<double>(6, 1./6), rrcenter, rrinvconc);
         draw(exchangeability_rates, gen);
-        DEBUG("GTR model: exchangeability rates are {}.",
-            vector_to_string(get<value>(exchangeability_rates)));
 
         auto equilibrium_frequencies =
-            make_node<dirichlet_cic>(statcenter, statinvconc);
-        set_value(equilibrium_frequencies, std::vector<double>(4, 0));
+            make_node_with_init<dirichlet_cic>(std::vector<double>(4, 1./4), statcenter, statinvconc);
         draw(equilibrium_frequencies, gen);
-        DEBUG("GTR model: equilibrium frequencies are {}.",
-            vector_to_string(get<value>(equilibrium_frequencies)));
 
         auto nuc_matrix = make_dnode_with_init<gtr>(
                 {4, get<value>(exchangeability_rates), get<value>(equilibrium_frequencies), true},
@@ -44,16 +39,16 @@ struct nucrates_sm {
 
         gather(nuc_matrix);
 
-        return make_model(                                   //
-            exch_rates_ = std::move(exchangeability_rates),  //
-            eq_freq_ = std::move(equilibrium_frequencies),   //
+        return make_model(                                  
+            exch_rates_ = std::move(exchangeability_rates), 
+            eq_freq_ = std::move(equilibrium_frequencies),  
             nuc_matrix_ = std::move(nuc_matrix));
     }
 
     template <class SubModel, class LogProb, class Update, class Gen, class Reporter = NoReport>
     static void move_exch_rates(SubModel& model, std::vector<double> tunings,
         LogProb logprob_children, Update update, Gen& gen, Reporter reporter = {}) {
-        /* -- */
+
         auto& target = exch_rates_(model);
 
         for (auto tuning : tunings) {
