@@ -38,3 +38,9 @@ PreparedData prepare_data(std::string alignfile, std::string treefile) {
     std::ifstream tree_stream{treefile};
     return {alignfile, tree_stream};
 }
+
+auto prepare_data_ptr(std::string alignfile, std::string treefile) {
+    // parsing tree
+    std::ifstream tree_stream{treefile};
+    return std::make_unique<PreparedData>(alignfile, tree_stream);
+}

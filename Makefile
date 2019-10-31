@@ -79,7 +79,11 @@ globom: all
 
 .PHONY: globomMPI
 globomMPI: all
-	mpirun --oversubscribe -np 3 valgrind _build/globomMPI -a data/toy_bl.ali -t data/toy_bl.nhx -u 50 tmp
+	mpirun --oversubscribe -np 3 _build/globomMPI -a data/toy_bl.ali -t data/toy_bl.nhx -u 1 tmp
+
+.PHONY: globomMPI_dbg
+globomMPI_dbg: all
+	mpirun --oversubscribe -np 3 xterm -e "valgrind _build/globomMPI -a data/toy_bl.ali -t data/toy_bl.nhx -u 1 tmp ; bash"
 
 .PHONY: globom_dbg
 globom_dbg: all
