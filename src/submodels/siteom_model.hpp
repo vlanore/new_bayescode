@@ -48,8 +48,8 @@ struct siteom {
 
         // nuc exch rates and eq freqs: uniform dirichlet
         // also creates the gtr matrix
-        auto nuc_rates = nucrates_sm::make(one_to_const(normalize({1, 1, 1, 1, 1, 1})),
-            one_to_const(1. / 6), one_to_const(normalize({1, 1, 1, 1})), one_to_const(1. / 4), gen);
+        auto nuc_rates = nucrates_sm::make(
+                std::vector<double>(6, 1./6), 1./6, std::vector<double>(4, 1./4), 1./4, gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
@@ -57,7 +57,6 @@ struct siteom {
         // an array of MG Omega Codon matrices, with same nucrates but each with its own omega
         auto codon_submatrix_array = make_dnode_array_with_init<mgomega>(
                 nsite,
-                // {codon_statespace},
                 {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
                 [&mat = get<nuc_matrix, value>(nuc_rates)] (int i) -> const SubMatrix& { return mat; },
                 // n_to_one(get<nuc_matrix, value>(nuc_rates)),

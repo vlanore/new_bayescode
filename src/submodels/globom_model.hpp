@@ -38,19 +38,24 @@ struct globom {
     static auto make(PreparedData& data, Gen& gen) {
         auto global_omega = omega_sm::make(one_to_const(1.0), one_to_const(1.0), gen);
 
+        // bl : iid gamma across sites, with constant hyperparams
         auto branch_lengths =
             branchlengths_sm::make(data.parser, *data.tree, 0.1, 1.0);
 
-        auto nuc_rates = nucrates_sm::make(one_to_const(normalize({1, 1, 1, 1, 1, 1})),
-            one_to_const(1. / 6), one_to_const(normalize({1, 1, 1, 1})), one_to_const(1. / 4), gen);
+        // nuc exch rates and eq freqs: uniform dirichlet
+        // also creates the gtr matrix
+        auto nuc_rates = nucrates_sm::make(
+                std::vector<double>(6, 1./6), 1./6, std::vector<double>(4, 1./4), 1./4, gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
 
         auto codon_submatrix = make_dnode_with_init<mgomega>(
                 {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
-                [&mat = get<nuc_matrix, value>(nuc_rates)] () -> const SubMatrix& { return mat; },
-                [&om = get<omega, value>(global_omega)] () {return om; } );
+                static_cast<SubMatrix&>(get<nuc_matrix, value>(nuc_rates)),
+                // [&mat = get<nuc_matrix, value>(nuc_rates)] () -> const SubMatrix& { return mat; },
+                get<omega, value>(global_omega));
+                // [&om = get<omega, value>(global_omega)] () {return om; } );
 
         gather(codon_submatrix);
             

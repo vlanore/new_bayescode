@@ -71,8 +71,8 @@ struct mixom {
 
         // nuc exch rates and eq freqs: uniform dirichlet
         // also creates the gtr matrix
-        auto nuc_rates = nucrates_sm::make(one_to_const(normalize({1, 1, 1, 1, 1, 1})),
-            one_to_const(1. / 6), one_to_const(normalize({1, 1, 1, 1})), one_to_const(1. / 4), gen);
+        auto nuc_rates = nucrates_sm::make(
+                std::vector<double>(6, 1./6), 1./6, std::vector<double>(4, 1./4), 1./4, gen);
 
         // mixture weights
         std::vector<double> weights_hyper(ncomp, 1.0/ncomp);

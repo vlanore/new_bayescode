@@ -11,19 +11,15 @@ TOKEN(eq_freq)
 TOKEN(exch_rates)
 TOKEN(nuc_matrix)
 
-// @todo: move elsewhere
-std::vector<double> normalize(const std::vector<double>& vec) {
-    double sum = 0;
-    for (auto e : vec) { sum += e; }
-    std::vector<double> result(vec.size());
-    for (size_t i = 0; i < vec.size(); i++) { result[i] = vec[i] / sum; }
-    return result;
-}
-
 struct nucrates_sm {
     template <class RRCenter, class RRInvConc, class StatCenter, class StatInvConc, class Gen>
-    static auto make(RRCenter rrcenter, RRInvConc rrinvconc, StatCenter statcenter, StatInvConc statinvconc, Gen& gen)  {
-        /* -- */
+    static auto make(RRCenter _rrcenter, RRInvConc _rrinvconc, StatCenter _statcenter, StatInvConc _statinvconc, Gen& gen)  {
+
+        auto rrcenter = make_param<std::vector<double>>(std::forward<RRCenter>(_rrcenter));
+        auto rrinvconc = make_param<double>(std::forward<RRInvConc>(_rrinvconc));
+        auto statcenter = make_param<std::vector<double>>(std::forward<StatCenter>(_statcenter));
+        auto statinvconc = make_param<double>(std::forward<StatInvConc>(_statinvconc));
+
         auto exchangeability_rates = 
             make_node_with_init<dirichlet_cic>(std::vector<double>(6, 1./6), rrcenter, rrinvconc);
         draw(exchangeability_rates, gen);
@@ -69,7 +65,7 @@ struct nucrates_sm {
     template <class SubModel, class LogProb, class Update, class Gen, class Reporter = NoReport>
     static void move_eq_freqs(SubModel& model, std::vector<double> tunings,
         LogProb logprob_children, Update update, Gen& gen, Reporter reporter = {}) {
-        /* -- */
+
         auto& target = eq_freq_(model);
 
         for (auto tuning : tunings) {
@@ -92,7 +88,7 @@ struct nucrates_sm {
         LogProb logprob_children, Update update, Gen& gen, 
         size_t nrep = 1, double tuning = 1.0,
         Reporter reporter = {}) {
-        /* -- */
+
         std::vector<double> exch_tunings = {0.1, 0.03, 0.01};
         for (auto& t : exch_tunings)   {
             t *= tuning;
