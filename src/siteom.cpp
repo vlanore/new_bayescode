@@ -21,7 +21,8 @@ int main(int argc, char* argv[]) {
     // move schedule
     auto scheduler = make_move_scheduler([&gen, &model]() {
         // move phyloprocess
-        siteom::touch_matrices(model);
+        gather(get<nuc_rates, nuc_matrix>(model));
+        gather(codon_submatrix_array_(model));
         phyloprocess_(model).Move(1.0);
 
         // move omega
@@ -37,6 +38,7 @@ int main(int argc, char* argv[]) {
             // omega_sm::move_hyper(site_omega_(model), site_omegapath_suffstats_(model), gen);
 
             // move nuc rates
+            gather(codon_submatrix_array_(model));
             nucpath_suffstats_(model).gather();
             nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
         }

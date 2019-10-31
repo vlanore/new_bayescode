@@ -22,7 +22,8 @@ int main(int argc, char* argv[]) {
     // move schedule
     auto scheduler = make_move_scheduler([&gen, &model]() {
         // move phyloprocess
-        globom::touch_matrices(model);
+        gather(get<nuc_rates, nuc_matrix>(model));
+        gather(get<codon_submatrix>(model));
         phyloprocess_(model).Move(1.0);
 
         // move omega
@@ -35,10 +36,14 @@ int main(int argc, char* argv[]) {
             path_suffstats_(model).gather();
             omegapath_suffstats_(model).gather();
             omega_sm::gibbs_resample(global_omega_(model), omegapath_suffstats_(model), gen);
+            gather(get<codon_submatrix>(model));
 
             // move nuc rates
+            gather(get<codon_submatrix>(model));
             nucpath_suffstats_(model).gather();
             nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
+            gather(get<nuc_rates, nuc_matrix>(model));
+            gather(get<codon_submatrix>(model));
         }
     });
 

@@ -65,9 +65,10 @@ struct mixom {
 
         // iid categorical site allocations
         auto alloc = make_node_array<categorical>(nsite, n_to_one(weights));
+        draw(alloc, gen);
 
         // omega: iid gamma across sites, with constant hyperparameters
-        auto omega_array = iidgamma_mi::make(ncomp, 1.0, 1.0, gen);
+        auto omega_array = iidgamma_mi::make(ncomp, n_to_const(1.0), n_to_const(1.0), gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
@@ -79,6 +80,8 @@ struct mixom {
                 n_to_one(get<nuc_matrix, value>(nuc_rates)),
                 n_to_n(get<gamma_array, value>(omega_array)));
 
+        gather(codon_submatrix_array);
+
         // phyloprocess
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
 
@@ -86,11 +89,11 @@ struct mixom {
 
             n_to_const(1.0),
 
-            mn_to_mixn(get<value>(codon_submatrix_array), get<value>(alloc)),
-            // [&m=get<value>(codon_submatrix_array), &z=get<value>(alloc)] (int branch, int site) -> const SubMatrix& {return m[z[site]];},
+            // mn_to_mixn(get<value>(codon_submatrix_array), get<value>(alloc)),
+            [&m=get<value>(codon_submatrix_array), &z=get<value>(alloc)] (int branch, int site) -> const SubMatrix& {return m[z[site]];},
 
-            n_to_mix(get<value>(codon_submatrix_array), get<value>(alloc)),
-            // [&m = get<value>(codon_submatrix_array), &z = get<value>(alloc)] (int site) -> const SubMatrix& {return m[z[site]];},
+            // n_to_mix(get<value>(codon_submatrix_array), get<value>(alloc)),
+            [&m = get<value>(codon_submatrix_array), &z = get<value>(alloc)] (int site) -> const SubMatrix& {return m[z[site]];},
 
             nullptr);
 
@@ -136,7 +139,6 @@ struct mixom {
         */
 
         return make_model(
-            // codon_statespace_ = codon_statespace,
             branch_lengths_ = move(branch_lengths),
             nuc_rates_ = move(nuc_rates),
 
@@ -154,12 +156,5 @@ struct mixom {
             comp_path_suffstats_ = move(comp_path_ss),
             nucpath_suffstats_ = move(nucpath_ss),
             comp_omegapath_suffstats_ = move(comp_omega_ss));
-    }
-
-    // =============================================================================================
-    template <class Model>
-    static void touch_matrices(Model& model) {
-        gather(get<nuc_rates, nuc_matrix>(model));
-        gather(codon_submatrix_array_(model));
     }
 };

@@ -24,7 +24,6 @@
 TOKEN(global_omega)
 TOKEN(branch_lengths)
 TOKEN(nuc_rates)
-// TOKEN(codon_statespace)
 TOKEN(codon_submatrix)
 TOKEN(phyloprocess)
 TOKEN(bl_suffstats)
@@ -113,19 +112,11 @@ struct globom {
             global_omega_ = move(global_omega),
             branch_lengths_ = move(branch_lengths),
             nuc_rates_ = move(nuc_rates),
-            // codon_statespace_ = codon_statespace,
             codon_submatrix_ = move(codon_submatrix),
             phyloprocess_ = move(phyloprocess),
             bl_suffstats_ = move(bl_suffstats),
             path_suffstats_ = move(path_suffstats),
             nucpath_suffstats_ = move(nucpath_ss),
             omegapath_suffstats_ = move(omega_ss));
-    }
-
-    // =============================================================================================
-    template <class Model>
-    static void touch_matrices(Model& model) {
-        gather(get<nuc_rates, nuc_matrix>(model));
-        gather(codon_submatrix_(model));
     }
 };
