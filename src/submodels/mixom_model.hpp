@@ -15,7 +15,6 @@
 #include "submodels/branchlength_sm.hpp"
 #include "submodels/move_reporter.hpp"
 #include "submodels/nucrates_sm.hpp"
-#include "submodels/iidgamma_mi.hpp"
 #include "distributions/dirichlet.hpp"
 #include "distributions/categorical.hpp"
 #include "submodels/mgomega.hpp"
@@ -68,7 +67,8 @@ struct mixom {
         draw(alloc, gen);
 
         // omega: iid gamma across sites, with constant hyperparameters
-        auto omega_array = iidgamma_mi::make(ncomp, n_to_const(1.0), n_to_const(1.0), gen);
+        auto omega_array = make_node_array<gamma_mi>(ncomp, n_to_const(1.0), n_to_const(1.0));
+        draw(omega_array, gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
@@ -78,7 +78,7 @@ struct mixom {
                 ncomp,
                 {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
                 n_to_one(get<nuc_matrix, value>(nuc_rates)),
-                n_to_n(get<gamma_array, value>(omega_array)));
+                n_to_n(get<value>(omega_array)));
 
         gather(codon_submatrix_array);
 

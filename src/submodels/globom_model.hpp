@@ -15,7 +15,6 @@
 #include "submodels/branchlength_sm.hpp"
 #include "submodels/move_reporter.hpp"
 #include "submodels/nucrates_sm.hpp"
-#include "submodels/omega_sm.hpp"
 #include "submodels/mgomega.hpp"
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
@@ -35,7 +34,9 @@ struct globom {
     // =============================================================================================
     template <class Gen>
     static auto make(PreparedData& data, Gen& gen) {
-        auto global_omega = omega_sm::make(one_to_const(1.0), one_to_const(1.0), gen);
+
+        auto global_omega = make_node<gamma_mi>(one_to_const(1.0), one_to_const(1.0));
+        draw(global_omega, gen);
 
         // bl : iid gamma across sites, with constant hyperparams
         auto branch_lengths =
@@ -55,11 +56,9 @@ struct globom {
 
                 one_to_one(get<nuc_matrix,value>(nuc_rates)),
                 // [&mat = get<nuc_matrix, value>(nuc_rates)] () -> const SubMatrix& { return mat; },
-                // static_cast<SubMatrix&>(get<nuc_matrix, value>(nuc_rates)),
 
-                one_to_one(get<omega, value>(global_omega)) );;
-                // [&om = get<omega, value>(global_omega)] () {return om; } );
-                // get<omega, value>(global_omega));
+                one_to_one(get<value>(global_omega)) );;
+                // [&om = get<value>(global_omega)] () {return om; } );
 
         gather(codon_submatrix);
             

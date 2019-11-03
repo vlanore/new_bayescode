@@ -34,8 +34,7 @@ int main(int argc, char* argv[]) {
             // move omega
             site_path_suffstats_(model).gather();
             site_omegapath_suffstats_(model).gather();
-            iidgamma_mi::gibbs_resample(site_omega_(model), site_omegapath_suffstats_(model), gen);
-            // omega_sm::move_hyper(site_omega_(model), site_omegapath_suffstats_(model), gen);
+            gibbs_resample(site_omega_(model), site_omegapath_suffstats_(model), gen);
 
             // move nuc rates
             gather(codon_submatrix_array_(model));

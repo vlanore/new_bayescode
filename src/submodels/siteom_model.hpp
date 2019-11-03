@@ -12,13 +12,14 @@
 #include "lib/CodonSubMatrix.hpp"
 #include "lib/CodonSuffStat.hpp"
 #include "lib/PoissonSuffStat.hpp"
+
 #include "submodels/branchlength_sm.hpp"
 #include "submodels/move_reporter.hpp"
 #include "submodels/nucrates_sm.hpp"
-#include "submodels/iidgamma_mi.hpp"
 #include "submodels/mgomega.hpp"
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
+
 #include "bayes_toolbox.hpp"
 
 TOKEN(site_omega)
@@ -39,7 +40,8 @@ struct siteom {
         size_t nsite = data.alignment.GetNsite();
 
         // omega: iid gamma across sites, with constant hyperparameters
-        auto site_omega = iidgamma_mi::make(nsite, n_to_const(1.0), n_to_const(1.0), gen);
+        auto site_omega = make_node_array<gamma_mi>(nsite, n_to_const(1.0), n_to_const(1.0));
+        draw(site_omega, gen);
 
         // bl : iid gamma across sites, with constant hyperparams
         auto branch_lengths =
@@ -58,7 +60,7 @@ struct siteom {
                 nsite,
                 {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
                 n_to_one(get<nuc_matrix, value>(nuc_rates)),
-                n_to_n(get<gamma_array, value>(site_omega))
+                n_to_n(get<value>(site_omega))
             );
 
         // phyloprocess

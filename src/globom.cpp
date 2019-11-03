@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
             // move omega
             path_suffstats_(model).gather();
             omegapath_suffstats_(model).gather();
-            omega_sm::gibbs_resample(global_omega_(model), omegapath_suffstats_(model), gen);
+            gibbs_resample(global_omega_(model), omegapath_suffstats_(model), gen);
             gather(get<codon_submatrix>(model));
 
             // move nuc rates
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     int youpi = 2;
     auto trace = make_custom_tracer(cmd.chain_name() + ".trace",  //
         trace_entry("a", [&youpi]() { return youpi; }),           //
-        trace_entry("b", get<global_omega, omega>(model))         //
+        trace_entry("b", get<global_omega>(model))         //
     );
 
     // initializing components
