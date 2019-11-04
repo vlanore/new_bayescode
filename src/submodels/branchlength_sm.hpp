@@ -1,13 +1,6 @@
 #pragma once
 
-#include "bayes_toolbox/src/basic_moves.hpp"
-#include "bayes_toolbox/src/distributions/exponential.hpp"
-#include "bayes_toolbox/src/distributions/gamma.hpp"
-#include "bayes_toolbox/src/operations/draw.hpp"
-#include "bayes_toolbox/src/structure/array_utils.hpp"
-#include "bayes_toolbox/src/structure/model.hpp"
-#include "bayes_toolbox/src/structure/node.hpp"
-#include "bayes_toolbox/utils/tagged_tuple/src/fancy_syntax.hpp"
+#include "bayes_toolbox.hpp"
 #include "bayes_utils/src/logging.hpp"
 #include "suffstat_wrappers.hpp"
 #include "tree/implem.hpp"
