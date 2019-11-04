@@ -37,7 +37,8 @@ int compute(int argc, char* argv[]) {
 
     // Model declarations
     auto model = globom_common::make(gen);
-    auto slave_m = slave_only_ptr([&data, &gen]() { return globom_slave::make(*data, gen); });
+    auto slave_m =
+        slave_only_ptr([&model, &data, &gen]() { return globom_slave::make(model, *data, gen); });
 
     // Shared omega suffstat between models
     auto omega_ss = ss_factory::make_suffstat<OmegaPathSuffStat>([&slave_m](auto& omss) {
@@ -83,12 +84,19 @@ int compute(int argc, char* argv[]) {
             // Move omega
             if (master) { omega_sm::gibbs_resample(global_omega_(model), *omega_ss, gen); }
             master_to_slave(omega_broadcast);
+
+            // Update slave dnode using new omega value
+            if (!master) {
+                // get<global_omega, omega, value>(*slave_m) = get<global_omega, omega,
+                // value>(model);
+                gather(get<codon_submatrix>(*slave_m));
+            }
         }
     });
 
     // trace
-    auto trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".trace",  //
-        trace_entry("omega", get<global_omega, omega>(model))                       //
+    auto trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".trace",
+        trace_entry("omega", get<global_omega, omega>(model))
         // trace_entry("nucrates", get<nuc_rates, eq_freq>(*slave_m))  //
     );
 
