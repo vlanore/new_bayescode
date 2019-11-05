@@ -6,6 +6,7 @@
 #include "lib/GTRSubMatrix.hpp"
 #include "lib/PhyloProcess.hpp"
 #include "CodonSuffStat.hpp"
+#include "OccupancySuffStat.hpp"
 #include "structure/suffstat.hpp"
 
 struct pathss_factory {
@@ -35,16 +36,6 @@ struct pathss_factory {
                 [&phyloprocess] (auto& site_ss)
                     { phyloprocess.AddPathSuffStat( [&site_ss] (int branch, int site) -> PathSuffStat& { return site_ss[site]; } ); });
         return site_path_suffstats;
-    }
-
-    // reducing site path suff stats into component path suff stats, based on allocation vector
-    static auto make_reduced_path_suffstat(int ncomp, Proxy<PathSuffStat&,int>& site_ss, const std::vector<size_t>& alloc)  {
-        auto comp_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
-                ncomp,
-                [&site_ss, &alloc] (auto& comp_ss, int i) 
-                    { comp_ss[alloc[i]].Add(site_ss.get(i)); },
-                alloc.size());
-        return comp_path_suffstats;
     }
 
     // a nuc path suff stat, based on a single codon matrix and a single path suff stat 
@@ -85,3 +76,43 @@ struct pathss_factory {
     }
 };
 
+struct mixss_factory    {
+
+    // reducing site suff stats into component suff stats, based on allocation vector
+    template<class SS>
+    static auto make_reduced_suffstat(size_t ncomp, Proxy<SS&,int>& site_ss, const std::vector<size_t>& alloc)  {
+        auto comp_suffstats = ss_factory::make_suffstat_array<SS>(
+                ncomp,
+                [&site_ss, &alloc] (auto& comp_ss, int i) 
+                    { comp_ss[alloc[i]].Add(site_ss.get(i)); },
+                alloc.size());
+        return comp_suffstats;
+    }
+
+    static auto make_alloc_suffstat(size_t ncomp, std::vector<size_t>& alloc)    {
+        auto alloc_ss = ss_factory::make_suffstat_with_init<OccupancySuffStat>(
+                {ncomp},
+                [&alloc] (auto& occss) { occss.AddSuffStat(alloc); });
+        return alloc_ss;
+    }
+
+    template<class V, class SS>
+    static auto make_alloc_logprob(std::vector<V>& val, Proxy<SS&>& ss)    {
+        auto alloc_logprob = 
+            [&val, &ss] () {
+                auto lambda = [&val, &s=ss.get()] (int k) {return s.GetLogProb(val[k]);};
+                return lambda;
+            };
+        return alloc_logprob;
+    }
+
+    template<class V, class SS>
+    static auto make_alloc_logprob(std::vector<V>& val, Proxy<SS&, int>& ss)    {
+        auto alloc_logprob = 
+            [&val, &ss] (int i) {
+                auto lambda = [&val, &s = ss.get(i)] (int k) {return s.GetLogProb(val[k]);};
+                return lambda;
+            };
+        return alloc_logprob;
+    }
+};
