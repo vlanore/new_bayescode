@@ -1,13 +1,8 @@
-
-#ifndef OCCSUFFSTAT_H
-#define OCCSUFFSTAT_H
-
-#include "Array.hpp"
+#pragma once
 #include "SuffStat.hpp"
 
 /**
  * \brief A sufficient statistic for a multinomial mixture allocation vector
- * (see MultinomialAllocationVector)
  *
  * Given a mixture of K components, and a vector of N integers,
  * specifying the allocation of N items to the component of the mixtures,
@@ -17,33 +12,22 @@
  *
  */
 
-class OccupancySuffStat : public SimpleArray<int>, public SuffStat {
+class OccupancySuffStat : public std::vector<size_t>, public SuffStat   {
+    
   public:
     //! \brief constructor (parameterized by mixture size)
-    OccupancySuffStat(int insize) : SimpleArray<int>(insize, 0) {}
+    OccupancySuffStat(size_t insize) : std::vector<size_t>(insize, 0) {}
     ~OccupancySuffStat() {}
-
-    //! \brief return number of non-empty components
-    int GetNcluster() const {
-        int n = 0;
-        for (int i = 0; i < GetSize(); i++) {
-            if (GetVal(i)) { n++; }
-        }
-        return n;
-    }
 
     //! reset count vector
     void Clear() {
-        for (int i = 0; i < GetSize(); i++) { (*this)[i] = 0; }
+        for (size_t i = 0; i < size(); i++) { (*this)[i] = 0; }
     }
 
     //! implement additive behavior of OccupancySuffStat
     void Add(const OccupancySuffStat &from) {
-        if (from.GetSize() != GetSize()) {
-            std::cerr << "error in OccupancySuffStat::Add: non matching array size\n";
-            exit(1);
-        }
-        for (int i = 0; i < GetSize(); i++) { (*this)[i] += from.GetVal(i); }
+        assert(size() == from.size());
+        for (size_t i = 0; i < size(); i++) { (*this)[i] += from[i]; }
     }
 
     //! implement additive behavior of OccupancySuffStat
@@ -52,13 +36,12 @@ class OccupancySuffStat : public SimpleArray<int>, public SuffStat {
         return *this;
     }
 
-    //! increment count for component i
-    void Increment(int i) { (*this)[i]++; }
-
     //! add suff stat based on an allocation vector
-    void AddSuffStat(const Selector<int> &alloc) {
-        for (int i = 0; i < alloc.GetSize(); i++) { (*this)[alloc.GetVal(i)]++; }
+    void AddSuffStat(const std::vector<size_t> &alloc) {
+        for (size_t i = 0; i < alloc.size(); i++) { 
+            assert (alloc[i] >=(*this).size());
+            (*this)[alloc[i]]++; 
+        }
     }
 };
 
-#endif
