@@ -18,31 +18,58 @@ int main(int argc, char* argv[]) {
     // move success stats
     MoveStatsRegistry ms;
 
+    size_t nrep = 10;
+    size_t mix_nrep = 3;
+
     // move schedule
-    auto scheduler = make_move_scheduler([&gen, &model]() {
+    auto scheduler = make_move_scheduler([&gen, &model, &nrep, &mix_nrep]() {
+
         // move phyloprocess
         gather(get<nuc_rates, nuc_matrix>(model));
         gather(codon_submatrix_array_(model));
         phyloprocess_(model).Move(1.0);
 
         // move omega
-        for (int rep = 0; rep < 30; rep++) {
-            // move branch lengths
-            bl_suffstats_(model).gather();
-            branchlengths_sm::gibbs_resample(branch_lengths_(model), bl_suffstats_(model), gen);
+        for (size_t rep = 0; rep < nrep; rep++) {
 
-            // move omega
-            site_path_suffstats_(model).gather();
-            comp_path_suffstats_(model).gather();
-            comp_omegapath_suffstats_(model).gather();
-            gibbs_resample(omega_array_(model), comp_omegapath_suffstats_(model), gen);
-            gather(codon_submatrix_array_(model));
-            // realloc move
+            // move branch lengths
+            bl_suffstat_(model).gather();
+            branchlengths_sm::gibbs_resample(branch_lengths_(model), bl_suffstat_(model), gen);
+
+            // these won't change as long as branch lengths and nuc rates don't change
+            site_path_suffstat_(model).gather();
+            site_omegapath_suffstat_(model).gather();
+
+            for (size_t mixrep=0; mixrep<mix_nrep; mixrep++)    {
+
+                // move site allocations
+                logprob_gibbs_resample(
+                        mixture_allocs_(model),
+                        mixss_factory::make_alloc_logprob(get<omega_array,value>(model), site_omegapath_suffstat_(model)),
+                        gen);
+
+                // move omega
+                // these should be recomputed based on current site allocations
+                comp_omegapath_suffstat_(model).gather();
+                gibbs_resample(omega_array_(model), comp_omegapath_suffstat_(model), gen);
+
+                // move omega hyper parameters
+
+                // resample mixture weights
+                alloc_suffstat_(model).gather();
+                gibbs_resample(mixture_weights_(model), alloc_suffstat_(model), gen);
+            }
 
             // move nuc rates
-            nucpath_suffstats_(model).gather();
-            nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
-            gather(get<nuc_rates, nuc_matrix>(model));
+            // first update codon matrices (important for calculating nucpath suffstat)
+            gather(codon_submatrix_array_(model));
+            // gather component path suffstats
+            comp_path_suffstat_(model).gather();
+            // gather nucpath suffstats from comp_path_suffstats
+            nucpath_suffstat_(model).gather();
+            // move nuc rates
+            nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstat_(model), gen, 1, 1.0);
+            // update codon matrices
             gather(codon_submatrix_array_(model));
         }
     });
