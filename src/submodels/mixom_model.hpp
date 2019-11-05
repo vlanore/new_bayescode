@@ -58,10 +58,10 @@ struct mixom {
         auto nuc_rates = nucrates_sm::make(
                 std::vector<double>(6, 1./6), 1./6, std::vector<double>(4, 1./4), 1./4, gen);
 
-        // first weight_hyper is the allocation initializer, second one is the parent in the DAG..
+        // mixture weights
         auto weights = make_node_with_init<dirichlet>(
-                std::vector<double> (ncomp, 1.0/ncomp),
-                std::vector<double> (ncomp, 1.0/ncomp));
+                std::vector<double> (ncomp, 1.0/ncomp),     // initializer
+                std::vector<double> (ncomp, 1.0/ncomp));    // parent in DAG
 
         // iid categorical site allocations
         auto alloc = make_node_array<categorical>(nsite, n_to_one(weights));
