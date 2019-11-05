@@ -64,7 +64,7 @@ auto poisson_gamma(size_t size, size_t size2) {
 int main() {
     auto gen = make_generator();
     std::string chain_name = "simu_and_infer_chain";
-    constexpr size_t nb_it{100'000}, len_lambda{20}, len_K{200}, every(1);
+    constexpr size_t nb_it{1'000}, len_lambda{20}, len_K{200}, every(100);
     auto m = poisson_gamma(len_lambda, len_K);
 
 
@@ -86,10 +86,29 @@ int main() {
 
     // move schedule
     auto scheduler = make_move_scheduler([&gen, &m, &ms]() {
-        // // move alpha
-        // scaling_move(alpha_(m), make_view<alpha, lambda>(m), gen);
-        // // move beta
-        // scaling_move(beta_(m), make_view<beta, lambda>(m), gen);
+
+        sweet_scaling_move(alpha__(m), simple_logprob(lambda_(m)), gen);
+        sweet_scaling_move(beta__(m), simple_logprob(lambda_(m)), gen);
+        // equivalent to:
+        /*
+        auto logprob_lambda = [&l = lambda_(m)] () {return logprob(l);};
+        sweet_scaling_move(alpha__(m), logprob_lambda, gen);
+        */
+
+        sweet_scaling_move(lambda_(m), matrix_row_logprob(K_(m)), gen);
+        // equivalent to:
+        /*
+        auto logprob_K = [&k = K_(m)] (int i) {
+            auto subset = subsets::row(k,i);
+            return logprob(subset);
+        };
+        sweet_scaling_move(lambda_(m), logprob_K, gen);
+        */
+    });
+
+    // old (non-sweet...) version
+    /*
+    auto scheduler = make_move_scheduler([&gen, &m, &ms]() {
         scaling_move(alpha__(m), logprob_of_blanket(make_collection(alpha__(m), lambda_(m))), gen);
         scaling_move(beta__(m), logprob_of_blanket(make_collection(beta__(m), lambda_(m))), gen);
 
@@ -97,10 +116,11 @@ int main() {
         for (size_t i = 0; i < len_lambda; i++) {
             auto lambda_mb =
                 make_collection(subsets::row(K_(m), i), subsets::element(lambda_(m), i));
-                mh_move(lambda_(m), logprob_of_blanket(lambda_mb),
-                        [i](auto& value, auto& gen) { return scale(value[i], gen); }, gen);
+            mh_move(lambda_(m), logprob_of_blanket(lambda_mb),
+                    [i](auto& value, auto& gen) { return scale(value[i], gen); }, gen);
         }
     });
+    */
 
 
     // initializing components
@@ -112,7 +132,7 @@ int main() {
 
     // registering components to chain driver
     chain_driver.add(scheduler);
-    chain_driver.add(console_logger);
+    // chain_driver.add(console_logger);
     // chain_driver.add(chain_checkpoint);
     chain_driver.add(trace);
     chain_driver.add(ms);
