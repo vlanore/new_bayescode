@@ -3,21 +3,7 @@
 #include <assert.h>
 #include <set>
 #include <string>
-#include "lib/Array.hpp"
-#include "lib/BidimArray.hpp"
-#include "lib/BranchArray.hpp"
 class PoissonSuffStat;
-class PoissonSuffStatBranchArray;
-class IIDGamma;
-class BranchIIDGamma;
-class IIDDirichlet;
-class MultiDirichlet;
-class MultinomialAllocationVector;
-class GammaWhiteNoise;
-class GammaWhiteNoiseArray;
-class Dirichlet;
-class BidimIIDMultiGamma;
-class IIDProfileMask;
 
 /*
 ====================================================================================================
@@ -66,17 +52,6 @@ class RegistrarBase {
     }
 
   public:
-    CONVERT_REF_TO(IIDGamma, SimpleArray<double>);
-    CONVERT_REF_TO(Dirichlet, SimpleArray<double>);
-    CONVERT_REF_TO(BranchIIDGamma, SimpleBranchArray<double>);
-    CONVERT_REF_TO(IIDDirichlet, SimpleArray<std::vector<double>>);
-    CONVERT_REF_TO(MultiDirichlet, SimpleArray<std::vector<double>>);
-    CONVERT_REF_TO(MultinomialAllocationVector, SimpleArray<int>);
-    CONVERT_REF_TO(GammaWhiteNoise, SimpleBranchArray<double>);
-    CONVERT_REF_TO(GammaWhiteNoiseArray, Array<GammaWhiteNoise>);
-    CONVERT_REF_TO(PoissonSuffStatBranchArray, SimpleBranchArray<PoissonSuffStat>);
-    CONVERT_REF_TO(BidimIIDMultiGamma, SimpleBidimArray<std::vector<double>>);
-    CONVERT_REF_TO(IIDProfileMask, SimpleArray<std::vector<int>>);
 
     template <class Elem, class... Args>
     void register_element(std::string s, std::vector<std::vector<Elem>>& vv, Args&&... args) {
@@ -86,21 +61,7 @@ class RegistrarBase {
         }
     }
 
-    template <class Target, class... Args>
-    void register_element(std::string s, SimpleBranchArray<Target>& target, Args&&... args) {
-        static_cast<T*>(this)->register_element(s, target.GetArray(), std::forward<Args>(args)...);
-    }
-
-    template <class Target, class... Args>
-    void register_element(std::string s, SimpleArray<Target>& target, Args&&... args) {
-        static_cast<T*>(this)->register_element(s, target.GetArray(), std::forward<Args>(args)...);
-    }
-
-    template <class Target, class... Args>
-    void register_element(std::string s, SimpleBidimArray<Target>& target, Args&&... args) {
-        static_cast<T*>(this)->register_element(s, target.GetArray(), std::forward<Args>(args)...);
-    }
-
+    /*
     template <class Target, class... Args>
     void register_element(std::string s, Target&, Args... args) {
         std::stringstream ss;
@@ -114,6 +75,7 @@ class RegistrarBase {
         std::cerr << ss.str();
         exit(1);
     }
+    */
 
     RegistrarBase() = default;
 

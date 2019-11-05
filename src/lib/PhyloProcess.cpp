@@ -197,9 +197,7 @@ double PhyloProcess::FastSiteLogLikelihood(int site) const {
 
 double PhyloProcess::GetFastLogProb() const {
     double total = 0;
-    MeasureTime timer;
     for (int i = 0; i < GetNsite(); i++) { total += sitelnL[i]; }
-    // timer.print<2>("GetFastLogProb. ");
     return total;
 }
 
@@ -215,6 +213,7 @@ void PhyloProcess::Pruning(Tree::NodeIndex from, int site) const {
         int totcomp = 0;
         for (int k = 0; k < GetNstate(); k++) {
             if (polyprocess != nullptr) {
+                /*
                 double prob = polyprocess->GetProb(taxon_table[from], site, k);
                 if (prob > 0.0) {
                     totcomp++;
@@ -222,6 +221,7 @@ void PhyloProcess::Pruning(Tree::NodeIndex from, int site) const {
                 } else {
                     t[k] = 0.0;
                 }
+                */
             } else {
                 if (isDataCompatible(from, site, k)) {
                     t[k] = 1.0;
@@ -393,18 +393,14 @@ void PhyloProcess::DrawSites(double fraction) {
 }
 
 void PhyloProcess::ResampleSub() {
-    pruningchrono.Start();
 
     for (int i = 0; i < GetNsite(); i++) {
         if (sitearray[i] != 0) { ResampleState(i); }
     }
-    pruningchrono.Stop();
 
-    resamplechrono.Start();
     for (int i = 0; i < GetNsite(); i++) {
         if (sitearray[i] != 0) { ResampleSub(GetRoot(), i); }
     }
-    resamplechrono.Stop();
 }
 
 void PhyloProcess::ResampleSub(int site) {

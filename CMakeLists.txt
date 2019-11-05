@@ -36,22 +36,15 @@ add_library (global_lib STATIC "src/global/Random.cpp")
 set(BAYESCODE_LIB
     src/lib/AAMutSelOmegaCodonSubMatrix.cpp
     src/lib/BranchSitePath.cpp
-    src/lib/Chain.cpp
-    src/lib/Chrono.cpp
     src/lib/CodonSequenceAlignment.cpp
     src/lib/CodonStateSpace.cpp
     src/lib/CodonSubMatrix.cpp
     src/lib/GTRSubMatrix.cpp
     src/lib/PhyloProcess.cpp
-    src/lib/RandomGeneSample.cpp
-    src/lib/Sample.cpp
     src/lib/SequenceAlignment.cpp
     src/lib/StateSpace.cpp
     src/lib/SubMatrix.cpp
     src/lib/TaxonSet.cpp
-    src/lib/PolyData.cpp
-    src/lib/PolyProcess.cpp
-    src/lib/PoissonRandomField.cpp
   )
 add_library (bayescode_lib STATIC ${BAYESCODE_LIB})
 

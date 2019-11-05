@@ -1,17 +1,14 @@
-
 #pragma once
 
 #include <fstream>
 #include <map>
-#include "BidimArray.hpp"
 #include "BranchSitePath.hpp"
-#include "BranchSiteSelector.hpp"
-#include "Chrono.hpp"
-#include "NodeArray.hpp"
-#include "PolyProcess.hpp"
+// #include "PolyProcess.hpp"
 #include "SequenceAlignment.hpp"
 #include "SubMatrix.hpp"
 #include "tree/implem.hpp"
+
+class PolyProcess;
 
 // PhyloProcess is a dispatcher:
 // its responsibility is to create a random branch/site path
@@ -316,9 +313,6 @@ class PhyloProcess {
     void BackwardFillMissingMap(Tree::NodeIndex from);
     void ForwardFillMissingMap(Tree::NodeIndex from, Tree::NodeIndex up);
 
-    double GetPruningTime() const { return pruningchrono.GetTime(); }
-    double GetResampleTime() const { return resamplechrono.GetTime(); }
-
     void RecursiveCreate(Tree::NodeIndex from);
     void RecursiveDelete(Tree::NodeIndex from);
 
@@ -373,7 +367,4 @@ class PhyloProcess {
     static const int unknown = -1;
 
     static const int DEFAULTMAXTRIAL = 100;
-
-    mutable Chrono pruningchrono;
-    mutable Chrono resamplechrono;
 };
