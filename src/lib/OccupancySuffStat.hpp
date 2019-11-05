@@ -39,7 +39,7 @@ class OccupancySuffStat : public std::vector<size_t>, public SuffStat   {
     //! add suff stat based on an allocation vector
     void AddSuffStat(const std::vector<size_t> &alloc) {
         for (size_t i = 0; i < alloc.size(); i++) { 
-            assert (alloc[i] >=(*this).size());
+            assert (alloc[i] <(*this).size());
             (*this)[alloc[i]]++; 
         }
     }
