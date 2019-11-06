@@ -50,14 +50,13 @@ int main(int argc, char* argv[]) {
                     };
                 logprob_gibbs_resample(mixture_allocs_(model), alloc_logprob, gen);
 
-                // move omega
-                // these should be recomputed based on current site allocations
-                comp_omegapath_suffstat_(model).gather();
-                gibbs_resample(omega_array_(model), comp_omegapath_suffstat_(model), gen);
+                // needed for skipping empty components
+                alloc_suffstat_(model).gather();
 
-                // move omega hyper parameters
+                // gather omega hyper suffstats (skipping empty components)
                 omega_hyper_suffstat_(model).gather();
 
+                // move omega hyper parameters
                 auto hyper_logprob = 
                     [&mean = get<omega_hypermean,value>(model), 
                      &invshape = get<omega_hyperinvshape,value>(model), 
@@ -66,7 +65,36 @@ int main(int argc, char* argv[]) {
 
                 sweet_scaling_move(omega_hypermean_(model), hyper_logprob, gen);
                 sweet_scaling_move(omega_hyperinvshape_(model), hyper_logprob, gen);
-                // should add a re-draw for empty mixture components
+
+                // gather omega path suffstats
+                comp_omegapath_suffstat_(model).gather();
+
+                // gibbs resample the omega's
+                // (will also refresh empty components by effectively sampling them from prior)
+                gibbs_resample(omega_array_(model), comp_omegapath_suffstat_(model), gen);
+
+                // resample mixture weights
+                // (occupancy suff stats are still valid)
+                gibbs_resample(mixture_weights_(model), alloc_suffstat_(model), gen);
+
+                // alternative version
+                // first move omega hyper parameters based on marginal logprob
+                comp_omegapath_suffstat_(model).gather();
+                auto hyper_marginal_logprob = 
+                    [&mean = get<omega_hypermean,value>(model), 
+                     &invshape = get<omega_hyperinvshape,value>(model), 
+                     &ss = comp_omegapath_suffstat_(model), ncomp = get<omega_array,value>(model).size()] ()  {
+                        double tot = 0;
+                        for (size_t i=0; i<ncomp; i++)  {
+                            tot += gamma_mi::marginal_logprob(ss.get(i), mean, invshape);
+                        }
+                        return tot;
+                    };
+
+                sweet_scaling_move(omega_hypermean_(model), hyper_marginal_logprob, gen);
+                sweet_scaling_move(omega_hyperinvshape_(model), hyper_marginal_logprob, gen);
+                // then resample omega's
+                gibbs_resample(omega_array_(model), comp_omegapath_suffstat_(model), gen);
 
                 // resample mixture weights
                 alloc_suffstat_(model).gather();

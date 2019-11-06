@@ -142,7 +142,22 @@ struct mixom {
         auto nucpath_ss = pathss_factory::make_nucpath_suffstat(codon_statespace, get<value>(codon_submatrix_array), *comp_path_ss);
 
         auto omega_hyper_ss = ss_factory::make_suffstat<GammaSuffStat>(
-                [&om = get<value>(omega_array)] (auto& gamss, int i) { gamss.AddSuffStat(om[i], log(om[i]), 1); },
+
+                // version 1: including all components
+                [&om = get<value>(omega_array)] (auto& gamss, int i) { 
+                    gamss.AddSuffStat(om[i], log(om[i]), 1);
+                },
+
+                // version 2: skipping empty components
+                // careful: requires re-drawing the omega's from the prior for the empty components
+                // after having mh-moved the hyperparameters
+                /*
+                [&om = get<value>(omega_array), &occ = alloc_ss] (auto& gamss, int i) { 
+                    if (occ.get()[i] > 0) {
+                        gamss.AddSuffStat(om[i], log(om[i]), 1);
+                    }
+                },
+                */
                 (int) ncomp);
 
         return make_model(
