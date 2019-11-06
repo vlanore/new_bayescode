@@ -36,22 +36,24 @@ int compute(int argc, char* argv[]) {
     Random::InitRandom(42);
 
     // Model declarations
-    auto model = globom_common::make(gen);
+    auto master_m = 
+        master_only_ptr([&gen] () { return globom_master::make(gen); });
     auto slave_m =
-        slave_only_ptr([&model, &data, &gen]() { return globom_slave::make(model, *data, gen); });
-
-    // Shared omega suffstat between models
-    auto omega_ss = ss_factory::make_suffstat<OmegaPathSuffStat>([&slave_m](auto& omss) {
-        omss.AddSuffStat(
-            get<codon_submatrix, value>(*slave_m), get<path_suffstats>(*slave_m).get());
-    });
+        slave_only_ptr([&data, &gen]() { return globom_slave::make(*data, gen); });
 
     // communication between processes
+    OmegaPathSuffStat& omega_ss = master ? omegapath_suffstats_(*master_m).get() : omegapath_suffstats_(*slave_m).get();
+    double& omega_ref = master ? get<global_omega, omega, value>(*master_m) : global_omega_(*slave_m);
+    auto reduce_omega_ss = reduce(omega_ss.beta, omega_ss.count);
+    auto omega_broadcast = broadcast(omega_ref);
+
+    /*
     auto reduce_omega_ss = reduce(omega_ss->get().beta, omega_ss->get().count);
     auto omega_broadcast = broadcast(get<global_omega, omega, value>(model));
+    */
 
     // Draw omega @master and broadcast it
-    draw(get<global_omega, omega>(model), gen);
+    draw(get<global_omega, omega>(*master_m), gen);
     master_to_slave(omega_broadcast);
 
     // move success stats
@@ -78,17 +80,15 @@ int compute(int argc, char* argv[]) {
 
                 // gather omega suffstats
                 path_suffstats_(*slave_m).gather();
-                omega_ss->gather();
+                omegapath_suffstats_(*slave_m).gather();
             }
             slave_to_master(reduce_omega_ss);
             // Move omega
-            if (master) { omega_sm::gibbs_resample(global_omega_(model), *omega_ss, gen); }
+            if (master) { omega_sm::gibbs_resample(global_omega_(*master_m), omegapath_suffstats_(*master_m), gen); }
             master_to_slave(omega_broadcast);
 
             // Update slave dnode using new omega value
             if (!master) {
-                // get<global_omega, omega, value>(*slave_m) = get<global_omega, omega,
-                // value>(model);
                 gather(get<codon_submatrix>(*slave_m));
             }
         }
@@ -96,7 +96,7 @@ int compute(int argc, char* argv[]) {
 
     // trace
     auto trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".trace",
-        trace_entry("omega", get<global_omega, omega>(model))
+        trace_entry("omega", get<global_omega, omega>(*master_m))
         // trace_entry("nucrates", get<nuc_rates, eq_freq>(*slave_m))  //
     );
 
@@ -104,7 +104,7 @@ int compute(int argc, char* argv[]) {
     ChainDriver chain_driver{cmd.chain_name(), args.every.getValue(), args.until.getValue()};
 
     ConsoleLogger console_logger;
-    ModelTracer chain(model, cmd.chain_name() + to_string(rank) + ".chain");
+    ModelTracer chain(*master_m, cmd.chain_name() + to_string(rank) + ".chain");
 
     // registering components to chain driver
     chain_driver.add(scheduler);
