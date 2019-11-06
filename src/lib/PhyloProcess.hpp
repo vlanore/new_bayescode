@@ -29,16 +29,6 @@ class PolyProcess;
 
 class PhyloProcess {
   public:
-    /*
-    friend class PathSuffStat;
-    friend class PathSuffStatArray;
-    friend class PathSuffStatBidimArray;
-    friend class PolySuffStat;
-    friend class PolySuffStatArray;
-    friend class PoissonSuffStatBranchArray;
-    friend class PoissonSuffStatArray;
-    friend class PathSuffStatNodeArray;
-    */
 
     //! \brief generic constructor
     PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
@@ -234,58 +224,8 @@ class PhyloProcess {
     }
 
     /*
-    void AddPathSuffStat(std::function<PathSuffStat&(int,int)> suffstat) const;
-    void RecursiveAddPathSuffStat(Tree::NodeIndex from, std::function<PathSuffStat&(int,int)>& suffstat) const;
-    void LocalAddPathSuffStat(Tree::NodeIndex from, std::function<PathSuffStat&(int,int)>& suffstat) const;
-
-    void AddLengthSuffStat(std::function<PoissonSuffStat&(int,int)> suffstat) const;
-    void RecursiveAddLengthSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const;
-    void LocalAddLengthSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const;
-
-    void AddRateSuffStat(std::function<PoissonSuffStat&(int,int)> ratepathsuffstat) const;
-    void RecursiveAddRateSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const;
-    void LocalAddRateSuffStat(Tree::NodeIndex from, std::function<PoissonSuffStat&(int,int)> suffstat) const;
-    */
-
-    /*
     void AddPolySuffStat(PolySuffStat &suffstat) const;
     void AddPolySuffStat(Array<PolySuffStat> &suffstatarray) const;
-    */
-
-    /*
-    void AddPathSuffStat(PathSuffStat &suffstat) const;
-    void AddPathSuffStat(Array<PathSuffStat> &suffstatarray) const;
-    void AddPathSuffStat(NodeArray<PathSuffStat> &suffstatarray) const;
-    void AddPathSuffStat(
-        BidimArray<PathSuffStat> &suffstatarray, const BranchSelector<int> &branchalloc) const;
-
-    void AddLengthSuffStat(BranchArray<PoissonSuffStat> &branchlengthpathsuffstatarray) const;
-
-    void AddRateSuffStat(Array<PoissonSuffStat> &siteratepathsuffstatarray) const;
-
-    void RecursiveAddPathSuffStat(Tree::NodeIndex from, PathSuffStat &suffstat) const;
-    void LocalAddPathSuffStat(Tree::NodeIndex from, PathSuffStat &suffstat) const;
-
-    void RecursiveAddPathSuffStat(
-        Tree::NodeIndex from, NodeArray<PathSuffStat> &suffstatarray) const;
-    void LocalAddPathSuffStat(Tree::NodeIndex from, NodeArray<PathSuffStat> &suffstatarray) const;
-
-    void RecursiveAddPathSuffStat(Tree::NodeIndex from, Array<PathSuffStat> &suffstatarray) const;
-    void LocalAddPathSuffStat(Tree::NodeIndex from, Array<PathSuffStat> &suffstatarray) const;
-
-    void RecursiveAddPathSuffStat(Tree::NodeIndex from, BidimArray<PathSuffStat> &suffstatarray,
-        const BranchSelector<int> &branchalloc) const;
-    void LocalAddPathSuffStat(
-        Tree::NodeIndex from, BidimArray<PathSuffStat> &suffstatarray, int cond) const;
-
-    void RecursiveAddLengthSuffStat(
-        Tree::NodeIndex from, BranchArray<PoissonSuffStat> &branchlengthpathsuffstatarray) const;
-    void LocalAddLengthSuffStat(Tree::NodeIndex from, PoissonSuffStat &branchlengthsuffstat) const;
-
-    void RecursiveAddRateSuffStat(
-        Tree::NodeIndex from, Array<PoissonSuffStat> &siteratepathsuffstatarray) const;
-    void LocalAddRateSuffStat(
-        Tree::NodeIndex from, Array<PoissonSuffStat> &siteratepathsuffstatarray) const;
     */
 
   private:

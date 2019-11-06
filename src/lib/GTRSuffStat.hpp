@@ -1,11 +1,7 @@
-
-#ifndef GTRSUFFSTAT_H
-#define GTRSUFFSTAT_H
+#pragma once
 
 #include "AASubSelSubMatrix.hpp"
-#include "AASubSelSubMatrixArray.hpp"
 #include "GTRSubMatrix.hpp"
-#include "GTRSubMatrixArray.hpp"
 #include "PathSuffStat.hpp"
 
 class RelRateSuffStat : public SuffStat {
@@ -48,20 +44,6 @@ class RelRateSuffStat : public SuffStat {
     }
 
     void AddSuffStat(
-        const GTRSubMatrixArray &matrixarray, const PathSuffStatArray &pathsuffstatarray) {
-        for (int i = 0; i < matrixarray.GetSize(); i++) {
-            AddSuffStat(matrixarray.GetVal(i), pathsuffstatarray.GetVal(i));
-        }
-    }
-
-    void AddSuffStat(const GTRSubMatrixArray &matrixarray,
-        const PathSuffStatArray &pathsuffstatarray, const Selector<double> &rate) {
-        for (int i = 0; i < matrixarray.GetSize(); i++) {
-            AddSuffStat(matrixarray.GetVal(i), pathsuffstatarray.GetVal(i), rate.GetVal(i));
-        }
-    }
-
-    void AddSuffStat(
         const AASubSelSubMatrix &matrix, const PathSuffStat &pathsuffstat, double rate = 1) {
         const std::map<int, double> &waitingtime = pathsuffstat.GetWaitingTimeMap();
         for (std::map<int, double>::const_iterator i = waitingtime.begin(); i != waitingtime.end();
@@ -79,20 +61,6 @@ class RelRateSuffStat : public SuffStat {
         for (std::map<pair<int, int>, int>::const_iterator i = paircount.begin();
              i != paircount.end(); i++) {
             rrcount[rrindex(i->first.first, i->first.second)] += i->second;
-        }
-    }
-
-    void AddSuffStat(
-        const AASubSelSubMatrixArray &matrixarray, const PathSuffStatArray &pathsuffstatarray) {
-        for (int i = 0; i < matrixarray.GetSize(); i++) {
-            AddSuffStat(matrixarray.GetVal(i), pathsuffstatarray.GetVal(i));
-        }
-    }
-
-    void AddSuffStat(const AASubSelSubMatrixArray &matrixarray,
-        const PathSuffStatArray &pathsuffstatarray, const Selector<double> &rate) {
-        for (int i = 0; i < matrixarray.GetSize(); i++) {
-            AddSuffStat(matrixarray.GetVal(i), pathsuffstatarray.GetVal(i), rate.GetVal(i));
         }
     }
 
@@ -162,20 +130,6 @@ class ProfileSuffStat : public SuffStat {
         }
     }
 
-    void AddSuffStat(
-        const GTRSubMatrixArray &matrixarray, const PathSuffStatArray &pathsuffstatarray) {
-        for (int i = 0; i < matrixarray.GetSize(); i++) {
-            AddSuffStat(matrixarray.GetVal(i), pathsuffstatarray.GetVal(i));
-        }
-    }
-
-    void AddSuffStat(const GTRSubMatrixArray &matrixarray,
-        const PathSuffStatArray &pathsuffstatarray, const Selector<double> &rate) {
-        for (int i = 0; i < matrixarray.GetSize(); i++) {
-            AddSuffStat(matrixarray.GetVal(i), pathsuffstatarray.GetVal(i), rate.GetVal(i));
-        }
-    }
-
     double GetLogProb(const vector<double> &profile) const {
         double total = 0;
         for (int i = 0; i < nstate; i++) {
@@ -202,38 +156,3 @@ class ProfileSuffStat : public SuffStat {
     vector<double> profilebeta;
 };
 
-class ProfileSuffStatArray : public SimpleArray<ProfileSuffStat> {
-  public:
-    ProfileSuffStatArray(int insize, int innstate)
-        : SimpleArray<ProfileSuffStat>(insize, ProfileSuffStat(innstate)){};
-    ~ProfileSuffStatArray() {}
-
-    void Clear() {
-        for (int i = 0; i < GetSize(); i++) { (*this)[i].Clear(); }
-    }
-
-    void AddSuffStat(const Selector<GTRSubMatrix> &matrixarray,
-        const Selector<PathSuffStat> &pathsuffstatarray) {
-        for (int i = 0; i < GetSize(); i++) {
-            (*this)[i].AddSuffStat(matrixarray.GetVal(i), pathsuffstatarray.GetVal(i));
-        }
-    }
-
-    void AddSuffStat(const Selector<GTRSubMatrix> &matrixarray,
-        const Selector<PathSuffStat> &pathsuffstatarray, const Selector<double> &rate) {
-        for (int i = 0; i < GetSize(); i++) {
-            (*this)[i].AddSuffStat(
-                matrixarray.GetVal(i), pathsuffstatarray.GetVal(i), rate.GetVal(i));
-        }
-    }
-
-    double GetLogProb(const Selector<vector<double>> &profilearray) const {
-        double total = 0;
-        for (int i = 0; i < GetSize(); i++) {
-            total += GetVal(i).GetLogProb(profilearray.GetVal(i));
-        }
-        return total;
-    }
-};
-
-#endif
