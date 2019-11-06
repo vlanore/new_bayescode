@@ -51,6 +51,10 @@ class GammaSuffStat {
                scale * sum;
     }
 
+    bool operator==(const GammaSuffStat& other) const {
+        return sum == other.sum && sumlog == other.sumlog && n == other.n;
+    }
+
     double sum;
     double sumlog;
     int n;

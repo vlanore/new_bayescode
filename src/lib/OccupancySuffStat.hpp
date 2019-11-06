@@ -42,5 +42,17 @@ class OccupancySuffStat : public std::vector<size_t>    {
             (*this)[alloc[i]]++; 
         }
     }
+
+    bool operator==(const OccupancySuffStat& other) const {
+        if (size() != other.size()) {
+            return false;
+        }
+        for (size_t i = 0; i < size(); i++) { 
+            if ((*this)[i] != other[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
 };
 
