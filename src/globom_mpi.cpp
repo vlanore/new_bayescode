@@ -43,17 +43,14 @@ int compute(int argc, char* argv[]) {
 
     // communication between processes
     OmegaPathSuffStat& omega_ss = master ? omegapath_suffstats_(*master_m).get() : omegapath_suffstats_(*slave_m).get();
-    double& omega_ref = master ? get<global_omega, omega, value>(*master_m) : global_omega_(*slave_m);
+    double& omega_ref = master ? get<global_omega, omega, value>(*master_m) : get<omega_proxy>(*slave_m);
     auto reduce_omega_ss = reduce(omega_ss.beta, omega_ss.count);
     auto omega_broadcast = broadcast(omega_ref);
 
-    /*
-    auto reduce_omega_ss = reduce(omega_ss->get().beta, omega_ss->get().count);
-    auto omega_broadcast = broadcast(get<global_omega, omega, value>(model));
-    */
-
     // Draw omega @master and broadcast it
-    draw(get<global_omega, omega>(*master_m), gen);
+    if (master) {
+        draw(get<global_omega, omega>(*master_m), gen);
+    }
     master_to_slave(omega_broadcast);
 
     // move success stats
@@ -94,23 +91,27 @@ int compute(int argc, char* argv[]) {
         }
     });
 
-    // trace
-    auto trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".trace",
-        trace_entry("omega", get<global_omega, omega>(*master_m))
-        // trace_entry("nucrates", get<nuc_rates, eq_freq>(*slave_m))  //
-    );
-
     // initializing components
     ChainDriver chain_driver{cmd.chain_name(), args.every.getValue(), args.until.getValue()};
 
     ConsoleLogger console_logger;
-    ModelTracer chain(*master_m, cmd.chain_name() + to_string(rank) + ".chain");
+    // not clear how to deal with master/slave issues here
 
     // registering components to chain driver
     chain_driver.add(scheduler);
     chain_driver.add(console_logger);
+
+    // not clear how to deal with that
+    /*
+    ModelTracer chain(*master_m, cmd.chain_name() + to_string(rank) + ".chain");
     chain_driver.add(chain);
+
+    auto trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".trace",
+        trace_entry("omega", get<global_omega, omega>(*master_m))
+    );
     chain_driver.add(trace);
+    */
+
     chain_driver.add(ms);
 
     // launching chain!

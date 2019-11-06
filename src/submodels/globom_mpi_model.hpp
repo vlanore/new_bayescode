@@ -25,6 +25,7 @@
 
 
 TOKEN(global_omega)
+TOKEN(omega_proxy)
 TOKEN(branch_lengths)
 TOKEN(nuc_rates)
 // TOKEN(codon_statespace)
@@ -38,8 +39,12 @@ TOKEN(omegapath_suffstats)
 struct globom_master {
     template <class Gen>
     static auto make(Gen& gen) {
+
         auto global_omega = omega_sm::make(one_to_const(1.0), one_to_const(1.0), gen);
+
+        // will collect ss across slaves
         auto omega_ss = ss_factory::make_suffstat<OmegaPathSuffStat>([] (auto& omss) {});
+
         return make_model(global_omega_ = move(global_omega), omegapath_suffstats_ = move(omega_ss));
     }
 };
@@ -49,6 +54,8 @@ struct globom_slave {
     static auto make(PreparedData& data, Gen& gen) {
 
         auto omega = std::make_unique<double>(1.0);
+        // auto omega = make_node<gamma_mi>(one_to_const(1.0), one_to_const(1.0));
+        // draw(omega, gen);
 
         auto branch_lengths =
             branchlengths_sm::make(data.parser, *data.tree, one_to_const(0.1), one_to_const(1.0));
@@ -63,7 +70,6 @@ struct globom_slave {
             {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
             [& mat = get<nuc_matrix, value>(nuc_rates)]() -> const SubMatrix& { return mat; },
             [&om = *omega] () {return om;} );
-            // [& om = get<global_omega, omega, value>(master)]() { return om; });
 
         gather(codon_submatrix);
 
@@ -100,7 +106,7 @@ struct globom_slave {
 
         // clang-format off
         return make_model(
-            global_omega_ = move(omega),
+            omega_proxy_ = move(omega),
             branch_lengths_ = move(branch_lengths), 
             nuc_rates_ = move(nuc_rates),
             codon_submatrix_ = move(codon_submatrix), 
