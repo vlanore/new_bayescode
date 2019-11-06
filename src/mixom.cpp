@@ -43,10 +43,12 @@ int main(int argc, char* argv[]) {
             for (size_t mixrep=0; mixrep<mix_nrep; mixrep++)    {
 
                 // move site allocations
-                logprob_gibbs_resample(
-                        mixture_allocs_(model),
-                        mixss_factory::make_alloc_logprob(get<omega_array,value>(model), site_omegapath_suffstat_(model)),
-                        gen);
+                auto alloc_logprob = 
+                    [&val = get<omega_array,value>(model), &ss = site_omegapath_suffstat_(model)] (int i) {
+                        auto lambda = [&val, &s=ss.get(i)] (int k) {return s.GetLogProb(val[k]);};
+                        return lambda;
+                    };
+                logprob_gibbs_resample(mixture_allocs_(model), alloc_logprob, gen);
 
                 // move omega
                 // these should be recomputed based on current site allocations
@@ -54,6 +56,17 @@ int main(int argc, char* argv[]) {
                 gibbs_resample(omega_array_(model), comp_omegapath_suffstat_(model), gen);
 
                 // move omega hyper parameters
+                omega_hyper_suffstat_(model).gather();
+
+                auto hyper_logprob = 
+                    [&mean = get<omega_hypermean,value>(model), 
+                     &invshape = get<omega_hyperinvshape,value>(model), 
+                     &ss = omega_hyper_suffstat_(model).get()] ()
+                     {return ss.GetLogProb(mean, invshape);};
+
+                sweet_scaling_move(omega_hypermean_(model), hyper_logprob, gen);
+                sweet_scaling_move(omega_hyperinvshape_(model), hyper_logprob, gen);
+                // should add a re-draw for empty mixture components
 
                 // resample mixture weights
                 alloc_suffstat_(model).gather();

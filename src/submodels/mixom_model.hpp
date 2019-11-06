@@ -9,19 +9,21 @@
 #include "components/StandardTracer.hpp"
 #include "components/restart_check.hpp"
 #include "data_preparation.hpp"
+
+
 #include "lib/CodonSubMatrix.hpp"
 #include "lib/CodonSuffStat.hpp"
 #include "lib/PoissonSuffStat.hpp"
+#include "lib/GammaSuffStat.hpp"
+
+#include "bayes_toolbox.hpp"
+
 #include "submodels/branchlength_sm.hpp"
 #include "submodels/move_reporter.hpp"
 #include "submodels/nucrates_sm.hpp"
-#include "distributions/dirichlet.hpp"
-#include "distributions/categorical.hpp"
 #include "submodels/mgomega.hpp"
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
-#include "structure/suffstat.hpp"
-#include "bayes_toolbox.hpp"
 
 TOKEN(branch_lengths)
 TOKEN(nuc_rates)
@@ -29,6 +31,8 @@ TOKEN(nuc_rates)
 TOKEN(mixture_weights)
 TOKEN(mixture_allocs)
 
+TOKEN(omega_hypermean)
+TOKEN(omega_hyperinvshape)
 TOKEN(omega_array)
 TOKEN(codon_submatrix_array)
 
@@ -39,6 +43,7 @@ TOKEN(site_path_suffstat)
 TOKEN(comp_path_suffstat)
 TOKEN(nucpath_suffstat)
 TOKEN(site_omegapath_suffstat)
+TOKEN(omega_hyper_suffstat)
 TOKEN(comp_omegapath_suffstat)
 TOKEN(alloc_suffstat)
 
@@ -67,8 +72,13 @@ struct mixom {
         auto alloc = make_node_array<categorical>(nsite, n_to_one(weights));
         draw(alloc, gen);
 
+        auto om_mean = make_node<exponential>(one_to_const(1.0));
+        auto om_invshape = make_node<exponential>(one_to_const(1.0));
+        raw_value(om_mean) = 1.0;
+        raw_value(om_invshape) = 1.0;
+
         // omega: iid gamma across mixture components, with constant hyperparameters
-        auto omega_array = make_node_array<gamma_mi>(ncomp, n_to_const(1.0), n_to_const(1.0));
+        auto omega_array = make_node_array<gamma_mi>(ncomp, om_mean, om_invshape);
         draw(omega_array, gen);
 
         auto codon_statespace =
@@ -131,6 +141,10 @@ struct mixom {
         // assumes that path suffstats have first been reduced by components
         auto nucpath_ss = pathss_factory::make_nucpath_suffstat(codon_statespace, get<value>(codon_submatrix_array), *comp_path_ss);
 
+        auto omega_hyper_ss = ss_factory::make_suffstat<GammaSuffStat>(
+                [&om = get<value>(omega_array)] (auto& gamss, int i) { gamss.AddSuffStat(om[i], log(om[i]), 1); },
+                (int) ncomp);
+
         return make_model(
             branch_lengths_ = move(branch_lengths),
             nuc_rates_ = move(nuc_rates),
@@ -138,6 +152,8 @@ struct mixom {
             mixture_weights_ = move(weights),
             mixture_allocs_ = move(alloc),
 
+            omega_hypermean_ = move(om_mean),
+            omega_hyperinvshape_ = move(om_invshape),
             omega_array_ = move(omega_array),
             codon_submatrix_array_ = move(codon_submatrix_array),
 
@@ -149,6 +165,7 @@ struct mixom {
             comp_path_suffstat_ = move(comp_path_ss),
             alloc_suffstat_ = move(alloc_ss),
             nucpath_suffstat_ = move(nucpath_ss),
+            omega_hyper_suffstat_ = move(omega_hyper_ss),
             comp_omegapath_suffstat_ = move(comp_omega_ss),
             site_omegapath_suffstat_ = move(site_omega_ss));
     }
