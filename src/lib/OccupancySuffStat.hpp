@@ -1,5 +1,4 @@
 #pragma once
-#include "SuffStat.hpp"
 
 /**
  * \brief A sufficient statistic for a multinomial mixture allocation vector
@@ -12,7 +11,7 @@
  *
  */
 
-class OccupancySuffStat : public std::vector<size_t>, public SuffStat   {
+class OccupancySuffStat : public std::vector<size_t>    {
     
   public:
     //! \brief constructor (parameterized by mixture size)

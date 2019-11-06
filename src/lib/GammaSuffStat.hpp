@@ -1,7 +1,5 @@
 #pragma once
 
-#include "SuffStat.hpp"
-
 /**
  * \brief A sufficient statistic for a collection of gamma variates, as a
  * function of the shape and scale parameters
@@ -13,7 +11,7 @@
  * log prob for a given value for the shape and scale parameters.
  */
 
-class GammaSuffStat : public SuffStat {
+class GammaSuffStat {
   public:
     GammaSuffStat() {Clear();}
     ~GammaSuffStat() {}

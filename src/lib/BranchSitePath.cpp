@@ -6,7 +6,6 @@
 #include "PathSuffStat.hpp"
 #include "PoissonSuffStat.hpp"
 #include "SubMatrix.hpp"
-#include "SuffStat.hpp"
 
 using namespace std;
 

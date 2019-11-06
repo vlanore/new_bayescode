@@ -4,7 +4,6 @@
 
 #include <map>
 #include "SubMatrix.hpp"
-#include "SuffStat.hpp"
 
 /**
  * \brief A general sufficient statistic for substitution histories, as a
@@ -40,7 +39,7 @@
  * time and in terms of RAM usage).
  */
 
-class PathSuffStat : public SuffStat {
+class PathSuffStat  {
   public:
     PathSuffStat() {}
     ~PathSuffStat() {}

@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <typeinfo>
-// #include "CodonSubMatrixArray.hpp"
 #include "PathSuffStat.hpp"
 #include "PoissonSuffStat.hpp"
 
@@ -22,7 +21,7 @@
  * over sites / branches and computing the log p(S | M) for any M.
  */
 
-class NucPathSuffStat : public SuffStat {
+class NucPathSuffStat {
   public:
     NucPathSuffStat(const CodonStateSpace &incod = CodonStateSpace(Universal))
         : rootcount(4, 0),
@@ -94,43 +93,6 @@ class NucPathSuffStat : public SuffStat {
             paircount[n1][n2] += i->second;
         }
     }
-
-    /*
-    void AddSuffStat(const MGOmegaCodonSubMatrixArray &codonmatrixarray,
-        const PathSuffStatArray &codonpathsuffstatarray) {
-        for (int i = 0; i < codonmatrixarray.GetSize(); i++) {
-            AddSuffStat(codonmatrixarray.GetVal(i), codonpathsuffstatarray.GetVal(i));
-        }
-    }
-
-    void AddSuffStat(const BranchSelector<MGOmegaCodonSubMatrix> &codonmatrixtree,
-        const MGOmegaCodonSubMatrix &rootcodonmatrix,
-        const PathSuffStatNodeArray &codonpathsuffstatnodearray) {
-        // void AddSuffStat(const MGOmegaCodonSubMatrixBranchArray& codonmatrixtree,
-        // const MGOmegaCodonSubMatrix& rootcodonmatrix, const
-        // PathSuffStatNodeArray& codonpathsuffstatnodearray)    {
-        RecursiveAddSuffStat(codonmatrixtree.GetTree(), codonmatrixtree.GetTree().root(),
-            codonmatrixtree, rootcodonmatrix, codonpathsuffstatnodearray);
-    }
-
-    int GetBranchIndex(int index) const { return index - 1; }
-
-    void RecursiveAddSuffStat(const Tree &tree, Tree::NodeIndex from,
-        const BranchSelector<MGOmegaCodonSubMatrix> &codonmatrixtree,
-        const MGOmegaCodonSubMatrix &rootcodonmatrix,
-        const PathSuffStatNodeArray &codonpathsuffstatnodearray) {
-        if (tree.is_root(from)) {
-            AddSuffStat(rootcodonmatrix, codonpathsuffstatnodearray.GetVal(from));
-        } else {
-            AddSuffStat(codonmatrixtree.GetVal(GetBranchIndex(from)),
-                codonpathsuffstatnodearray.GetVal(from));
-        }
-        for (auto c : tree.children(from)) {
-            RecursiveAddSuffStat(
-                tree, c, codonmatrixtree, rootcodonmatrix, codonpathsuffstatnodearray);
-        }
-    }
-    */
 
     //! \brief return the log probability as a function of a nucleotide matrix
     //!
@@ -218,10 +180,6 @@ class NucPathSuffStat : public SuffStat {
     }
 };
 
-/*
-template <>
-struct has_custom_serialization<NucPathSuffStat> : std::true_type {};
-*/
 
 /**
  * \brief A sufficient statistic for substitution histories, as a function of
@@ -283,201 +241,6 @@ class OmegaPathSuffStat : public PoissonSuffStat {
         PoissonSuffStat::AddSuffStat(tmpcount, tmpbeta);
     }
 
-    /*
-    void AddSuffStat(const Selector<AAMutSelOmegaCodonSubMatrix> &codonsubmatrixarray,
-        const Selector<PathSuffStat> &pathsuffstatarray) {
-        for (int i = 0; i < codonsubmatrixarray.GetSize(); i++) {
-            AddSuffStat(codonsubmatrixarray.GetVal(i), pathsuffstatarray.GetVal(i));
-        }
-    }
-    */
-
     double GetLogProb(double omega) const { return count * log(omega) - beta * omega; }
 };
 
-/**
- * \brief An array of omega suff stats
- */
-
-/*
-class OmegaPathSuffStatArray : public SimpleArray<OmegaPathSuffStat>,
-                               public Array<PoissonSuffStat> {
-  public:
-    //! constructor (param: array size)
-    OmegaPathSuffStatArray(int insize) : SimpleArray<OmegaPathSuffStat>(insize) {}
-
-    //! need to redefine GetSize(), because of mutiple inheritance, as an array of
-    //! PoissonSuffstat and OmegaPathSuffStat
-    int GetSize() const  { return array.size(); }
-
-    //! need to re-define GetVal(), by explicitly returning a const
-    //! OmegaPathSuffStat&, because of multiple inheritance
-    const OmegaPathSuffStat &GetVal(int i) const { return array[i]; }
-
-    //! need to re-define operator[], by explicitly returning an
-    //! OmegaPathSuffStat&, because of multiple inheritance
-    OmegaPathSuffStat &operator[](int i) { return array[i]; }
-
-    //! set all suff stats to 0
-    void Clear() {
-        for (int i = 0; i < GetSize(); i++) { (*this)[i].Clear(); }
-    }
-
-    //! compute omega suff stats and do a member-wise addition -- for Muse and
-    //! Gaut codon matrices
-    void AddSuffStat(const Selector<MGOmegaCodonSubMatrix> &codonsubmatrixarray,
-        const Selector<PathSuffStat> &pathsuffstatarray) {
-        for (int i = 0; i < GetSize(); i++) {
-            (*this)[i].AddSuffStat(codonsubmatrixarray.GetVal(i), pathsuffstatarray.GetVal(i));
-        }
-    }
-
-    void AddSuffStat(const Selector<MGOmegaCodonSubMatrix> &codonsubmatrixarray,
-        const NodeSelector<PathSuffStat> &pathsuffstatnodearray, const BranchSelector<int> &alloc) {
-        RecursiveAddSuffStat(alloc.GetTree(), alloc.GetTree().root(), codonsubmatrixarray,
-            pathsuffstatnodearray, alloc);
-    }
-
-    void RecursiveAddSuffStat(const Tree &tree, Tree::NodeIndex from,
-        const Selector<MGOmegaCodonSubMatrix> &codonsubmatrixarray,
-        const NodeSelector<PathSuffStat> &pathsuffstatnodearray, const BranchSelector<int> &alloc) {
-        if (!tree.is_root(from)) {
-            int i = alloc.GetVal(from);
-            (*this)[i].AddSuffStat(
-                codonsubmatrixarray.GetVal(i), pathsuffstatnodearray.GetVal(from));
-        }
-        for (auto c : tree.children(from)) {
-            RecursiveAddSuffStat(tree, c, codonsubmatrixarray, pathsuffstatnodearray, alloc);
-        }
-    }
-
-    //! compute omega suff stats and do a member-wise addition -- for
-    //! mutation-selection codon matrices
-    void AddSuffStat(const Selector<AAMutSelOmegaCodonSubMatrix> &codonsubmatrixarray,
-        const Selector<PathSuffStat> &pathsuffstatarray) {
-        for (int i = 0; i < GetSize(); i++) {
-            (*this)[i].AddSuffStat(codonsubmatrixarray.GetVal(i), pathsuffstatarray.GetVal(i));
-        }
-    }
-
-    //! \brief add suffstatarray given as argument to this array based on the
-    //! allocations provided as the second argument (mixture models)
-    //!
-    //! specifically, for each i=0..GetSize()-1, (*this)[alloc[i]] +=
-    //! suffstatarray[i]
-    void Add(const Selector<OmegaPathSuffStat> &suffstatarray, const Selector<int> &alloc) {
-        assert(suffstatarray.GetSize() == alloc.GetSize());
-        for (int i = 0; i < suffstatarray.GetSize(); i++) {
-            (*this)[alloc.GetVal(i)].Add(suffstatarray.GetVal(i));
-        }
-    }
-
-    //! return total log prob over array, given an array of omega_i's of same size
-    double GetLogProb(const Array<double> *omegaarray) const {
-        assert(omegaarray->GetSize() == GetSize());
-        double total = 0;
-        for (int i = 0; i < GetSize(); i++) {
-            total += GetVal(i).GetLogProb(omegaarray->GetVal(i));
-        }
-        return total;
-    }
-
-    //! return marginal log prob summed over omega_i's that are iid gamma(shape,
-    //! scale) (conjugate gamma-poisson relation)
-    double GetMarginalLogProb(double shape, double scale) const {
-        double total = 0;
-        // factoring out prior factor
-        for (int i = 0; i < GetSize(); i++) {
-            int count = GetVal(i).GetCount();
-            double beta = GetVal(i).GetBeta();
-            total += -(shape + count) * log(scale + beta) + Random::logGamma(shape + count);
-        }
-        total += GetSize() * (shape * log(scale) - Random::logGamma(shape));
-        return total;
-    }
-};
-*/
-
-/**
- * \brief A BranchArray of omega suff stats
- */
-
-/*
-class OmegaPathSuffStatBranchArray : public SimpleBranchArray<OmegaPathSuffStat>,
-                                     public BranchArray<PoissonSuffStat> {
-  public:
-    //! constructor (param: tree)
-    OmegaPathSuffStatBranchArray(const Tree &intree)
-        : SimpleBranchArray<OmegaPathSuffStat>(intree), tree(intree) {}
-    ~OmegaPathSuffStatBranchArray() {}
-
-    //! need to redefine GetTree(), because of mutiple inheritance, as an array of
-    //! PoissonSuffstat and OmegaPathSuffStat
-    const Tree &GetTree() const  { return tree; }
-
-    int GetNbranch() const { return GetTree().nb_nodes() - 1; }
-
-    //! need to re-define GetVal(), by explicitly returning a const
-    //! OmegaPathSuffStat&, because of multiple inheritance
-    const OmegaPathSuffStat &GetVal(int i) const  { return array[i]; }
-
-    //! need to re-define operator[], by explicitly returning an
-    //! OmegaPathSuffStat&, because of multiple inheritance
-    OmegaPathSuffStat &operator[](int i) { return array[i]; }
-
-    //! set all suff stats to 0
-    void Clear() {
-        for (int i = 0; i < GetNbranch(); i++) { (*this)[i].Clear(); }
-    }
-
-    //! compute omega suff stats and do a member-wise addition -- for Muse and
-    //! Gaut codon matrices
-    void AddSuffStat(const BranchSelector<MGOmegaCodonSubMatrix> &codonsubmatrixarray,
-        const MGOmegaCodonSubMatrix &rootcodonsubmatrix,
-        const NodeSelector<PathSuffStat> &pathsuffstatarray) {
-        RecursiveAddSuffStat(
-            GetTree().root(), codonsubmatrixarray, rootcodonsubmatrix, pathsuffstatarray);
-    }
-
-    int GetBranchIndex(int index) const { return index - 1; }
-
-    void RecursiveAddSuffStat(Tree::NodeIndex from,
-        const BranchSelector<MGOmegaCodonSubMatrix> &codonsubmatrixarray,
-        const MGOmegaCodonSubMatrix &rootcodonsubmatrix,
-        const NodeSelector<PathSuffStat> &pathsuffstatarray) {
-        if (!GetTree().is_root(from)) {
-            (*this)[GetBranchIndex(from)].AddSuffStat(
-                codonsubmatrixarray.GetVal(GetBranchIndex(from)), pathsuffstatarray.GetVal(from));
-        }
-        for (auto c : GetTree().children(from)) {
-            RecursiveAddSuffStat(c, codonsubmatrixarray, rootcodonsubmatrix, pathsuffstatarray);
-        }
-    }
-
-    //! return total log prob over array, given an array of omega_i's of same size
-    double GetLogProb(const BranchArray<double> *omegaarray) const {
-        double total = 0;
-        for (int i = 0; i < GetNbranch(); i++) {
-            total += GetVal(i).GetLogProb(omegaarray->GetVal(i));
-        }
-        return total;
-    }
-
-    //! return marginal log prob summed over omega_i's that are iid gamma(shape,
-    //! scale) (conjugate gamma-poisson relation)
-    double GetMarginalLogProb(double shape, double scale) const {
-        double total = 0;
-        // factoring out prior factor
-        for (int i = 0; i < GetNbranch(); i++) {
-            int count = GetVal(i).GetCount();
-            double beta = GetVal(i).GetBeta();
-            total += -(shape + count) * log(scale + beta) + Random::logGamma(shape + count);
-        }
-        total += GetNbranch() * (shape * log(scale) - Random::logGamma(shape));
-        return total;
-    }
-
-  private:
-    const Tree &tree;
-};
-*/

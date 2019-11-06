@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cmath>
-#include "SuffStat.hpp"
 
 /**
  * \brief A Poisson-like sufficient statistic
@@ -36,7 +35,7 @@
  * rate parameter.
  */
 
-class PoissonSuffStat : public SuffStat {
+class PoissonSuffStat {
   public:
     PoissonSuffStat() { Clear(); }
     ~PoissonSuffStat() {}

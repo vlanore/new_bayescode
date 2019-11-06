@@ -4,7 +4,6 @@
 #include <map>
 #include <string>
 
-class SuffStat;
 class PoissonSuffStat;
 class PathSuffStat;
 class PolySuffStat;
