@@ -1,6 +1,4 @@
-
-#ifndef SUFFSTAT_H
-#define SUFFSTAT_H
+#pragma once
 
 /**
  * \brief A dummy superclass for all sufficient statistics. Does not implement
@@ -13,4 +11,3 @@ class SuffStat {
     virtual ~SuffStat() {}
 };
 
-#endif
