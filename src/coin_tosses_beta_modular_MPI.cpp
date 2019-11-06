@@ -109,9 +109,6 @@ int compute(char, char**) {
     if (!master) { draw(p_(m), gen); }
     // Initialisation done
 
-    auto v_weight_a = make_collection(beta_weight_a_(m), p_(m));
-    auto v_weight_b = make_collection(beta_weight_b_(m), p_(m));
-
     auto gather_p = gather(partition, get<p, value>(m));
 
     auto scheduler = make_move_scheduler([&]() {
@@ -119,8 +116,8 @@ int compute(char, char**) {
         slave_to_master(gather_p);
         // Master moves alpha, beta
         if (master) {
-            scaling_move(beta_weight_a_(m), logprob_of_blanket(v_weight_a), gen);
-            scaling_move(beta_weight_b_(m), logprob_of_blanket(v_weight_b), gen);
+            scaling_move(beta_weight_a_(m), simple_logprob(p_(m)), 1.0, 1, gen);
+            scaling_move(beta_weight_b_(m), simple_logprob(p_(m)), 1.0, 1, gen);
         }
         master_to_slave(broadcast_a_b);
 

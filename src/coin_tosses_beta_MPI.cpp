@@ -127,10 +127,6 @@ int compute(char, char**) {
     // Initialize model state before inference
     initialize(m, broadcast_ab, gen);
 
-
-    auto view_ap = make_collection(shape_a_(m), p_(m));
-    auto view_bp = make_collection(shape_b_(m), p_(m));
-
     // Parameters sum tracers used by master
     vector<double> p_sum(is_master ? n_coins : 0, 0);
     double alpha_sum = 0, beta_sum = 0;
@@ -159,8 +155,8 @@ int compute(char, char**) {
                 beta_sum += get<shape_b, value>(m);
             }
             // Propose moves
-            scaling_move(shape_a_(m), logprob_of_blanket(view_ap), gen);
-            scaling_move(shape_b_(m), logprob_of_blanket(view_bp), gen);
+            scaling_move(shape_a_(m), simple_logprob(p_(m)), 1.0, 1, gen);
+            scaling_move(shape_b_(m), simple_logprob(p_(m)), 1.0, 1, gen);
         }
         master_to_slave(broadcast_ab);
 

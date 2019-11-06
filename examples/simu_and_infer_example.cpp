@@ -67,12 +67,9 @@ int main() {
     constexpr size_t nb_it{1'000}, len_lambda{20}, len_K{200}, every(100);
     auto m = poisson_gamma(len_lambda, len_K);
 
-
-//    auto v = make_view<alpha, beta, lambda, K>(m);
-
     auto v = make_collection(alpha__(m), beta__(m), lambda_(m), K_(m));
-
     draw(v, gen);
+
     // display node value in stdout
     INFO("Alpha = {}", raw_value(alpha__(m)));
     INFO("Beta = {}", raw_value(beta__(m)));
@@ -86,42 +83,10 @@ int main() {
 
     // move schedule
     auto scheduler = make_move_scheduler([&gen, &m, &ms]() {
-
-        sweet_scaling_move(alpha__(m), simple_logprob(lambda_(m)), gen);
-        sweet_scaling_move(beta__(m), simple_logprob(lambda_(m)), gen);
-        // equivalent to:
-        /*
-        auto logprob_lambda = [&l = lambda_(m)] () {return logprob(l);};
-        sweet_scaling_move(alpha__(m), logprob_lambda, gen);
-        */
-
-        sweet_scaling_move(lambda_(m), matrix_row_logprob(K_(m)), gen);
-        // equivalent to:
-        /*
-        auto logprob_K = [&k = K_(m)] (int i) {
-            auto subset = subsets::row(k,i);
-            return logprob(subset);
-        };
-        sweet_scaling_move(lambda_(m), logprob_K, gen);
-        */
+        scaling_move(alpha__(m), simple_logprob(lambda_(m)), 1.0, 1, gen);
+        scaling_move(beta__(m), simple_logprob(lambda_(m)), 1.0, 1, gen);
+        scaling_move(lambda_(m), matrix_row_logprob(K_(m)), 1.0, 1, gen);
     });
-
-    // old (non-sweet...) version
-    /*
-    auto scheduler = make_move_scheduler([&gen, &m, &ms]() {
-        scaling_move(alpha__(m), logprob_of_blanket(make_collection(alpha__(m), lambda_(m))), gen);
-        scaling_move(beta__(m), logprob_of_blanket(make_collection(beta__(m), lambda_(m))), gen);
-
-
-        for (size_t i = 0; i < len_lambda; i++) {
-            auto lambda_mb =
-                make_collection(subsets::row(K_(m), i), subsets::element(lambda_(m), i));
-            mh_move(lambda_(m), logprob_of_blanket(lambda_mb),
-                    [i](auto& value, auto& gen) { return scale(value[i], gen); }, gen);
-        }
-    });
-    */
-
 
     // initializing components
     ChainDriver chain_driver{chain_name, every, nb_it};
@@ -139,32 +104,4 @@ int main() {
 
     // launching chain!
     chain_driver.go();
-
-    // The code below works and corresponds to the code above, in a more verbose version.
-    // double alpha_sum{0}, beta_sum{0};
-    // vector<double> lambda_sum (len_lambda, 0.0);
-    //
-    // for (size_t it = 0; it < nb_it; it++) {
-    //     //INFO("Alpha = {}\n", raw_value(alpha_(m)));
-    //     scaling_move(alpha_(m), make_view<alpha, lambda>(m), gen);
-    //     scaling_move(beta_(m), make_view<beta, lambda>(m), gen);
-    //     alpha_sum += raw_value(alpha_(m));
-    //     beta_sum += raw_value(beta_(m));
-    //
-    //     for (size_t i = 0; i < len_lambda; i++) {
-    //         auto lambda_mb = make_view(make_ref<K>(m, i), make_ref<lambda>(m, i));
-    //         scaling_move(lambda_(m), lambda_mb, gen, i);
-    //         lambda_sum[i] += raw_value(lambda_(m), i);
-    //     }
-    // }
-    // INFO("RESULTS OF THE MCMC: ");
-    // INFO("Alpha = {}", alpha_sum / float(nb_it));
-    // INFO("beta = {}", beta_sum / float(nb_it));
-    //
-    // for (size_t i = 0; i < len_lambda; i++) {
-    //   lambda_sum[i] = lambda_sum[i]/float(nb_it) ;
-    // }
-    //
-    // //std::cout << "Mean lambda = " << lambda_sum / (float(nb_it) * len_lambda) << std::endl;
-    // INFO("Lambda = {}", vector_to_string(lambda_sum));
 }

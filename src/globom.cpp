@@ -37,12 +37,6 @@ int main(int argc, char* argv[]) {
             omegapath_suffstats_(model).gather();
             gibbs_resample(global_omega_(model), omegapath_suffstats_(model), gen);
 
-            // an MH alternative:
-            /*
-            auto ss_logprob = [&om = get<global_omega,value>(model), &ss = omegapath_suffstats_(model).get()] () {return ss.GetLogProb(om);};
-            sweet_scaling_move(global_omega_(model), ss_logprob, gen); 
-            */
-
             gather(get<codon_submatrix>(model));
 
             // move nuc rates

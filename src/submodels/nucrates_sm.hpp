@@ -55,12 +55,12 @@ struct nucrates_sm {
 
             for (auto& t : exch_tunings)   {
                 auto proposal = [&t, &tuning_modulator] (auto& value, auto& gen) {return profile_move(value, t*tuning_modulator, gen);};
-                sweet_mh_move(exch_rates_(model), nuc_logprob, proposal, gen, nuc_update);
+                mh_move(exch_rates_(model), nuc_logprob, proposal, 1, gen, nuc_update);
             }
 
             for (auto& t : eqfreqs_tunings)    {
                 auto proposal = [&t, &tuning_modulator] (auto& value, auto& gen) {return profile_move(value, t*tuning_modulator, gen);};
-                sweet_mh_move(eq_freq_(model), nuc_logprob, proposal, gen, nuc_update);
+                mh_move(eq_freq_(model), nuc_logprob, proposal, 1, gen, nuc_update);
             }
         }
     }
@@ -80,12 +80,12 @@ struct nucrates_sm {
 
             for (auto& t : exch_tunings)   {
                 auto proposal = [&t, &tuning_modulator] (auto& value, auto& gen) {return profile_move(value, t*tuning_modulator, gen);};
-                sweet_mh_move(exch_rates_(model), nuc_logprob, proposal, gen, nuc_update);
+                mh_move(exch_rates_(model), nuc_logprob, proposal, 1, gen, nuc_update);
             }
 
             for (auto& t : eqfreqs_tunings)    {
                 auto proposal = [&t, &tuning_modulator] (auto& value, auto& gen) {return profile_move(value, t*tuning_modulator, gen);};
-                sweet_mh_move(eq_freq_(model), nuc_logprob, proposal, gen, nuc_update);
+                mh_move(eq_freq_(model), nuc_logprob, proposal, 1, gen, nuc_update);
             }
         }
     }

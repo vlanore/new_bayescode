@@ -63,8 +63,8 @@ int main(int argc, char* argv[]) {
                      &ss = omega_hyper_suffstat_(model).get()] ()
                      {return ss.GetLogProb(mean, invshape);};
 
-                sweet_scaling_move(omega_hypermean_(model), hyper_logprob, gen);
-                sweet_scaling_move(omega_hyperinvshape_(model), hyper_logprob, gen);
+                scaling_move(omega_hypermean_(model), hyper_logprob, 1.0, 1, gen);
+                scaling_move(omega_hyperinvshape_(model), hyper_logprob, 1.0, 1, gen);
 
                 // gather omega path suffstats
                 comp_omegapath_suffstat_(model).gather();
@@ -91,8 +91,8 @@ int main(int argc, char* argv[]) {
                         return tot;
                     };
 
-                sweet_scaling_move(omega_hypermean_(model), hyper_marginal_logprob, gen);
-                sweet_scaling_move(omega_hyperinvshape_(model), hyper_marginal_logprob, gen);
+                scaling_move(omega_hypermean_(model), hyper_marginal_logprob, 1.0, 1, gen);
+                scaling_move(omega_hyperinvshape_(model), hyper_marginal_logprob, 1.0, 1, gen);
                 // then resample omega's
                 gibbs_resample(omega_array_(model), comp_omegapath_suffstat_(model), gen);
 
