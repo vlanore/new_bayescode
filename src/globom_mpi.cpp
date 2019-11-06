@@ -43,13 +43,14 @@ int compute(int argc, char* argv[]) {
 
     // communication between processes
     OmegaPathSuffStat& omega_ss = master ? omegapath_suffstats_(*master_m).get() : omegapath_suffstats_(*slave_m).get();
-    double& omega_ref = master ? get<global_omega, omega, value>(*master_m) : get<omega_proxy>(*slave_m);
     auto reduce_omega_ss = reduce(omega_ss.beta, omega_ss.count);
+
+    double& omega_ref = master ? get<global_omega, value>(*master_m) : get<global_omega>(*slave_m);
     auto omega_broadcast = broadcast(omega_ref);
 
     // Draw omega @master and broadcast it
     if (master) {
-        draw(get<global_omega, omega>(*master_m), gen);
+        draw(get<global_omega>(*master_m), gen);
     }
     master_to_slave(omega_broadcast);
 
@@ -60,7 +61,8 @@ int compute(int argc, char* argv[]) {
     auto scheduler = make_move_scheduler([&]() {
         // move phyloprocess
         if (!master) {
-            globom_slave::touch_matrices(*slave_m);
+            gather(get<nuc_rates, nuc_matrix>(*slave_m));
+            gather(codon_submatrix_(*slave_m));
             phyloprocess_(*slave_m).Move(1.0);
         }
 
@@ -81,7 +83,9 @@ int compute(int argc, char* argv[]) {
             }
             slave_to_master(reduce_omega_ss);
             // Move omega
-            if (master) { omega_sm::gibbs_resample(global_omega_(*master_m), omegapath_suffstats_(*master_m), gen); }
+            if (master) {
+                gibbs_resample(global_omega_(*master_m), omegapath_suffstats_(*master_m), gen);
+            }
             master_to_slave(omega_broadcast);
 
             // Update slave dnode using new omega value

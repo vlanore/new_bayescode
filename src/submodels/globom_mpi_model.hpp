@@ -17,7 +17,6 @@
 #include "submodels/mgomega.hpp"
 #include "submodels/move_reporter.hpp"
 #include "submodels/nucrates_sm.hpp"
-#include "submodels/omega_sm.hpp"
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
 
@@ -25,10 +24,8 @@
 
 
 TOKEN(global_omega)
-TOKEN(omega_proxy)
 TOKEN(branch_lengths)
 TOKEN(nuc_rates)
-// TOKEN(codon_statespace)
 TOKEN(codon_submatrix)
 TOKEN(phyloprocess)
 TOKEN(bl_suffstats)
@@ -40,7 +37,8 @@ struct globom_master {
     template <class Gen>
     static auto make(Gen& gen) {
 
-        auto global_omega = omega_sm::make(one_to_const(1.0), one_to_const(1.0), gen);
+        auto global_omega = make_node<gamma_mi>(one_to_const(1.0), one_to_const(1.0));
+        draw(global_omega, gen);
 
         // will collect ss across slaves
         auto omega_ss = ss_factory::make_suffstat<OmegaPathSuffStat>([] (auto& omss) {});
@@ -54,14 +52,12 @@ struct globom_slave {
     static auto make(PreparedData& data, Gen& gen) {
 
         auto omega = std::make_unique<double>(1.0);
-        // auto omega = make_node<gamma_mi>(one_to_const(1.0), one_to_const(1.0));
-        // draw(omega, gen);
 
         auto branch_lengths =
             branchlengths_sm::make(data.parser, *data.tree, one_to_const(0.1), one_to_const(1.0));
 
-        auto nuc_rates = nucrates_sm::make(one_to_const(normalize({1, 1, 1, 1, 1, 1})),
-            one_to_const(1. / 6), one_to_const(normalize({1, 1, 1, 1})), one_to_const(1. / 4), gen);
+        auto nuc_rates = nucrates_sm::make(
+                std::vector<double>(6, 1./6), 1./6, std::vector<double>(4, 1./4), 1./4, gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
@@ -90,7 +86,7 @@ struct globom_slave {
         std::cerr << "lnL: " << phyloprocess->GetLogLikelihood() << '\n';
 
         // suff stats
-        auto bl_suffstats = pathss_factory::make_bl_suffstats(*phyloprocess);
+        auto bl_suffstats = pathss_factory::make_bl_suffstat(*phyloprocess);
 
         auto path_suffstats = pathss_factory::make_path_suffstat(*phyloprocess);
 
@@ -106,7 +102,7 @@ struct globom_slave {
 
         // clang-format off
         return make_model(
-            omega_proxy_ = move(omega),
+            global_omega_ = move(omega),
             branch_lengths_ = move(branch_lengths), 
             nuc_rates_ = move(nuc_rates),
             codon_submatrix_ = move(codon_submatrix), 
@@ -117,12 +113,5 @@ struct globom_slave {
             omegapath_suffstats_ = move(omega_ss) 
         );
         // clang-format on
-    }
-
-    // =============================================================================================
-    template <class Model>
-    static void touch_matrices(Model& model) {
-        gather(get<nuc_rates, nuc_matrix>(model));
-        gather(codon_submatrix_(model));
     }
 };
