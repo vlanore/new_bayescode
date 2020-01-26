@@ -22,6 +22,8 @@ class Partition {
     size_t _first;
 
   public:
+
+    // default allocation by chunks of equal size
     Partition(IndexSet indexes, size_t size, size_t first = 0, const Process& process = *MPI::p)
         : process(process), _first(first) {
         size_t nb_indexes = indexes.size();
@@ -31,6 +33,74 @@ class Partition {
             auto end = indexes.begin();
             std::advance(end, (i + 1) * nb_indexes / size);
             partition.insert({i + first, IndexSet(begin, end)});
+        }
+    }
+
+    // greedy approach for equalizing allocation based on gene weights
+    Partition(const std::vector<string>& genename, const std::vector<int>& geneweight, size_t size, 
+            size_t first = 0, const Process& process = *MPI::p)
+        : process(process), _first(first) {
+
+        // greedy allocation of genes to members of the partition, based on weights
+        assert(genename.size() == geneweight.size());
+
+        // sort alignments by decreasing size
+        std::vector<size_t> permut(genename.size());
+        for (size_t gene = 0; gene < genename.size(); gene++) {
+            permut[gene] = gene;
+        }
+        for (size_t i=0; i<genename.size(); i++) {
+            for (size_t j=genename.size()-1; j>i; j--) {
+                if (geneweight[permut[i]] < geneweight[permut[j]]) {
+                    size_t tmp = permut[i];
+                    permut[i] = permut[j];
+                    permut[j] = tmp;
+                }
+            }
+        }
+
+        std::vector<size_t> genealloc(genename.size(),0);
+
+        size_t totweight[size];
+        for (size_t i = 0; i<size; i++) {
+            totweight[i] = 0;
+        }
+
+        for (size_t i=0; i<genename.size(); i++) {
+            size_t gene = permut[i];
+            size_t weight = geneweight[gene];
+
+            size_t min = 0;
+            size_t jmin = 0;
+            for (size_t j=0; j<size; j++) {
+                if ((j == 0) || (min > totweight[j])) {
+                    min = totweight[j];
+                    jmin = j;
+                }
+            }
+            genealloc[gene] = jmin;
+            totweight[jmin] += weight;
+        }
+
+        size_t total = 0;
+        for (size_t i=0; i<size; i++) {
+            size_t tot = 0;
+            for (size_t gene=0; gene<genename.size(); gene++) {
+                if (genealloc[gene] == i) {
+                    tot += geneweight[gene];
+                    total++;
+                }
+            }
+            assert(tot == totsize[i]);
+        }
+        assert(total == genename.size());
+
+        for (size_t i = 0; i < size; i++) {
+            partition.insert({i + first,IndexSet{}});
+        }
+
+        for (size_t gene=0; gene<genename.size(); gene++)   {
+            partition[genealloc[gene]+first].push_back(genename[gene]);
         }
     }
 
@@ -54,6 +124,23 @@ class Partition {
     }
 
     IndexSet my_partition() const { return get_partition(process.rank); }
+
+    void print(std::ostream& os) const   {
+        for (auto subpartition : partition) {
+            string s;
+            s += std::to_string(subpartition.first) + " : ";
+            for (auto gene : subpartition.second)   {
+                s += gene + "\t";
+            }
+            MPI::p->message(s);
+            string alls = "all : ";
+            auto all = get_all();
+            for (auto gene : all)   {
+                alls += gene + "\t";
+            }
+            MPI::p->message(alls);
+        }
+    }
 
     /*==============================================================================================
       Size information */
