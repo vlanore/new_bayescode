@@ -191,4 +191,8 @@ class Partition {
         }
         return -1;
     }
+
+    bool contains(Index index) const    {
+        return (owner(index) == MPI::p->rank);
+    }
 };

@@ -3,6 +3,7 @@
 #include "bayes_utils/src/logging.hpp"
 #include "lib/CodonSequenceAlignment.hpp"
 #include "tree/implem.hpp"
+#include "mpi_components/partition.hpp"
 
 struct PreparedData {
     NHXParser parser;
@@ -11,7 +12,8 @@ struct PreparedData {
     CodonSequenceAlignment alignment;
     TaxonSet taxon_set;
 
-    PreparedData(std::string alignfile, std::ifstream& treefile)
+    PreparedData(std::istream& alignfile, std::istream& treefile)
+    // PreparedData(std::string alignfile, std::ifstream& treefile)
         : parser(treefile),
           tree(make_from_parser(parser)),
           nuc_align(alignfile),
@@ -33,14 +35,93 @@ struct PreparedData {
     }
 };
 
-PreparedData prepare_data(std::string alignfile, std::string treefile) {
-    // parsing tree
+PreparedData prepare_data(std::istream& align_stream, std::string treefile) {
     std::ifstream tree_stream{treefile};
-    return {alignfile, tree_stream};
+    return {align_stream, tree_stream};
+}
+
+PreparedData prepare_data(std::string alignfile, std::string treefile) {
+    std::ifstream align_stream{alignfile};
+    std::ifstream tree_stream{treefile};
+    return {align_stream, tree_stream};
+}
+
+auto prepare_data_ptr(std::istream& align_stream, std::string treefile) {
+    std::ifstream tree_stream{treefile};
+    return std::make_unique<PreparedData>(align_stream, tree_stream);
 }
 
 auto prepare_data_ptr(std::string alignfile, std::string treefile) {
-    // parsing tree
     std::ifstream tree_stream{treefile};
-    return std::make_unique<PreparedData>(alignfile, tree_stream);
+    std::ifstream align_stream{alignfile};
+    return std::make_unique<PreparedData>(align_stream, tree_stream);
 }
+
+// detailed parsing of concatenated file of gene alignments
+struct multi_gene_data {
+
+    static auto make(std::string datafile, std::string treefile, const Partition& partition)    {
+
+        std::vector<std::unique_ptr<PreparedData>> data;
+
+        std::ifstream is(datafile.c_str());
+        std::string tmp;
+        is >> tmp;
+        size_t Ngene;
+        is >> Ngene;
+
+        for (size_t gene = 0; gene < Ngene; gene++) {
+            string gene_name;
+            is >> gene_name;
+
+            if (partition.contains(gene_name))   {
+                data.emplace_back(prepare_data_ptr(is, treefile));
+            }
+            else    {
+                // skip this alignment
+                size_t ntaxa, nsite;
+                is >> ntaxa >> nsite;
+                std::string tmp;
+                for (size_t i=0; i<ntaxa; i++)  {
+                    is >> tmp >> tmp;
+                }
+            }
+        }
+
+        return data;
+    }
+};
+
+// fast reading of concatenated file of gene alignments
+struct MultiGeneList {
+
+    size_t Ngene;
+    std::vector<std::string> genename;
+    std::vector<int> genesize;
+    std::vector<int> geneweight;
+
+    MultiGeneList(std::string datafile) {
+
+        std::ifstream is(datafile.c_str());
+        std::string tmp;
+        is >> tmp;
+        is >> Ngene;
+
+        genename.assign(Ngene,"NoName");
+        genesize.assign(Ngene,0);
+        geneweight.assign(Ngene,0);
+
+        for (size_t gene = 0; gene < Ngene; gene++) {
+            is >> genename[gene];
+            size_t ntaxa, nsite;
+            is >> ntaxa >> nsite;
+            std::string tmp;
+            for (size_t i=0; i<ntaxa; i++)  {
+                is >> tmp >> tmp;
+            }
+
+            genesize[gene] = nsite / 3;
+            geneweight[gene] = nsite * ntaxa;
+        }
+    }
+};
