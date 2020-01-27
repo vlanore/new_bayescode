@@ -130,11 +130,9 @@ struct geneom_slave {
     template <class Model, class Gen, class Data, class OmMean, class OmInvshape>
         static auto make_gene_array(Model& refmodel, Data& data, OmMean om_mean, OmInvshape om_invshape, Gen& gen) {
             std::vector<Model> v;
-            /*
             for (auto& d : data)    {
                 v.emplace_back(make_gene(*d, om_mean, om_invshape, gen));
             }
-            */
             return v;
         }
 
@@ -166,8 +164,8 @@ struct geneom_slave {
                 });
 
         return make_model(
-                gene_model_array_ = gene_model_array,
-                // gene_model_array_ = move(gene_model_array),
+                // gene_model_array_ = gene_model_array,
+                gene_model_array_ = move(gene_model_array),
                 omega_hypermean_ = move(om_mean),
                 omega_hyperinvshape_ = move(om_invshape),
                 omega_gamma_suffstats_ = move(omega_gamma_ss)
