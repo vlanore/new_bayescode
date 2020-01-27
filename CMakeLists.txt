@@ -89,3 +89,6 @@ target_link_libraries(coin_tosses_modular_mpi ${MPI_LIBRARIES})
 
 add_executable(globomMPI "src/globom_mpi.cpp")
 target_link_libraries(globomMPI ${BASE_LIBS} ${MPI_LIBRARIES})
+
+add_executable(geneomMPI "src/geneom_mpi.cpp")
+target_link_libraries(geneomMPI ${BASE_LIBS} ${MPI_LIBRARIES})
