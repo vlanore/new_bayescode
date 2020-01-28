@@ -54,6 +54,10 @@ set(BASE_LIBS
     global_lib
 )
 
+# simple (simple)
+add_executable(simple "src/simple_model.cpp")
+target_link_libraries(simple ${BASE_LIBS})
+
 # Single omega (globom)
 add_executable(globom "src/globom.cpp")
 target_link_libraries(globom ${BASE_LIBS})
@@ -84,11 +88,9 @@ target_link_libraries(simu_and_infer ${BASE_LIBS})
 
 add_executable(coin_tosses_mpi "src/coin_tosses_beta_MPI.cpp")
 target_link_libraries(coin_tosses_mpi ${MPI_LIBRARIES})
+
 add_executable(coin_tosses_modular_mpi "src/coin_tosses_beta_modular_MPI.cpp")
 target_link_libraries(coin_tosses_modular_mpi ${MPI_LIBRARIES})
 
 add_executable(globomMPI "src/globom_mpi.cpp")
 target_link_libraries(globomMPI ${BASE_LIBS} ${MPI_LIBRARIES})
-
-add_executable(geneomMPI "src/geneom_mpi.cpp")
-target_link_libraries(geneomMPI ${BASE_LIBS} ${MPI_LIBRARIES})
