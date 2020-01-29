@@ -127,11 +127,13 @@ struct geneom_slave {
         // clang-format on
     }
 
-    template <class Model, class Gen, class Data, class OmMean, class OmInvshape>
-        static auto make_gene_array(Model& refmodel, Data& data, OmMean om_mean, OmInvshape om_invshape, Gen& gen) {
+    template <class Gen, class Data, class OmMean, class OmInvshape>
+        static auto make_gene_array(Data& data, OmMean om_mean, OmInvshape om_invshape, Gen& gen) {
+            using Model = decltype(make_gene(*data[0], om_mean, om_invshape, gen));
             std::vector<Model> v;
+            v.reserve(data.size());
             for (auto& d : data)    {
-                v.emplace_back(make_gene(*d, om_mean, om_invshape, gen));
+                v.push_back(make_gene(*d, om_mean, om_invshape, gen));
             }
             return v;
         }
@@ -142,14 +144,7 @@ struct geneom_slave {
         auto om_mean = std::make_unique<double>(1.0);
         auto om_invshape = std::make_unique<double>(1.0);
 
-        auto refmodel = make_gene(
-                *data[0],
-                [&mean = *om_mean] () {return mean;},
-                [&invshape = *om_invshape] () {return invshape;},
-                gen);
-
         auto gene_model_array = make_gene_array(
-                refmodel,
                 data, 
                 [&mean = *om_mean] () {return mean;},
                 [&invshape = *om_invshape] () {return invshape;},
