@@ -91,7 +91,7 @@ class Partition {
                     total++;
                 }
             }
-            assert(tot == totsize[i]);
+            // assert(tot == totsize[i]);
         }
         assert(total == genename.size());
 
