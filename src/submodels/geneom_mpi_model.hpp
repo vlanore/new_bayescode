@@ -129,11 +129,15 @@ struct geneom_slave {
 
     template <class Gen, class Data, class OmMean, class OmInvshape>
         static auto make_gene_array(Data& data, OmMean om_mean, OmInvshape om_invshape, Gen& gen) {
+            // VL: instead of passing a prototype object just to get the type of Model,
+            // we can deduce the type here by calling decltype on a call to make_gene
+            // this won't compute anything, juste deduce the type
             using Model = decltype(make_gene(*data[0], om_mean, om_invshape, gen));
             std::vector<Model> v;
-            v.reserve(data.size());
+            v.reserve(data.size()); // not strictly necessary but avoids reallocations
             for (auto& d : data)    {
-                v.push_back(make_gene(*d, om_mean, om_invshape, gen));
+                v.push_back(make_gene(*d, om_mean, om_invshape, gen)); // no need to emplace, 
+                // push_back will do a move copy just fine
             }
             return v;
         }
