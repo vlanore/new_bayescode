@@ -75,7 +75,11 @@ struct multi_gene_data {
             is >> gene_name;
 
             if (partition.contains(gene_name))   {
-                data.emplace_back(prepare_data_ptr(is, treefile));
+                MPI::p->message("partition contains " + gene_name);
+                auto d = prepare_data_ptr(is, treefile);
+                MPI::p->message("prepare data ok");
+                data.push_back(std::move(d));
+                MPI::p->message("push back ok");
             }
             else    {
                 // skip this alignment
@@ -87,7 +91,25 @@ struct multi_gene_data {
                 }
             }
         }
+        return data;
+    }
 
+    static auto make(std::string datafile, std::string treefile)    {
+
+        std::vector<std::unique_ptr<PreparedData>> data;
+
+        std::ifstream is(datafile.c_str());
+        std::string tmp;
+        is >> tmp;
+        size_t Ngene;
+        is >> Ngene;
+
+        for (size_t gene = 0; gene < Ngene; gene++) {
+            string gene_name;
+            is >> gene_name;
+            auto d = prepare_data_ptr(is, treefile);
+            data.push_back(std::move(d));
+        }
         return data;
     }
 };
