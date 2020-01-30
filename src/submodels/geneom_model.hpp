@@ -112,10 +112,10 @@ struct geneom {
             // deduce the type of the Model by calling decltype on a call to make_gene
             // this won't compute anything, juste deduce the type
             using Model = decltype(make_gene(*data[0], om_mean, om_invshape, gen));
-            std::vector<Model> v;
-            v.reserve(data.size()); // not strictly necessary but avoids reallocations
+            auto v = std::make_unique<std::vector<Model>>();
+            v->reserve(data.size()); // not strictly necessary but avoids reallocations
             for (auto& d : data)    {
-                v.push_back(make_gene(*d, om_mean, om_invshape, gen));
+                v->push_back(make_gene(*d, om_mean, om_invshape, gen));
             }
             return v;
         }
@@ -135,7 +135,7 @@ struct geneom {
                 gen);
 
         auto omega_gamma_ss = ss_factory::make_suffstat<GammaSuffStat>(
-                [&array = gene_model_array] (auto& omss) {
+                [&array = *gene_model_array] (auto& omss) {
                 std::cerr << "in lambda\n";
                 std::cerr << "array size : " << array.size() << '\n';
                 /*
