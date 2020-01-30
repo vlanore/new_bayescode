@@ -85,7 +85,10 @@ void SequenceAlignment::ToStreamTriplet(ostream &os) const {
 
 FileSequenceAlignment::FileSequenceAlignment(string filename) { ReadDataFromFile(filename, 0); }
 
-FileSequenceAlignment::FileSequenceAlignment(std::istream &is) {}
+FileSequenceAlignment::FileSequenceAlignment(std::istream &is) {
+    statespace = new DNAStateSpace;
+    ReadPhylipSequentialFromStream(is);
+}
 
 int FileSequenceAlignment::ReadDataFromFile(string filespec, int forceinterleaved) {
     string tmp;
