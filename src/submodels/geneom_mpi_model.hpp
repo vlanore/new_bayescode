@@ -129,15 +129,13 @@ struct geneom_slave {
 
     template <class Gen, class Data, class OmMean, class OmInvshape>
         static auto make_gene_array(Data& data, OmMean om_mean, OmInvshape om_invshape, Gen& gen) {
-            // VL: instead of passing a prototype object just to get the type of Model,
-            // we can deduce the type here by calling decltype on a call to make_gene
+            // deduce the type of the Model by calling decltype on a call to make_gene
             // this won't compute anything, juste deduce the type
             using Model = decltype(make_gene(*data[0], om_mean, om_invshape, gen));
             std::vector<Model> v;
             v.reserve(data.size()); // not strictly necessary but avoids reallocations
             for (auto& d : data)    {
-                v.push_back(make_gene(*d, om_mean, om_invshape, gen)); // no need to emplace, 
-                // push_back will do a move copy just fine
+                v.push_back(make_gene(*d, om_mean, om_invshape, gen));
             }
             return v;
         }
@@ -156,14 +154,15 @@ struct geneom_slave {
 
         auto omega_gamma_ss = ss_factory::make_suffstat<GammaSuffStat>(
                 [&array = gene_model_array] (auto& omss) {
+                    std::cerr << "in lambda\n";
                     for (auto& gene_model : array)   {
                         double om = get<omega,value>(gene_model);
+                        std::cerr << "add suffstat\n";
                         omss.AddSuffStat(om, log(om), 1);
                     }
                 });
 
         return make_model(
-                // gene_model_array_ = gene_model_array,
                 gene_model_array_ = move(gene_model_array),
                 omega_hypermean_ = move(om_mean),
                 omega_hyperinvshape_ = move(om_invshape),
@@ -173,15 +172,12 @@ struct geneom_slave {
 
     template <class Model, class Gen>
         static auto resample_sub(Model& model, Gen& gen)  {
-
-            gather(get<nuc_rates, nuc_matrix>(model));
-            gather(codon_submatrix_(model));
+            update_matrices(model);
             phyloprocess_(model).Move(1.0);
         }
 
     template <class Model, class Gen>
         static auto move_params(Model& model, Gen& gen)  {
-
             // move branch lengths
             bl_suffstats_(model).gather();
             branchlengths_sm::gibbs_resample(
@@ -198,6 +194,7 @@ struct geneom_slave {
 
     template <class Model>
     static auto update_matrices(Model& model)   {
+        gather(get<nuc_rates, nuc_matrix>(model));
         gather(get<codon_submatrix>(model));
     }
 
@@ -224,7 +221,7 @@ struct geneom_slave {
     template <class Model>
     static auto gene_update_after_receive(Model& model)    {
         for (auto& gene_model : get<gene_model_array>(model)) {
-            gather(get<codon_submatrix>(gene_model));
+            update_matrices(gene_model);
         }
     }
 };

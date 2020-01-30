@@ -29,7 +29,7 @@ int compute(int argc, char* argv[]) {
     auto full_gene_set = MultiGeneList(args.alignment.getValue());
     Partition partition(full_gene_set.genename, full_gene_set.geneweight, size - 1, 1);
 
-    if (!master) {
+    if (master) {
         MPI::p->message("total number of genes");
         MPI::p->message(full_gene_set.genename.size());
     }
@@ -39,7 +39,6 @@ int compute(int argc, char* argv[]) {
     Random::InitRandom(42);
 
     // load sequence alignments (only for slaves)
-    // auto data = MultiGenePreparedData(args.alignment.getValue(), args.treefile.getValue(), partition);
     auto data = multi_gene_data::make(args.alignment.getValue(), args.treefile.getValue(), partition);
 
     // Model declarations
@@ -75,22 +74,14 @@ int compute(int argc, char* argv[]) {
             geneom_slave::gene_resample_sub(*slave_m, gen);
         }
 
-        for (int rep = 0; rep < 30; rep++) {
+        for (int rep = 0; rep < 3; rep++) {
 
             if (!master) {
                 geneom_slave::gene_move_params(*slave_m, gen);
                 geneom_slave::gene_collect_suffstat(*slave_m);
-                // equivalent to:
-                // get<omega_gamma_suffstat>(*slave_m).gather();
             }
 
-            /*
-            if (!master) {
-                // geneom_slave::gene_collect_suffstat(*slave_m);
-            }
-            */
-
-            slave_to_master(reduce_omega_gamma_ss);
+            // slave_to_master(reduce_omega_gamma_ss);
 
             // Move omega
             if (master) {
@@ -100,10 +91,12 @@ int compute(int argc, char* argv[]) {
                 // gibbs_resample(global_omega_(*master_m), omegapath_gamma_suffstats_(*master_m), gen);
             }
 
+            /*
             master_to_slave(omega_hyper_broadcast);
             if (!master) {
                 geneom_slave::gene_update_after_receive(*slave_m);
             }
+            */
         }
     });
 
@@ -111,24 +104,27 @@ int compute(int argc, char* argv[]) {
     ChainDriver chain_driver{cmd.chain_name(), args.every.getValue(), args.until.getValue()};
 
     ConsoleLogger console_logger;
-    // not clear how to deal with master/slave issues here
 
     // registering components to chain driver
     chain_driver.add(scheduler);
     chain_driver.add(console_logger);
 
-    // not clear how to deal with that
     /*
-    ModelTracer chain(*master_m, cmd.chain_name() + to_string(rank) + ".chain");
-    chain_driver.add(chain);
+    if (master) {
+        // not clear how to deal with that
+        MPI::p->message("chain");
+        ModelTracer chain(*master_m, cmd.chain_name() + to_string(rank) + ".chain");
+        MPI::p->message("add chain");
+        chain_driver.add(chain);
 
-    auto trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".trace",
-        trace_entry("omega", get<global_omega, omega>(*master_m))
-    );
-    chain_driver.add(trace);
+        auto trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".trace",
+            trace_entry("mean", get<omega_hypermean>(*master_m))
+        );
+        chain_driver.add(trace);
+    }
     */
 
-    chain_driver.add(ms);
+    // chain_driver.add(ms);
 
     // launching chain!
     chain_driver.go();
