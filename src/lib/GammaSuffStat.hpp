@@ -14,10 +14,12 @@
 class GammaSuffStat {
   public:
     GammaSuffStat() {Clear();}
+    // GammaSuffStat(const GammaSuffStat& from) {Clear();}
     ~GammaSuffStat() {}
 
     //! set suff stats to 0
     void Clear() {
+        // std::cerr << "clear\n";
         sum = 0;
         sumlog = 0;
         n = 0;
@@ -25,6 +27,7 @@ class GammaSuffStat {
 
     //! add the contribution of one gamma variate (x) to this suffstat
     void AddSuffStat(double x, double logx, int c = 1) {
+        // std::cerr << "add\n";
         sum += x;
         sumlog += logx;
         n += c;
