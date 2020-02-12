@@ -43,6 +43,7 @@ class Tracer {
     void write_header(std::ostream& os) const {
         size_t n = header_to_stream.size();
         if (n > 0) {
+            os << "#";
             header_to_stream.at(0)(os);
             for (size_t i = 1; i < n; i++) {
                 os << "\t";
