@@ -5,10 +5,13 @@
 
 class ConsoleLogger : public ChainComponent {
     logger_t logger{stdout_logger("chain_logger")};
+    bool verbose;
 
   public:
+
+    ConsoleLogger(bool v = true) : verbose(v) {}
     void start() override { logger->info("Started"); }
-    void move(int i) override { logger->info("Move {}", i); }
-    void savepoint(int i) override { logger->info("Savepoint {}", i); }
+    void move(int i) override { if (verbose) {logger->info("Move {}", i);} }
+    void savepoint(int i) override { if (verbose) {logger->info("Savepoint {}", i);} }
     void end() override { logger->info("Ended"); }
 };
