@@ -55,6 +55,21 @@ struct geneom_master {
                 omega_gamma_suffstats_ = move(omega_gamma_ss)
             );
     }
+
+    template<class Model, class Gen>
+        static auto move_hyper(Model& model, Gen& gen)  {
+            // auto logprob = suffstat_logprob(omega_hypermean_(model), omega_hyperinvshape_(model), omega_gamma_suffstats_(model));
+            auto logprob = 
+                [&mean = omega_hypermean_(model), 
+                 &invshape = omega_hyperinvshape_(model), 
+                 &ss = omega_gamma_suffstats_(model)] ()
+                {return ss.get().GetLogProb(get<value>(mean), get<value>(invshape));};
+
+            scaling_move(omega_hypermean_(model), logprob, 1, 10, gen);
+            scaling_move(omega_hyperinvshape_(model), logprob, 1, 10, gen);
+
+        }
+
 };
 
 struct geneom_slave {
@@ -132,10 +147,10 @@ struct geneom_slave {
             // deduce the type of the Model by calling decltype on a call to make_gene
             // this won't compute anything, juste deduce the type
             using Model = decltype(make_gene(*data[0], om_mean, om_invshape, gen));
-            std::vector<Model> v;
-            v.reserve(data.size()); // not strictly necessary but avoids reallocations
+            auto v = std::make_unique<std::vector<Model>>();
+            v->reserve(data.size()); // not strictly necessary but avoids reallocations
             for (auto& d : data)    {
-                v.push_back(make_gene(*d, om_mean, om_invshape, gen));
+                v->push_back(make_gene(*d, om_mean, om_invshape, gen));
             }
             return v;
         }
@@ -153,22 +168,26 @@ struct geneom_slave {
                 gen);
 
         auto omega_gamma_ss = ss_factory::make_suffstat<GammaSuffStat>(
-                [&array = gene_model_array] (auto& omss) {
-                    std::cerr << "in lambda\n";
+                [&array = *gene_model_array] (auto& omss) {
                     for (auto& gene_model : array)   {
                         double om = get<omega,value>(gene_model);
-                        std::cerr << "add suffstat\n";
                         omss.AddSuffStat(om, log(om), 1);
                     }
                 });
 
         return make_model(
-                gene_model_array_ = move(gene_model_array),
                 omega_hypermean_ = move(om_mean),
                 omega_hyperinvshape_ = move(om_invshape),
+                gene_model_array_ = move(gene_model_array),
                 omega_gamma_suffstats_ = move(omega_gamma_ss)
             );
     }
+
+    template <class Model>
+        static auto update_matrices(Model& model)   {
+            gather(get<nuc_rates, nuc_matrix>(model));
+            gather(get<codon_submatrix>(model));
+        }
 
     template <class Model, class Gen>
         static auto resample_sub(Model& model, Gen& gen)  {
@@ -182,21 +201,18 @@ struct geneom_slave {
             bl_suffstats_(model).gather();
             branchlengths_sm::gibbs_resample(
                 branch_lengths_(model), bl_suffstats_(model), gen);
+
+            path_suffstats_(model).gather();
+
             // move nuc rates
             nucpath_suffstats_(model).gather();
             nucrates_sm::move_nucrates(
                 nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
 
             // gather omega suffstats
-            path_suffstats_(model).gather();
             omegapath_suffstats_(model).gather();
+            gibbs_resample(omega_(model), omegapath_suffstats_(model), gen);
         }
-
-    template <class Model>
-    static auto update_matrices(Model& model)   {
-        gather(get<nuc_rates, nuc_matrix>(model));
-        gather(get<codon_submatrix>(model));
-    }
 
     template <class Model, class Gen>
     static auto gene_resample_sub(Model& model, Gen& gen)    {
@@ -219,7 +235,7 @@ struct geneom_slave {
 
 
     template <class Model>
-    static auto gene_update_after_receive(Model& model)    {
+    static auto gene_update_matrices(Model& model)    {
         for (auto& gene_model : get<gene_model_array>(model)) {
             update_matrices(gene_model);
         }

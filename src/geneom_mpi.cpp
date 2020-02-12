@@ -69,35 +69,34 @@ int compute(int argc, char* argv[]) {
 
     // move schedule
     auto scheduler = make_move_scheduler([&]() {
+
+        MPI::p->message("move");
         // move phyloprocess
         if (!master) {
             geneom_slave::gene_resample_sub(*slave_m, gen);
         }
 
-        for (int rep = 0; rep < 3; rep++) {
+        for (int rep = 0; rep < 30; rep++) {
 
             if (!master) {
                 geneom_slave::gene_move_params(*slave_m, gen);
                 geneom_slave::gene_collect_suffstat(*slave_m);
             }
 
-            // slave_to_master(reduce_omega_gamma_ss);
+            slave_to_master(reduce_omega_gamma_ss);
 
             // Move omega
             if (master) {
                 // mh move on hyperparams
-                // geneom_master::global_move_params(*master_m, gen);
-                // was for shared omega
-                // gibbs_resample(global_omega_(*master_m), omegapath_gamma_suffstats_(*master_m), gen);
+                geneom_master::move_hyper(*master_m, gen);
             }
 
-            /*
             master_to_slave(omega_hyper_broadcast);
             if (!master) {
-                geneom_slave::gene_update_after_receive(*slave_m);
+                geneom_slave::gene_update_matrices(*slave_m);
             }
-            */
         }
+        MPI::p->message("move ok");
     });
 
     // initializing components
@@ -116,15 +115,23 @@ int compute(int argc, char* argv[]) {
         ModelTracer chain(*master_m, cmd.chain_name() + to_string(rank) + ".chain");
         MPI::p->message("add chain");
         chain_driver.add(chain);
+    }
+    */
 
+    if (master) {
         auto trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".trace",
             trace_entry("mean", get<omega_hypermean>(*master_m))
         );
         chain_driver.add(trace);
     }
-    */
+    else    {
+        auto trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".trace",
+            trace_entry("nomean", [] () {return 0;})
+        );
+        chain_driver.add(trace);
+    }
 
-    // chain_driver.add(ms);
+    chain_driver.add(ms);
 
     // launching chain!
     chain_driver.go();
