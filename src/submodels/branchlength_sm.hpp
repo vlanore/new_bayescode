@@ -23,11 +23,29 @@ struct branchlengths_sm {
         initial_bl.erase(initial_bl.begin());
         DEBUG("Branch lengths are {}", vector_to_string(initial_bl));
 
+        // bool zerobl = false;
+        for (auto& bl : initial_bl) {
+            if (! bl)   {
+                // zerobl = true;
+                DEBUG("null branch length: setting to 0.1");
+                bl = 0.1;
+            }
+        }
+
         DEBUG("Creating branch length array of gamma nodes (length {})", nb_branches);
         auto bl_array = make_node_array<gamma_ss>(nb_branches,
                 [invshape] (int) {return 1. / invshape();},
                 [mean, invshape] (int) {return mean() * invshape();});
         set_value(bl_array, initial_bl);
+        /*
+        if (! zerobl)   {
+            set_value(bl_array, initial_bl);
+        }
+        else    {
+            // cannot draw, no generator..
+            draw(bl_array, gen);
+        }
+        */
 
         // return model
         return make_model(bl_array_ = std::move(bl_array));
