@@ -129,8 +129,6 @@ struct geneom {
         raw_value(om_mean) = 1.0;
         raw_value(om_invshape) = 1.0;
 
-        auto om_array = std::make_unique<std::vector<double>>(data.size(),3);
-
         auto gene_model_array = make_gene_array(
                 data, 
                 [&mean = get<value>(om_mean)] () {return mean;},
@@ -168,10 +166,10 @@ struct geneom {
         }
 
     template <class Model>
-    static auto update_matrices(Model& model)   {
-        gather(get<nuc_rates, nuc_matrix>(model));
-        gather(get<codon_submatrix>(model));
-    }
+        static auto update_matrices(Model& model)   {
+            gather(get<nuc_rates, nuc_matrix>(model));
+            gather(get<codon_submatrix>(model));
+        }
 
     template <class Model, class Gen>
         static auto resample_sub(Model& model, Gen& gen)  {
