@@ -37,6 +37,7 @@ TOKEN(nucpath_suffstats)
 TOKEN(omegapath_suffstats)
 TOKEN(omega_gamma_suffstats)
 
+
 struct geneom {
 
     template <class Gen, class OmMean, class OmInvshape>
@@ -128,6 +129,8 @@ struct geneom {
         raw_value(om_mean) = 1.0;
         raw_value(om_invshape) = 1.0;
 
+        auto om_array = std::make_unique<std::vector<double>>(data.size(),3);
+
         auto gene_model_array = make_gene_array(
                 data, 
                 [&mean = get<value>(om_mean)] () {return mean;},
@@ -136,21 +139,11 @@ struct geneom {
 
         auto omega_gamma_ss = ss_factory::make_suffstat<GammaSuffStat>(
                 [&array = *gene_model_array] (auto& omss) {
-                std::cerr << "in lambda\n";
-                std::cerr << "array size : " << array.size() << '\n';
-                /*
                     for (auto& gene_model : array)   {
                         double om = get<omega,value>(gene_model);
-                        std::cerr << "add\n";
                         omss.AddSuffStat(om, log(om), 1);
-                        std::cerr << "add ok\n";
                     }
-                */
                 });
-
-        std::cerr << "in geneom::make, after creation of omega_gamma_ss\n";
-        std::cerr << "calling gather on omega_gamma_ss\n";
-        omega_gamma_ss->gather();
 
         return make_model(
                 omega_hypermean_ = move(om_mean),
@@ -192,19 +185,21 @@ struct geneom {
             bl_suffstats_(model).gather();
             branchlengths_sm::gibbs_resample(
                 branch_lengths_(model), bl_suffstats_(model), gen);
+
+            path_suffstats_(model).gather();
+
             // move nuc rates
             nucpath_suffstats_(model).gather();
             nucrates_sm::move_nucrates(
                 nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
 
             // gather omega suffstats
-            path_suffstats_(model).gather();
             omegapath_suffstats_(model).gather();
+            gibbs_resample(omega_(model), omegapath_suffstats_(model), gen);
         }
 
     template <class Model, class Gen>
     static auto gene_resample_sub(Model& model, Gen& gen)    {
-        std::cerr << "in gene_resample_sub, array size: " << get<gene_model_array>(model).size() << '\n';
         for (auto& gene_model : get<gene_model_array>(model)) {
             resample_sub(gene_model, gen);
         }
@@ -220,6 +215,14 @@ struct geneom {
     template <class Model>
     static auto gene_collect_suffstat(Model& model)    {
         get<omega_gamma_suffstats>(model).gather();
+    }
+
+    template <class Model>
+    static auto gene_trace_omegas(Model& model, std::ostream& os)   {
+        for (auto& gene_model : get<gene_model_array>(model)) {
+            os << get<omega,value>(gene_model) << '\t';
+        }
+        os << '\n';
     }
 
     template <class Model>

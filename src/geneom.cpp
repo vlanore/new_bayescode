@@ -15,11 +15,6 @@ int main(int argc, char* argv[]) {
 
     // model
     auto model = geneom::make(data, gen);
-    std::cerr << "in main, after calling geneom::make\n";
-    std::cerr << "array size: " << get<gene_model_array>(model).size() << '\n';
-    std::cerr << "calling gather on omega_gamma_ss\n";
-    get<omega_gamma_suffstats>(model).gather();
-    exit(1);
 
     // move success stats
     MoveStatsRegistry ms;
@@ -31,23 +26,23 @@ int main(int argc, char* argv[]) {
 
         for (int rep = 0; rep < 30; rep++) {
             geneom::gene_move_params(model, gen);
-            std::cerr << "collect\n";
             geneom::gene_collect_suffstat(model);
-            std::cerr << "collect ok\n";
             geneom::move_hyper(model, gen);
             geneom::gene_update_matrices(model);
         }
+        // geneom::gene_trace_omegas(model,std::cout);
     });
 
-    // trace
+
     auto trace = make_custom_tracer(cmd.chain_name() + ".trace",
         trace_entry("mean_om", get<omega_hypermean>(model))
+        // does not know how to trace gene omega's or even gene models
     );
 
     // initializing components
     ChainDriver chain_driver{cmd.chain_name(), args.every.getValue(), args.until.getValue()};
 
-    ConsoleLogger console_logger;
+    ConsoleLogger console_logger{false};
     ModelTracer chain(model, cmd.chain_name() + ".chain");
 
     // registering components to chain driver
