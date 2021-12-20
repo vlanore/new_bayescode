@@ -54,13 +54,6 @@ int compute(int argc, char* argv[]) {
     double& ominvshape_ref = master ? get<omega_hyperinvshape, value>(*master_m) : get<omega_hyperinvshape>(*slave_m);
     auto omega_hyper_broadcast = broadcast(ommean_ref, ominvshape_ref);
 
-    /*
-    // Draw omega @master and broadcast it
-    if (master) {
-        draw(get<omega_hypermean>(*master_m), gen);
-        draw(get<omega_hyperinvshape>(*master_m), gen);
-    }
-    */
     master_to_slave(omega_hyper_broadcast);
 
     // move success stats
@@ -70,7 +63,6 @@ int compute(int argc, char* argv[]) {
     auto scheduler = make_move_scheduler([&]() {
 
         MPI::p->message("move");
-        // move phyloprocess
         if (!master) {
             geneom_slave::gene_resample_sub(*slave_m, gen);
         }
@@ -84,9 +76,7 @@ int compute(int argc, char* argv[]) {
 
             slave_to_master(reduce_omega_gamma_ss);
 
-            // Move omega
             if (master) {
-                // mh move on hyperparams
                 geneom_master::move_hyper(*master_m, gen);
             }
 
