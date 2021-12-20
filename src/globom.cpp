@@ -21,38 +21,20 @@ int main(int argc, char* argv[]) {
 
     // move schedule
     auto scheduler = make_move_scheduler([&gen, &model]() {
-        // move phyloprocess
-        gather(get<nuc_rates, nuc_matrix>(model));
-        gather(get<codon_submatrix>(model));
-        phyloprocess_(model).Move(1.0);
+        globom::update_matrices(model);
+        globom::resample_sub(model, gen);
 
-        // move omega
-        for (int rep = 0; rep < 30; rep++) {
-            // move branch lengths
-            bl_suffstats_(model).gather();
-            branchlengths_sm::gibbs_resample(branch_lengths_(model), bl_suffstats_(model), gen);
-
-            // move omega
-            path_suffstats_(model).gather();
-            omegapath_suffstats_(model).gather();
-            gibbs_resample(global_omega_(model), omegapath_suffstats_(model), gen);
-
-            gather(get<codon_submatrix>(model));
-
-            // move nuc rates
-            gather(get<codon_submatrix>(model));
-            nucpath_suffstats_(model).gather();
-            nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
-            gather(get<nuc_rates, nuc_matrix>(model));
-            gather(get<codon_submatrix>(model));
+        for (int rep = 0; rep < 3; rep++) {
+            globom::move_params(model, gen);
+            globom::update_matrices(model);
         }
     });
 
     // trace
-    int youpi = 2;
     auto trace = make_custom_tracer(cmd.chain_name() + ".trace",  //
-        trace_entry("a", [&youpi]() { return youpi; }),           //
-        trace_entry("b", get<global_omega>(model))         //
+        trace_entry("lnL", [& model] () {return get<phyloprocess>(model).GetLogLikelihood();}),
+        trace_entry("tl", [& model] () {return globom::get_total_length(model);}),
+        trace_entry("om", get<global_omega>(model))         //
     );
 
     // initializing components

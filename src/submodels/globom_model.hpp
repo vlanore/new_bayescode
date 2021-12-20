@@ -37,6 +37,7 @@ struct globom {
 
         auto global_omega = make_node<gamma_mi>(one_to_const(1.0), one_to_const(1.0));
         draw(global_omega, gen);
+        raw_value(global_omega) = 0.3;
 
         // bl : iid gamma across sites, with constant hyperparams
         auto branch_lengths =
@@ -118,4 +119,37 @@ struct globom {
             nucpath_suffstats_ = move(nucpath_ss),
             omegapath_suffstats_ = move(omega_ss));
     }
+
+    template<class Model>
+        static auto update_matrices(Model& model) {
+            gather(get<nuc_rates, nuc_matrix>(model));
+            gather(get<codon_submatrix>(model));
+        }
+
+    template<class Model, class Gen>
+        static auto resample_sub(Model& model, Gen& gen)    {
+            phyloprocess_(model).Move(1.0);
+        }
+
+    template<class Model, class Gen>
+        static auto move_params(Model& model, Gen& gen) {
+            // move branch lengths
+            bl_suffstats_(model).gather();
+            branchlengths_sm::gibbs_resample(branch_lengths_(model), bl_suffstats_(model), gen);
+
+            // move omega
+            path_suffstats_(model).gather();
+            omegapath_suffstats_(model).gather();
+            gibbs_resample(global_omega_(model), omegapath_suffstats_(model), gen);
+
+            // move nuc rates
+            gather(get<codon_submatrix>(model));
+            nucpath_suffstats_(model).gather();
+            nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
+        }
+
+    template<class Model>
+        static auto get_total_length(Model& model)  {
+            return branchlengths_sm::get_total_length(get<branch_lengths>(model));
+        }
 };
