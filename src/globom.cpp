@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
         globom::update_matrices(model);
         globom::resample_sub(model, gen);
 
-        for (int rep = 0; rep < 3; rep++) {
+        for (int rep = 0; rep < 30; rep++) {
             globom::move_params(model, gen);
             globom::update_matrices(model);
         }
