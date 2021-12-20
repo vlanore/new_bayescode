@@ -75,7 +75,7 @@ int compute(int argc, char* argv[]) {
             geneom_slave::gene_resample_sub(*slave_m, gen);
         }
 
-        for (int rep = 0; rep < 30; rep++) {
+        for (int rep = 0; rep < 3; rep++) {
 
             if (!master) {
                 geneom_slave::gene_move_params(*slave_m, gen);
@@ -107,34 +107,28 @@ int compute(int argc, char* argv[]) {
     chain_driver.add(scheduler);
     chain_driver.add(console_logger);
 
-    /*
     if (master) {
-        // not clear how to deal with that
-        MPI::p->message("chain");
         ModelTracer chain(*master_m, cmd.chain_name() + to_string(rank) + ".chain");
-        MPI::p->message("add chain");
         chain_driver.add(chain);
-    }
-    */
 
-    if (master) {
         auto trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".trace",
             trace_entry("mean", get<omega_hypermean>(*master_m))
         );
         chain_driver.add(trace);
+        chain_driver.add(ms);
+        chain_driver.go();
     }
     else    {
+        ModelTracer chain(*slave_m, cmd.chain_name() + to_string(rank) + ".chain");
+        chain_driver.add(chain);
+
         auto trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".trace",
             trace_entry("nomean", [] () {return 0;})
         );
         chain_driver.add(trace);
+        chain_driver.add(ms);
+        chain_driver.go();
     }
-
-    chain_driver.add(ms);
-
-    // launching chain!
-    chain_driver.go();
-
     return 0;
 }
 
