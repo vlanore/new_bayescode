@@ -10,8 +10,8 @@ TOKEN(bl_array)
 /* Array of branch lengths, gamma iid with fixed mean and invshape.
 Initialized with branch length from input tree. */
 struct branchlengths_sm {
-    template<class Mean, class InvShape>
-    static auto make(TreeParser& parser, const Tree& tree, Mean&& _mean, InvShape&& _invshape)    {
+    template<class Mean, class InvShape, class Gen>
+    static auto make(TreeParser& parser, const Tree& tree, Mean&& _mean, InvShape&& _invshape, Gen& gen, bool set_from_file = false)    {
 
         auto mean = make_param<double>(std::forward<Mean>(_mean));
         auto invshape = make_param<double>(std::forward<InvShape>(_invshape));
@@ -19,7 +19,14 @@ struct branchlengths_sm {
         DEBUG("Getting branch lengths from tree");
         const size_t nb_branches = parser.get_tree().nb_nodes() - 1;
         auto initial_bl = branch_container_from_parser<double>(
-            parser, [](int i, const auto& tree) { return stod(tree.tag(i, "length")); });
+            parser, [](int i, const auto& tree) { 
+                auto s = tree.tag(i, "length");
+                if (s == "")    {
+                    return double(0);
+                }
+                return stod(s);
+                });
+
         initial_bl.erase(initial_bl.begin());
         DEBUG("Branch lengths are {}", vector_to_string(initial_bl));
 
@@ -28,7 +35,7 @@ struct branchlengths_sm {
             if (! bl)   {
                 // zerobl = true;
                 DEBUG("null branch length: setting to 0.1");
-                bl = 0.1;
+                bl = 0.01;
             }
         }
 
@@ -36,16 +43,15 @@ struct branchlengths_sm {
         auto bl_array = make_node_array<gamma_ss>(nb_branches,
                 [invshape] (int) {return 1. / invshape();},
                 [mean, invshape] (int) {return mean() * invshape();});
-        set_value(bl_array, initial_bl);
-        /*
-        if (! zerobl)   {
+        // set_value(bl_array, initial_bl);
+        // if (! zerobl)   {
+        if (set_from_file)   {
             set_value(bl_array, initial_bl);
         }
         else    {
             // cannot draw, no generator..
             draw(bl_array, gen);
         }
-        */
 
         // return model
         return make_model(bl_array_ = std::move(bl_array));

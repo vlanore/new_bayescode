@@ -22,20 +22,23 @@ int main(int argc, char* argv[]) {
     // move schedule
     auto scheduler = make_move_scheduler([&gen, &model]() {
 
+        geneom::gene_update_matrices(model);
         geneom::gene_resample_sub(model, gen);
 
-        for (int rep = 0; rep < 30; rep++) {
+        for (int rep = 0; rep < 3; rep++) {
             geneom::gene_move_params(model, gen);
             geneom::gene_collect_suffstat(model);
             geneom::move_hyper(model, gen);
             geneom::gene_update_matrices(model);
         }
-        // geneom::gene_trace_omegas(model,std::cout);
+        geneom::gene_trace_omegas(model,std::cout);
     });
 
 
     auto trace = make_custom_tracer(cmd.chain_name() + ".trace",
-        trace_entry("mean_om", get<omega_hypermean>(model))
+        trace_entry("lnL", [& model] () {return geneom::get_log_likelihood(model);}),
+        trace_entry("tl", [& model] () {return geneom::get_mean_total_length(model);}),
+        trace_entry("hypermean_om", get<omega_hypermean>(model))
         // does not know how to trace gene omega's or even gene models
     );
 

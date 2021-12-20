@@ -81,7 +81,7 @@ struct geneom_slave {
         draw(omega, gen);
 
         auto branch_lengths =
-            branchlengths_sm::make(data.parser, *data.tree, one_to_const(0.1), one_to_const(1.0));
+            branchlengths_sm::make(data.parser, *data.tree, one_to_const(0.1), one_to_const(1.0), gen);
 
         auto nuc_rates = nucrates_sm::make(
                 std::vector<double>(6, 1./6), 1./6, std::vector<double>(4, 1./4), 1./4, gen);

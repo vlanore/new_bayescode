@@ -47,7 +47,7 @@ struct geneom {
         draw(omega, gen);
 
         auto branch_lengths =
-            branchlengths_sm::make(data.parser, *data.tree, one_to_const(0.1), one_to_const(1.0));
+            branchlengths_sm::make(data.parser, *data.tree, one_to_const(0.1), one_to_const(1.0), gen);
 
         auto nuc_rates = nucrates_sm::make(
                 std::vector<double>(6, 1./6), 1./6, std::vector<double>(4, 1./4), 1./4, gen);
@@ -197,36 +197,54 @@ struct geneom {
         }
 
     template <class Model, class Gen>
-    static auto gene_resample_sub(Model& model, Gen& gen)    {
-        for (auto& gene_model : get<gene_model_array>(model)) {
-            resample_sub(gene_model, gen);
+        static auto gene_resample_sub(Model& model, Gen& gen)    {
+            for (auto& gene_model : get<gene_model_array>(model)) {
+                resample_sub(gene_model, gen);
+            }
         }
-    }
 
     template <class Model, class Gen>
-    static auto gene_move_params(Model& model, Gen& gen)    {
-        for (auto& gene_model : get<gene_model_array>(model)) {
-            move_params(gene_model, gen);
+        static auto gene_move_params(Model& model, Gen& gen)    {
+            for (auto& gene_model : get<gene_model_array>(model)) {
+                move_params(gene_model, gen);
+            }
         }
-    }
 
     template <class Model>
-    static auto gene_collect_suffstat(Model& model)    {
-        get<omega_gamma_suffstats>(model).gather();
-    }
+        static auto gene_collect_suffstat(Model& model)    {
+            get<omega_gamma_suffstats>(model).gather();
+        }
 
     template <class Model>
-    static auto gene_trace_omegas(Model& model, std::ostream& os)   {
-        for (auto& gene_model : get<gene_model_array>(model)) {
-            os << get<omega,value>(gene_model) << '\t';
+        static auto gene_trace_omegas(Model& model, std::ostream& os)   {
+            for (auto& gene_model : get<gene_model_array>(model)) {
+                os << get<omega,value>(gene_model) << '\t';
+            }
+            os << '\n';
         }
-        os << '\n';
-    }
 
     template <class Model>
-    static auto gene_update_matrices(Model& model)    {
-        for (auto& gene_model : get<gene_model_array>(model)) {
-            update_matrices(gene_model);
+        static auto gene_update_matrices(Model& model)    {
+            for (auto& gene_model : get<gene_model_array>(model)) {
+                update_matrices(gene_model);
+            }
         }
-    }
+
+    template<class Model>
+        static auto get_log_likelihood(Model& model)  {
+            double tot = 0;
+            for (auto& gene_model : get<gene_model_array>(model)) {
+                tot += get<phyloprocess>(gene_model).GetLogLikelihood();
+            }
+            return tot;
+        }
+
+    template<class Model>
+        static auto get_mean_total_length(Model& model)  {
+            double tot = 0;
+            for (auto& gene_model : get<gene_model_array>(model)) {
+                tot += branchlengths_sm::get_total_length(get<branch_lengths>(gene_model));
+            }
+            return tot / get<gene_model_array>(model).size();
+        }
 };
