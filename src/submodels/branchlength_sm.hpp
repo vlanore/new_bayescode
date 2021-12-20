@@ -64,8 +64,19 @@ struct branchlengths_sm {
             auto beta = 1. / get<bl_array, params, struct scale>(model)(i);
 
             gamma_sr::draw(raw_vec[i], alpha + local_ss.count, beta + local_ss.beta, gen);
-            assert(raw_vec[i] >= 0);
+            assert(raw_vec[i] > 0);
         }
         // DEBUG("New branch lengths are {}", vector_to_string(raw_vec));
     }
+
+    template <class BLModel>
+        static auto get_total_length(BLModel& model)    {
+            auto& raw_vec = get<bl_array, value>(model);
+            double tot = 0;
+            for (auto& b:raw_vec)   {
+                tot += b;
+            }
+            return tot;
+        }
+
 };
