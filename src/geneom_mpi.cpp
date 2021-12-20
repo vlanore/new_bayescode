@@ -36,7 +36,6 @@ int compute(int argc, char* argv[]) {
 
     // random generator
     auto gen = make_generator(42);
-    Random::InitRandom(42);
 
     // load sequence alignments (only for slaves)
     auto data = multi_gene_data::make(args.alignment.getValue(), args.treefile.getValue(), partition);
