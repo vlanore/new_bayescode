@@ -29,9 +29,10 @@ int compute(int argc, char* argv[]) {
     auto full_gene_set = MultiGeneList(args.alignment.getValue());
     Partition partition(full_gene_set.genename, full_gene_set.geneweight, size - 1, 1);
 
+    int ngene = full_gene_set.genename.size();
     if (master) {
         MPI::p->message("total number of genes");
-        MPI::p->message(full_gene_set.genename.size());
+        MPI::p->message(ngene);
     }
 
     // random generator
@@ -42,17 +43,24 @@ int compute(int argc, char* argv[]) {
 
     // Model declarations
     auto master_m = 
-        master_only_ptr([&gen] () { return geneom_master::make(gen); });
+        master_only_ptr([&ngene, &gen] () { return geneom_master::make(ngene, gen); });
     auto slave_m =
         slave_only_ptr([&data, &gen]() { return geneom_slave::make(data, gen); });
 
     // communication between processes
+
+    // reducing the suff stats for distribution of omega's across genes
     GammaSuffStat& omega_gamma_ss = master ? omega_gamma_suffstats_(*master_m).get() : omega_gamma_suffstats_(*slave_m).get();
     auto reduce_omega_gamma_ss = reduce(omega_gamma_ss.sum, omega_gamma_ss.sumlog, omega_gamma_ss.n);
 
+    // broadcasting omega hyper params
     double& ommean_ref = master ? get<omega_hypermean, value>(*master_m) : get<omega_hypermean>(*slave_m);
     double& ominvshape_ref = master ? get<omega_hyperinvshape, value>(*master_m) : get<omega_hyperinvshape>(*slave_m);
     auto omega_hyper_broadcast = broadcast(ommean_ref, ominvshape_ref);
+
+    // collecting omega's across genes (for tracing at the master level)
+    auto& omegas = master ? get<omega_array, value>(*master_m) : get<omega_array, value>(*slave_m);
+    auto omega_array_gather = gather(partition, omegas);
 
     master_to_slave(omega_hyper_broadcast);
 
@@ -85,6 +93,12 @@ int compute(int argc, char* argv[]) {
                 geneom_slave::gene_update_matrices(*slave_m);
             }
         }
+
+        if (! master)   {
+            geneom_slave::gene_collect_omegas(*slave_m);
+        }
+        slave_to_master(omega_array_gather);
+
         MPI::p->message("move ok");
     });
 
@@ -105,6 +119,11 @@ int compute(int argc, char* argv[]) {
             trace_entry("mean", get<omega_hypermean>(*master_m))
         );
         chain_driver.add(trace);
+
+        auto omegas_trace = make_custom_tracer(cmd.chain_name() + to_string(rank) + ".om",
+            trace_entry("om", get<omega_array>(*master_m))
+        );
+        chain_driver.add(omegas_trace);
         chain_driver.add(ms);
         chain_driver.go();
     }

@@ -37,10 +37,11 @@ TOKEN(path_suffstats)
 TOKEN(nucpath_suffstats)
 TOKEN(omegapath_suffstats)
 TOKEN(omega_gamma_suffstats)
+TOKEN(omega_array)
 
 struct geneom_master {
     template <class Gen>
-    static auto make(Gen& gen) {
+    static auto make(int ngene, Gen& gen) {
 
         auto om_mean = make_node<exponential>(one_to_const(1.0));
         auto om_invshape = make_node<exponential>(one_to_const(1.0));
@@ -49,10 +50,15 @@ struct geneom_master {
 
         auto omega_gamma_ss = ss_factory::make_suffstat<GammaSuffStat>([] (auto& omss) {});
 
+        // does not work with tracer
+        // auto omega_array = std::make_unique<std::vector<double>>(ngene,1.0);
+        auto omega_array = make_node_array<exponential>(ngene, one_to_const(1.0));
+
         return make_model(
                 omega_hypermean_ = move(om_mean), 
                 omega_hyperinvshape_ = move(om_invshape), 
-                omega_gamma_suffstats_ = move(omega_gamma_ss)
+                omega_gamma_suffstats_ = move(omega_gamma_ss),
+                omega_array_ = move(omega_array)
             );
     }
 
@@ -161,6 +167,10 @@ struct geneom_slave {
         auto om_mean = std::make_unique<double>(1.0);
         auto om_invshape = std::make_unique<double>(1.0);
 
+        // does not work with tracer
+        // auto omega_array = std::make_unique<std::vector<double>>(data.size(),1.0);
+        auto omega_array = make_node_array<exponential>(data.size(),one_to_const(1.0));
+
         auto gene_model_array = make_gene_array(
                 data, 
                 [&mean = *om_mean] () {return mean;},
@@ -179,7 +189,8 @@ struct geneom_slave {
                 omega_hypermean_ = move(om_mean),
                 omega_hyperinvshape_ = move(om_invshape),
                 gene_model_array_ = move(gene_model_array),
-                omega_gamma_suffstats_ = move(omega_gamma_ss)
+                omega_gamma_suffstats_ = move(omega_gamma_ss),
+                omega_array_ = move(omega_array)
             );
     }
 
@@ -229,10 +240,19 @@ struct geneom_slave {
     }
 
     template <class Model>
+    static auto gene_collect_omegas(Model& model)   {
+        auto& omegas = get<omega_array,value>(model);
+        int gene = 0;
+        for (auto& gene_model : get<gene_model_array>(model)) {
+            omegas[gene] = get<omega,value>(gene_model);
+            gene++;
+        }
+    }
+
+    template <class Model>
     static auto gene_collect_suffstat(Model& model)    {
         get<omega_gamma_suffstats>(model).gather();
     }
-
 
     template <class Model>
     static auto gene_update_matrices(Model& model)    {
