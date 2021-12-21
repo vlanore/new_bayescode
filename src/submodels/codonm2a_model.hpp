@@ -51,7 +51,7 @@ TOKEN(alloc_suffstat)
 
 struct m2a_weights   {
     using T = std::vector<double>;
-    using param_decl = param_decl_t<param<struct weight_a, real>, param<struct weight_b, real>>;
+    using param_decl = param_decl_t<param<struct real_a, real>, param<struct real_b, real>>;
 
     static void gather(T& x, real purw, real posw)    {
         assert(x.size() == 3);
