@@ -1,4 +1,5 @@
 #include "submodels/mixom_model.hpp"
+#include "traceable_collection.hpp"
 
 int main(int argc, char* argv[]) {
     // parsing command-line arguments
@@ -126,7 +127,12 @@ int main(int argc, char* argv[]) {
     chain_driver.add(scheduler);
     chain_driver.add(console_logger);
     // chain_driver.add(chain_checkpoint);
-    // chain_driver.add(trace);
+    auto trace = make_custom_tracer(cmd.chain_name() + ".trace",  //
+        trace_entry("lnL", [& model] () {return get<phyloprocess>(model).GetLogLikelihood();}),
+        trace_entry("om", get<omega_array>(model)),
+        trace_entry("w", get<mixture_weights>(model))
+    );
+    chain_driver.add(trace);
     chain_driver.add(ms);
 
     // launching chain!
