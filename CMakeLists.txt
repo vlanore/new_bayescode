@@ -54,6 +54,10 @@ set(BASE_LIBS
     global_lib
 )
 
+# codon m2a (codonm2a)
+add_executable(codonm2a "src/codonm2a.cpp")
+target_link_libraries(codonm2a ${BASE_LIBS})
+
 # simple (simple)
 add_executable(simple "src/simple_model.cpp")
 target_link_libraries(simple ${BASE_LIBS})
