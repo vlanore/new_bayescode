@@ -35,48 +35,63 @@ struct globom {
     template <class Gen>
     static auto make(PreparedData& data, Gen& gen) {
 
-        auto global_omega = make_node<gamma_mi>(one_to_const(1.0), one_to_const(1.0));
+        auto global_omega = make_node<gamma_mi>(1.0, 1.0);
+        // lambda-explicit syntax:
+        // auto global_omega = make_node<gamma_mi>([] () {return 1.0;} , [] () {return 1.0;});
         draw(global_omega, gen);
-        raw_value(global_omega) = 0.3;
 
         // bl : iid gamma across sites, with constant hyperparams
         auto branch_lengths =
             branchlengths_sm::make(data.parser, *data.tree, 0.1, 1.0, gen);
 
         // nuc exch rates and eq freqs: uniform dirichlet
-        // also creates the gtr matrix
+        auto nucrr_hypercenter = std::vector<double>(6, 1./6);
+        auto nucrr_hyperinvconc = 1./6;
+        auto nucstat_hypercenter = std::vector<double>(4, 1./4);
+        auto nucstat_hyperinvconc = 1./4;
+
+        // creates nucrr, nucstat and also the gtr matrix
         auto nuc_rates = nucrates_sm::make(
-                std::vector<double>(6, 1./6), 1./6, std::vector<double>(4, 1./4), 1./4, gen);
+                nucrr_hypercenter, nucrr_hyperinvconc, 
+                nucstat_hypercenter, nucstat_hyperinvconc, gen);
+        // auto nuc_rates = nucrates_sm::make(
+                // std::vector<double>(6, 1./6), 1./6, std::vector<double>(4, 1./4), 1./4, gen);
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
 
         auto codon_submatrix = make_dnode_with_init<mgomega>(
-
-                {codon_statespace, &get<nuc_matrix, value>(nuc_rates), 1.0},
-
-                one_to_one(get<nuc_matrix,value>(nuc_rates)),
-                // [&mat = get<nuc_matrix, value>(nuc_rates)] () -> const SubMatrix& { return mat; },
-
-                one_to_one(get<value>(global_omega)) );;
-                // [&om = get<value>(global_omega)] () {return om; } );
-
+                // initializing arguments for creating the matrix:
+                {codon_statespace, &get<nuc_matrix,value>(nuc_rates), 1.0},
+                (const SubMatrix&) get<nuc_matrix,value>(nuc_rates),
+                // lambda-explicit syntax:
+                // [&mat = get<nuc_matrix,value>(nuc_rates)] () -> const SubMatrix& { return mat; },
+                global_omega 
+                // lambda-explicit syntax:
+                // [&om = get<value>(global_omega)] () { return om; }
+                );
         gather(codon_submatrix);
             
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
 
             // branch lengths
             n_to_n(get<bl_array, value>(branch_lengths)),
+            // lambda-explicit syntax:
+            // [& bl = get<bl_array,value>(branch_lengths)] (int branch) {return bl[branch];},
 
             // site-specific rates
             n_to_const(1.0),
+            // lambda-explicit syntax:
+            // [] (int site) {return 1.0;},
 
             // branch and site specific matrices (here, same matrix for everyone)
             mn_to_one(get<value>(codon_submatrix)),
+            // lambda-explicit syntax:
             // [&m = get<value>(codon_submatrix)] (int branch, int site) -> const SubMatrix& {return m;},
             
             // site-specific matrices for root equilibrium frequencies (here same for all sites)
             n_to_one(get<value>(codon_submatrix)),
+            // lambda-explicit syntax:
             // [&m = get<value>(codon_submatrix)] (int site) -> const SubMatrix& {return m;},
 
             // no polymorphism
@@ -95,7 +110,9 @@ struct globom {
         /*
         // full version:
         auto nucpath_ss = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
+                // initializing arguments
                 {*codon_statespace},
+                // lambda expression for how to reduce path suffstats into nuc path suff stats
                 [&mat = get<value>(codon_submatrix), &pss = *path_suffstats] (auto& nucss) 
                     { nucss.AddSuffStat(mat, pss.get()); });
         */
@@ -122,8 +139,8 @@ struct globom {
 
     template<class Model>
         static auto update_matrices(Model& model) {
-            gather(get<nuc_rates, nuc_matrix>(model));
-            gather(get<codon_submatrix>(model));
+            gather(nuc_matrix_(nuc_rates_(model)));
+            gather(codon_submatrix_(model));
         }
 
     template<class Model, class Gen>
@@ -143,13 +160,13 @@ struct globom {
             gibbs_resample(global_omega_(model), omegapath_suffstats_(model), gen);
 
             // move nuc rates
-            gather(get<codon_submatrix>(model));
+            gather(codon_submatrix_(model));
             nucpath_suffstats_(model).gather();
             nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
         }
 
     template<class Model>
         static auto get_total_length(Model& model)  {
-            return branchlengths_sm::get_total_length(get<branch_lengths>(model));
+            return branchlengths_sm::get_total_length(branch_lengths_(model));
         }
 };
