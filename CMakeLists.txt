@@ -54,6 +54,10 @@ set(BASE_LIBS
     global_lib
 )
 
+# selac (selac)
+add_executable(selac "src/selac.cpp")
+target_link_libraries(selac ${BASE_LIBS})
+
 # codon m2a (codonm2a)
 add_executable(codonm2a "src/codonm2a.cpp")
 target_link_libraries(codonm2a ${BASE_LIBS})

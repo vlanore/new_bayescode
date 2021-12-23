@@ -39,20 +39,27 @@ class AAMutSelOmegaCodonSubMatrix : public virtual NucCodonSubMatrix,
     //! Note: to avoid numerical errors, this function returns aa[a] + 1e-8.
     double GetFitness(int a) const { return Ne * aa[a] + 1e-8; }
 
-    double GetPredictedDNDS() const;
+    void SetFitness(const std::vector<double>& inaa)  {
+        assert(inaa.size() == Naa);
+        for (size_t i=0; i<Naa; i++)    {
+            aa[i] = inaa[i];
+        }
+    }
 
-  protected:
     void SetNe(double inNe) {
         Ne = inNe;
         CorruptMatrix();
     }
 
+    double GetPredictedDNDS() const;
+
+  protected:
+
     void ComputeArray(int i) const override;
     void ComputeStationary() const override;
 
-
     // data members
 
-    const std::vector<double> &aa;
+    std::vector<double> aa;
     double Ne;
 };

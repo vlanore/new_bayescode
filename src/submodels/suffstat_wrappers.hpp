@@ -89,6 +89,18 @@ struct mixss_factory    {
         return comp_suffstats;
     }
 
+    // reducing site suff stats into bidim component suff stats, based on 2 allocation vectors
+    template<class SS>
+    static auto make_bidim_reduced_suffstat(size_t ncomp1, size_t ncomp2, Proxy<SS&,int>& site_ss, const std::vector<size_t>& alloc1, const std::vector<size_t>& alloc2)  {
+        assert(alloc1.size() == alloc2.size());
+        auto comp_suffstats = ss_factory::make_suffstat_matrix<SS>(
+                ncomp1, ncomp2,
+                [&site_ss, &alloc1, &alloc2] (auto& comp_ss, int i) 
+                    { comp_ss[alloc1[i]][alloc2[i]].Add(site_ss.get(i)); },
+                alloc1.size());
+        return comp_suffstats;
+    }
+
     static auto make_alloc_suffstat(size_t ncomp, std::vector<size_t>& alloc)    {
         auto alloc_ss = ss_factory::make_suffstat_with_init<OccupancySuffStat>(
                 {ncomp},

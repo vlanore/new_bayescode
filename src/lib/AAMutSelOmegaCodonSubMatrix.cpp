@@ -13,8 +13,20 @@ void AAMutSelOmegaCodonSubMatrix::ComputeStationary() const {
     }
 
     // renormalize stationary probabilities
-    // double min = 1;
-    for (int i = 0; i < Nstate; i++) { mStationary[i] /= total; }
+    for (int i = 0; i < Nstate; i++) { 
+        mStationary[i] /= total; 
+        if (std::isinf(mStationary[i])) {
+            std::cerr << "matrix eq freq infinite\n";
+            exit(1);
+        }
+        if (std::isnan(mStationary[i])) {
+            std::cerr << "matrix eq freq nan\n";
+            for (int a=0; a<Naa; a++)    {
+                std::cerr << AminoAcids[a] << '\t' << GetFitness(a) << '\n';
+            }
+            exit(1);
+        }
+    }
 }
 
 void AAMutSelOmegaCodonSubMatrix::ComputeArray(int i) const {
@@ -27,7 +39,14 @@ void AAMutSelOmegaCodonSubMatrix::ComputeArray(int i) const {
                 int b = GetCodonPosition(pos, j);
 
                 Q(i, j) = (*NucMatrix)(a, b);
-
+                if (std::isinf(Q(i, j))) {
+                    std::cerr << "nuc rate inf\n";
+                    exit(1);
+                }
+                if (std::isnan(Q(i, j))) {
+                    std::cerr << "nuc rate nan\n";
+                    exit(1);
+                }
                 double deltaS = 0;
                 if (!Synonymous(i, j)) {
                     deltaS = log(GetFitness(GetCodonStateSpace()->Translation(j))) -
@@ -50,6 +69,15 @@ void AAMutSelOmegaCodonSubMatrix::ComputeArray(int i) const {
 
             if (std::isinf(Q(i, j))) {
                 std::cerr << "Q matrix infinite: " << Q(i, j) << '\n';
+                exit(1);
+            }
+
+            if (std::isnan(Q(i, j))) {
+                std::cerr << "Q matrix nan: " << Q(i, j) << '\n';
+                std::cerr << GetOmega() << '\n';
+                double deltaS = log(GetFitness(GetCodonStateSpace()->Translation(j))) -
+                             log(GetFitness(GetCodonStateSpace()->Translation(i)));
+                std::cerr << deltaS << '\n';
                 exit(1);
             }
 
