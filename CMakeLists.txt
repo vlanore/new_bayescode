@@ -54,6 +54,10 @@ set(BASE_LIBS
     global_lib
 )
 
+# selacNe (selacNe)
+add_executable(selacNe "src/selacNe.cpp")
+target_link_libraries(selacNe ${BASE_LIBS})
+
 # selac (selac)
 add_executable(selac "src/selac.cpp")
 target_link_libraries(selac ${BASE_LIBS})

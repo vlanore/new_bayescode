@@ -38,17 +38,15 @@ struct pathss_factory {
         return site_path_suffstats;
     }
 
-    /*
     // an array of path suffstats attached to a phyloprocess (site-branch-heterogeneous)
-    static auto make_site_branch_path_suffstat(PhyloProcess& phyloprocess)    {
+    static auto make_site_node_path_suffstat(PhyloProcess& phyloprocess)    {
         auto site_node_path_suffstats = ss_factory::make_suffstat_matrix<PathSuffStat>(
                 phyloprocess.GetNsite(),
                 phyloprocess.GetNnode(),
                 [&phyloprocess] (auto& site_node_ss)
                     { phyloprocess.AddPathSuffStat( [&site_node_ss] (int node, int site) -> PathSuffStat& { return site_node_ss[node][site]; } ); });
-        return site_branch_path_suffstats;
+        return site_node_path_suffstats;
     }
-    */
 
     // a nuc path suff stat, based on a single codon matrix and a single path suff stat 
     // (used in site-homogeneous models)
