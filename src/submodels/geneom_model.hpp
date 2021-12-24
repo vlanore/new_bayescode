@@ -37,7 +37,6 @@ TOKEN(nucpath_suffstats)
 TOKEN(omegapath_suffstats)
 TOKEN(omega_gamma_suffstats)
 
-
 struct geneom {
 
     template <class Gen, class OmMean, class OmInvshape>
@@ -110,15 +109,8 @@ struct geneom {
 
     template <class Gen, class Data, class OmMean, class OmInvshape>
         static auto make_gene_array(Data& data, OmMean om_mean, OmInvshape om_invshape, Gen& gen) {
-            // deduce the type of the Model by calling decltype on a call to make_gene
-            // this won't compute anything, juste deduce the type
-            using Model = decltype(make_gene(*data[0], om_mean, om_invshape, gen));
-            auto v = std::make_unique<std::vector<Model>>();
-            v->reserve(data.size()); // not strictly necessary but avoids reallocations
-            for (auto& d : data)    {
-                v->push_back(make_gene(*d, om_mean, om_invshape, gen));
-            }
-            return v;
+            auto lambda = [&data, om_mean, om_invshape, &gen] (int i) {return make_gene(*data[i], om_mean, om_invshape, gen);};
+            return make_model_array(data.size(), lambda);
         }
 
     template <class Gen, class Data>
