@@ -308,6 +308,8 @@ struct selacNe {
             scaling_move(branch_Ne_(model), Ne_logprob, 0.3, 10, gen, Ne_update);
         }
 
+    // should add psi / Ne compensatory move
+
     template<class Model, class Gen>
         static auto move_selac(Model& model, Gen& gen) {
             auto selac_logprob = suffstat_logprob(codon_matrices_(model), comp_path_suffstat_(model));
