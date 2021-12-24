@@ -38,6 +38,18 @@ struct pathss_factory {
         return site_path_suffstats;
     }
 
+    /*
+    // an array of path suffstats attached to a phyloprocess (site-branch-heterogeneous)
+    static auto make_site_branch_path_suffstat(PhyloProcess& phyloprocess)    {
+        auto site_node_path_suffstats = ss_factory::make_suffstat_matrix<PathSuffStat>(
+                phyloprocess.GetNsite(),
+                phyloprocess.GetNnode(),
+                [&phyloprocess] (auto& site_node_ss)
+                    { phyloprocess.AddPathSuffStat( [&site_node_ss] (int node, int site) -> PathSuffStat& { return site_node_ss[node][site]; } ); });
+        return site_branch_path_suffstats;
+    }
+    */
+
     // a nuc path suff stat, based on a single codon matrix and a single path suff stat 
     // (used in site-homogeneous models)
     static auto make_nucpath_suffstat(const CodonStateSpace* codon_statespace, NucCodonSubMatrix& mat, Proxy<PathSuffStat&>& pss)    {
@@ -50,7 +62,7 @@ struct pathss_factory {
     // a nuc path suffstat, based on an array of codon matrices and a corresponding array of path suffstats
     // (used in site- and mixture models)
     template<class Matrix>
-    static auto make_nucpath_suffstat(const CodonStateSpace* codon_statespace, std::vector<Matrix>& mat, Proxy<PathSuffStat&, int>& pss)    {
+    static auto make_nucpath_suffstat(const CodonStateSpace* codon_statespace, std::vector<Matrix>& mat, Proxy<PathSuffStat&, size_t>& pss)    {
         auto nucpath_ss = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
                 {*codon_statespace},
                 [&mat, &pss] (auto& nucss, int i) { nucss.AddSuffStat(mat[i], pss.get(i)); },
@@ -67,7 +79,7 @@ struct pathss_factory {
 
     // an array of omega path suffstats, based on an array of matrices and an array path suffstats
     template<class Matrix>
-    static auto make_omega_suffstat(std::vector<Matrix>& mat, Proxy<PathSuffStat&, int>& pss) {
+    static auto make_omega_suffstat(std::vector<Matrix>& mat, Proxy<PathSuffStat&, size_t >& pss) {
         auto site_omega_ss = ss_factory::make_suffstat_array<OmegaPathSuffStat>(
                 mat.size(),
                 [&mat, &pss] (auto& omss, int i) { omss[i].AddSuffStat(mat[i], pss.get(i)); },
@@ -80,7 +92,7 @@ struct mixss_factory    {
 
     // reducing site suff stats into component suff stats, based on allocation vector
     template<class SS>
-    static auto make_reduced_suffstat(size_t ncomp, Proxy<SS&,int>& site_ss, const std::vector<size_t>& alloc)  {
+    static auto make_reduced_suffstat(size_t ncomp, Proxy<SS&,size_t>& site_ss, const std::vector<size_t>& alloc)  {
         auto comp_suffstats = ss_factory::make_suffstat_array<SS>(
                 ncomp,
                 [&site_ss, &alloc] (auto& comp_ss, int i) 
@@ -91,7 +103,7 @@ struct mixss_factory    {
 
     // reducing site suff stats into bidim component suff stats, based on 2 allocation vectors
     template<class SS>
-    static auto make_bidim_reduced_suffstat(size_t ncomp1, size_t ncomp2, Proxy<SS&,int>& site_ss, const std::vector<size_t>& alloc1, const std::vector<size_t>& alloc2)  {
+    static auto make_reduced_suffstat(size_t ncomp1, size_t ncomp2, Proxy<SS&,size_t>& site_ss, const std::vector<size_t>& alloc1, const std::vector<size_t>& alloc2)  {
         assert(alloc1.size() == alloc2.size());
         auto comp_suffstats = ss_factory::make_suffstat_matrix<SS>(
                 ncomp1, ncomp2,
@@ -119,7 +131,7 @@ struct mixss_factory    {
     }
 
     template<class V, class SS>
-    static auto make_alloc_logprob(std::vector<V>& val, Proxy<SS&, int>& ss)    {
+    static auto make_alloc_logprob(std::vector<V>& val, Proxy<SS&, size_t>& ss)    {
         auto alloc_logprob = 
             [&val, &ss] (int i) {
                 auto lambda = [&val, &s = ss.get(i)] (int k) {return s.GetLogProb(val[k]);};

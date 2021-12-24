@@ -53,38 +53,6 @@ TOKEN(omega_suffstat)
 TOKEN(nucpath_suffstat)
 TOKEN(aa_alloc_suffstat)
 
-template <class SS, class Lambda>
-class bidim_suffstat_proxy final : public Proxy<SS&> {
-    SS _ss;
-    Lambda _lambda;
-    int _ncat;
-    int _naa;
-
-    SS& _get() final { return _ss; }
-
-  public:
-    bidim_suffstat_proxy(const SS& from, Lambda lambda, int ncat, int naa) : _ss(from), _lambda(lambda), _ncat(ncat), _naa(naa) {}
-
-    void gather() final {
-        _ss.Clear();
-        for (int i=0; i<_ncat; i++) { 
-            for (int j=0; j<_naa; j++)  {
-                _lambda(_ss, i, j); 
-            }
-        }
-    }
-};
-
-template <class SS, class Lambda>
-static auto make_suffstat(Lambda lambda, int ncat, int naa) {
-    return std::make_unique<bidim_suffstat_proxy<SS, Lambda>>(SS(), lambda, ncat, naa);
-}
-
-template <class SS, class Lambda>
-static auto make_suffstat_with_init(SS&& from, Lambda lambda, int ncat, int naa) {
-    return std::make_unique<bidim_suffstat_proxy<SS, Lambda>>(std::forward<SS>(from), lambda, ncat, naa);
-}
-
 struct selac {
 
     template <class Gen>
@@ -151,7 +119,8 @@ struct selac {
                 {codon_statespace, (SubMatrix*) &get<value>(nuc_matrix), default_aa, 1.0, 1.0, false},
                 [&mat = get<value>(nuc_matrix)] (int i, int j) -> const SubMatrix& {return mat;},
                 [&aa = get<value>(profile_array)] (int i, int j) {return aa[i][j];},
-                mn_to_one(get<value>(omega)));
+                mn_to_one(get<value>(omega)),
+                mn_to_const(1.0));
 
         gather(codon_submatrix_bidimarray);
 
@@ -189,19 +158,19 @@ struct selac {
         auto site_path_ss = pathss_factory::make_site_path_suffstat(*phyloprocess);
 
         // path suffstat reduced by component (bidim)
-        auto comp_path_ss = mixss_factory::make_bidim_reduced_suffstat(ncat, Naa, *site_path_ss, get<value>(g_alloc), get<value>(aa_alloc));
+        auto comp_path_ss = mixss_factory::make_reduced_suffstat(ncat, Naa, *site_path_ss, get<value>(g_alloc), get<value>(aa_alloc));
 
         // alloction suff stat (= current occupancies of mixture components)
         // useful for resampling mixture weigths
         auto aa_alloc_ss = mixss_factory::make_alloc_suffstat(Naa, get<value>(aa_alloc));
 
         // omega suff stats (reduced across components)
-        auto omega_ss = make_suffstat<OmegaPathSuffStat>(
+        auto omega_ss = ss_factory::make_suffstat<OmegaPathSuffStat>(
                 [&mat=get<value>(codon_submatrix_bidimarray), &pss=*comp_path_ss] (auto& omss, int i, int j) { omss.AddSuffStat(mat[i][j], pss.get(i,j)); },
                 ncat, Naa);
 
         // nuc path suff stats (reduced across components)
-        auto nucpath_ss = make_suffstat_with_init<NucPathSuffStat>(
+        auto nucpath_ss = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
                 {*codon_statespace},
                 [&mat=get<value>(codon_submatrix_bidimarray), &pss=*comp_path_ss] (auto& nucss, int i, int j) { nucss.AddSuffStat(mat[i][j], pss.get(i,j)); },
                 ncat, Naa);
@@ -298,8 +267,7 @@ struct selac {
 
     template<class Model, class Gen>
         static auto move_selac(Model& model, Gen& gen) {
-            size_t ncat = get<codon_submatrix_bidimarray,value>(model).size();
-            auto selac_logprob = suffstat_logprob(codon_submatrix_bidimarray_(model), comp_path_suffstat_(model), ncat, Naa);
+            auto selac_logprob = suffstat_logprob(codon_submatrix_bidimarray_(model), comp_path_suffstat_(model));
 
             auto g_update = [&model] () {
                 gather(g_(model)); 
