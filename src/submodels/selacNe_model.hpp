@@ -62,7 +62,7 @@ struct selacNe {
 
         size_t nsite = data.alignment.GetNsite();
         size_t nnode = data.parser.get_tree().nb_nodes();
-        // size_t nbranch = nnode - 1;
+        size_t nbranch = nnode - 1;
 
         // bl : iid gamma across sites, with constant hyperparams
         auto branch_lengths =
@@ -103,9 +103,8 @@ struct selacNe {
         // Ne
         auto Ne_invshape = make_node<gamma_mi>(one_to_const(1.0), one_to_const(1.0));
         get<value>(Ne_invshape) = 0.1;
-        auto branch_Ne = make_node_array<gamma_mi>(nnode, n_to_const(1.0), n_to_one(Ne_invshape));
+        auto branch_Ne = make_node_array<gamma_mi>(nbranch, n_to_const(1.0), n_to_one(Ne_invshape));
         draw(branch_Ne, gen);
-        get<value>(branch_Ne)[0] = 1.0;
 
         // amino-acid fitness profiles for each g*psi and each possible preferred amino-acid
         auto profiles = make_dnode_array_with_init<selac_profilearray>(
@@ -133,7 +132,7 @@ struct selacNe {
                 [&mat = get<value>(nuc_matrix)] (int branch, int cat, int aa) -> const SubMatrix& {return mat;},
                 [&pr = get<value>(profiles)] (int node, int cat, int aa) {return pr[cat][aa];},
                 [&om = get<value>(omega)] (int node, int cat, int aa) {return om;},
-                [&Ne = get<value>(branch_Ne)] (int node, int cat, int aa) {return Ne[node];}
+                [&Ne = get<value>(branch_Ne)] (int node, int cat, int aa) {return node? Ne[node-1] : 1.0;}
                 );
         gather(codon_matrices);
 
@@ -255,6 +254,7 @@ struct selacNe {
             auto nuc_logprob = suffstat_logprob(nuc_matrix_(model), nucpath_suffstat_(model));
             scaling_move(kappa_(model), nuc_logprob, 1, 10, gen, nuc_update);
             slide_constrained_move(gc_(model), nuc_logprob, 1, 0, 1, 10, gen, nuc_update);
+            gather(codon_matrices_(model));
         }
 
     template<class Model, class Gen>
@@ -298,6 +298,7 @@ struct selacNe {
         static auto move_omega(Model& model, Gen& gen)  {
             omega_suffstat_(model).gather();
             gibbs_resample(omega_(model), omega_suffstat_(model), gen);
+            gather(codon_matrices_(model));
         }
 
     template<class Model, class Gen>
@@ -336,6 +337,32 @@ struct selacNe {
                 gather(codon_matrices_(model));};
             scaling_move(psi_(model), selac_logprob, 1, 10, gen, psi_update);
             scaling_move(psi_(model), selac_logprob, 0.3, 10, gen, psi_update);
+        }
+
+    template<class Model>
+        static auto get_mean_Ne(Model& model)  {
+            auto& v = get<branch_Ne, value>(model);
+            double m1 = 0;
+            for (auto& ne:v)   {
+                m1 += ne;
+            }
+            m1 /= v.size();
+            return m1;
+        }
+
+    template<class Model>
+        static auto get_var_Ne(Model& model)  {
+            auto& v = get<branch_Ne, value>(model);
+            double m1 = 0;
+            double m2 = 0;
+            for (auto& ne:v)   {
+                m1 += ne;
+                m2 += ne*ne;
+            }
+            m1 /= v.size();
+            m2 /= v.size();
+            m2 -= m1*m1;
+            return m2;
         }
 
     template<class Model>

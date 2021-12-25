@@ -44,7 +44,7 @@ struct pathss_factory {
                 phyloprocess.GetNsite(),
                 phyloprocess.GetNnode(),
                 [&phyloprocess] (auto& site_node_ss)
-                    { phyloprocess.AddPathSuffStat( [&site_node_ss] (int node, int site) -> PathSuffStat& { return site_node_ss[node][site]; } ); });
+                    { phyloprocess.AddPathSuffStat( [&site_node_ss] (int node, int site) -> PathSuffStat& { return site_node_ss[site][node]; } ); });
         return site_node_path_suffstats;
     }
 
