@@ -70,6 +70,10 @@ target_link_libraries(codonm2a ${BASE_LIBS})
 add_executable(simple "src/simple_model.cpp")
 target_link_libraries(simple ${BASE_LIBS})
 
+# Single omega (clock_globom)
+add_executable(clock_globom "src/clock_globom.cpp")
+target_link_libraries(clock_globom ${BASE_LIBS})
+
 # Single omega (globom)
 add_executable(globom "src/globom.cpp")
 target_link_libraries(globom ${BASE_LIBS})
