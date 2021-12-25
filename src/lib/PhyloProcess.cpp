@@ -8,8 +8,8 @@ using namespace std;
 
 // generic
 PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
-    std::function<const double &(int)> inbranchlength,
-    std::function<const double &(int)> insiterate,
+    std::function<double (int)> inbranchlength,
+    std::function<double (int)> insiterate,
     std::function<const SubMatrix &(int, int)> insubmatrixarray,
     std::function<const SubMatrix &(int)> inrootsubmatrixarray, PolyProcess *inpolyprocess)
     :
