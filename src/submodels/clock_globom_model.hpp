@@ -35,7 +35,7 @@ TOKEN(omegapath_suffstats)
 
 
 struct globom {
-    // =============================================================================================
+
     template <class Gen>
     static auto make(PreparedData& data, Gen& gen) {
 
@@ -47,7 +47,7 @@ struct globom {
 
         auto branch_lengths = make_chrono_branch_lengths(
                 data.tree.get(), 
-                [&chrono = *chronogram] (int node) {return chrono.get_age(node);});
+                [&chrono = *chronogram] (int node) {return chrono[node];});
         branch_lengths->Update();
 
         auto ds = make_node<gamma_mi>(1.0, 1.0);
@@ -78,7 +78,7 @@ struct globom {
 
             // branch lengths
             [&bl = *branch_lengths, &r = get<value>(ds)] (int branch) {
-                return r*bl.get_length(branch);},
+                return r*bl[branch];},
 
             // site-specific rates
             n_to_const(1.0),
@@ -137,7 +137,7 @@ struct globom {
             auto branch_logprob = 
                 [&ss = bl_suffstats_(model), &bl = branch_lengths_(model), &r = get<ds,value>(model)] 
                 (int branch) 
-                {return ss.get(branch).GetLogProb(r*bl.get_length(branch));};
+                {return ss.get(branch).GetLogProb(r*bl[branch]);};
 
             auto logprob =
                 [&bl = branch_lengths_(model), branch_logprob] 
@@ -156,7 +156,7 @@ struct globom {
                 [&ss = bl_suffstats_(model), &bl = branch_lengths_(model), &r = get<ds,value>(model)] () {
                     double total = 0;
                     for (size_t branch=0; branch<bl.nb_branches(); branch++)  {
-                        total += ss.get(branch).GetLogProb(r*bl.get_length(branch));
+                        total += ss.get(branch).GetLogProb(r*bl[branch]);
                     }
                     return total;
                 };
@@ -187,7 +187,7 @@ struct globom {
             auto& bl = branch_lengths_(model);
             double tot = 0;
             for (size_t b=0; b<bl.nb_branches(); b++)   {
-                tot += bl.get_length(b);
+                tot += bl[b];
             }
             return tot;
         }

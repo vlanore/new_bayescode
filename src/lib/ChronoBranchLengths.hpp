@@ -20,6 +20,11 @@ class ChronoBranchLengths {
         return branch_lengths[branch];
     }
 
+    const double& operator[](size_t branch) const {
+        assert((branch >=0) && (branch < branch_lengths.size()));
+        return branch_lengths[branch];
+    }
+
     size_t nb_branches() const {return branch_lengths.size();}
 
     void Update()   {
@@ -57,6 +62,16 @@ class ChronoBranchLengths {
         return total;
     }
 
+    template<class BranchUpdate>
+    void do_around_node(BranchUpdate branch_update, Tree::NodeIndex from)   {
+        if (! tree->is_root(from))  {
+            branch_update(branch_index(from));
+        }
+        for (auto c : tree->children(from))  {
+            branch_update(branch_index(c));
+        }
+    }
+
     private:
 
     const Tree* tree;
@@ -88,5 +103,7 @@ class ChronoBranchLengths {
 
 template<class NodeAges>
 static auto make_chrono_branch_lengths(const Tree* tree, NodeAges in_node_ages)    {
-    return std::make_unique<ChronoBranchLengths<NodeAges>>(tree, in_node_ages);
+    auto tmp = std::make_unique<ChronoBranchLengths<NodeAges>>(tree, in_node_ages);
+    tmp->Update();
+    return tmp;
 }

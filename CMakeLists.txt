@@ -45,6 +45,7 @@ set(BAYESCODE_LIB
     src/lib/StateSpace.cpp
     src/lib/SubMatrix.cpp
     src/lib/TaxonSet.cpp
+    src/lib/linalg.cpp
   )
 add_library (bayescode_lib STATIC ${BAYESCODE_LIB})
 
@@ -53,6 +54,10 @@ set(BASE_LIBS
     tree_lib
     global_lib
 )
+
+# coevol (coevol)
+add_executable(coevol "src/coevol.cpp")
+target_link_libraries(coevol ${BASE_LIBS})
 
 # selacNe (selacNe)
 add_executable(selacNe "src/selacNe.cpp")

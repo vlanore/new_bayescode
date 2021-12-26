@@ -18,6 +18,11 @@ class Chronogram {
         return node_ages[node];
     }
 
+    const double& operator[](Tree::NodeIndex node) const {
+        assert((node >= 0) && (node < node_ages.size()));
+        return node_ages[node];
+    }
+
     size_t nb_nodes() const {return node_ages.size();}
 
     //! sample all entries from prior
@@ -33,7 +38,7 @@ class Chronogram {
     private:
 
     const Tree *GetTree() const { return tree; }
-    Tree::NodeIndex GetRoot() const { return GetTree()->root(); }
+    Tree::NodeIndex GetRoot() const { return tree->root(); }
     int GetNnode() const { return tree->nb_nodes(); }
 
     double RecursiveSample(Tree::NodeIndex from)  {
@@ -132,4 +137,5 @@ class Chronogram {
 static auto make_chrono(const Tree* tree)   {
     return std::make_unique<Chronogram>(tree);
 }
+
 

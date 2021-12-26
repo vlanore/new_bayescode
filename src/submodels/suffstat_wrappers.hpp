@@ -6,6 +6,7 @@
 #include "lib/GTRSubMatrix.hpp"
 #include "lib/PhyloProcess.hpp"
 #include "CodonSuffStat.hpp"
+#include "dSOmegaPathSuffStat.hpp"
 #include "OccupancySuffStat.hpp"
 #include "structure/suffstat.hpp"
 
@@ -36,6 +37,14 @@ struct pathss_factory {
                 [&phyloprocess] (auto& site_ss)
                     { phyloprocess.AddPathSuffStat( [&site_ss] (int branch, int site) -> PathSuffStat& { return site_ss[site]; } ); });
         return site_path_suffstats;
+    }
+
+    static auto make_node_path_suffstat(PhyloProcess& phyloprocess) {
+        auto node_path_suffstats = ss_factory::make_suffstat_array<PathSuffStat>(
+                phyloprocess.GetNnode(),
+                [&phyloprocess] (auto& node_ss)
+                    { phyloprocess.AddPathSuffStat( [&node_ss] (int node, int site) -> PathSuffStat& { return node_ss[node]; } ); });
+        return node_path_suffstats;
     }
 
     // an array of path suffstats attached to a phyloprocess (site-branch-heterogeneous)
@@ -75,14 +84,23 @@ struct pathss_factory {
         return omega_ss;
     }
 
+    template<class Matrix, class DS, class OM>
+    static auto make_dsomega_suffstat(std::vector<Matrix>& mat, Proxy<PathSuffStat&, size_t>& pss, DS ds, OM om)  {
+        auto omega_ss = ss_factory::make_suffstat_array<dSOmegaPathSuffStat>(
+                mat.size(),
+                [&mat, &pss, ds, om] (auto& omss, int i) { omss[i].AddSuffStat(mat[i], pss.get(i), ds(i), om(i)); },
+                mat.size());
+        return omega_ss;
+    }
+
     // an array of omega path suffstats, based on an array of matrices and an array path suffstats
     template<class Matrix>
     static auto make_omega_suffstat(std::vector<Matrix>& mat, Proxy<PathSuffStat&, size_t >& pss) {
-        auto site_omega_ss = ss_factory::make_suffstat_array<OmegaPathSuffStat>(
+        auto omega_ss = ss_factory::make_suffstat_array<OmegaPathSuffStat>(
                 mat.size(),
                 [&mat, &pss] (auto& omss, int i) { omss[i].AddSuffStat(mat[i], pss.get(i)); },
                 mat.size());
-        return site_omega_ss;
+        return omega_ss;
     }
 };
 

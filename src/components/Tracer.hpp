@@ -104,6 +104,53 @@ class Tracer {
 
     template <class T>
     void process_declaration(
+        std::string name, std::vector<std::vector<T>>& v, Partition partition = Partition(IndexSet(), 0)) {
+        /* -- */
+        header_to_stream.emplace_back([&v, name](std::ostream& os) {
+            size_t m = v.size();
+            if (m > 0) {
+                size_t n = v.at(0).size();
+                if (n > 0) {
+                    for (size_t i = 0; i < m; i++)  {
+                        for (size_t j = 0; j < n; j++)  {
+                            os << name << "[" << i << "]" << "[" << j << "]";
+                            if ((i < m-1) || (j < n-1)) {
+                                os << "\t";
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        data_to_stream.emplace_back([&v](std::ostream& os) {
+            size_t m = v.size();
+            if (m > 0) {
+                size_t n = v.at(0).size();
+                if (n > 0) {
+                    for (size_t i = 0; i < m; i++)  {
+                        for (size_t j = 0; j < n; j++)  {
+                            os << v.at(i).at(j);
+                            if ((i < m-1) || (j < n-1)) {
+                                os << "\t";
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        set_from_stream.emplace_back([&v](std::istream& is) {
+            size_t m = v.size();
+            size_t n = v.at(0).size();
+            for (size_t i = 0; i < m; i++)  {
+                for (size_t j = 0; j < n; j++)  {
+                    is >> v[i][j];
+                }
+            }
+        });
+    }
+
+    template <class T>
+    void process_declaration(
         std::string name, std::vector<T>& v, Partition partition = Partition(IndexSet(), 0)) {
         /* -- */
         header_to_stream.emplace_back([&v, name](std::ostream& os) {
