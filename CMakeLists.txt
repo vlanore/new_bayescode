@@ -59,37 +59,13 @@ set(BASE_LIBS
 add_executable(coevol "src/coevol.cpp")
 target_link_libraries(coevol ${BASE_LIBS})
 
-# selacNe (selacNe)
-add_executable(selacNe "src/selacNe.cpp")
-target_link_libraries(selacNe ${BASE_LIBS})
-
-# selac (selac)
-add_executable(selac "src/selac.cpp")
-target_link_libraries(selac ${BASE_LIBS})
-
-# codon m2a (codonm2a)
-add_executable(codonm2a "src/codonm2a.cpp")
-target_link_libraries(codonm2a ${BASE_LIBS})
-
-# simple (simple)
-add_executable(simple "src/simple_model.cpp")
-target_link_libraries(simple ${BASE_LIBS})
-
-# Single omega (clock_globom)
-add_executable(clock_globom "src/clock_globom.cpp")
-target_link_libraries(clock_globom ${BASE_LIBS})
-
 # Single omega (globom)
 add_executable(globom "src/globom.cpp")
 target_link_libraries(globom ${BASE_LIBS})
 
-# Site-specific omega (siteom)
-add_executable(siteom "src/siteom.cpp")
-target_link_libraries(siteom ${BASE_LIBS})
-
-# Mixture-model omega (mixom)
-add_executable(mixom "src/mixom.cpp")
-target_link_libraries(mixom ${BASE_LIBS})
+# geneom MPI
+add_executable(geneom_mpi "src/geneom_mpi.cpp")
+target_link_libraries(geneom_mpi ${BASE_LIBS} ${MPI_LIBRARIES})
 
 # tests
 add_executable(all_tests "src/all_tests.cpp")
@@ -101,23 +77,3 @@ target_link_libraries(tree_test tree_lib)
 add_executable(mpi_par_test "src/mpi_components/test/mpi_test.cpp")
 target_link_libraries(mpi_par_test ${MPI_LIBRARIES})
 
-add_executable(mpi_example "src/mpi_example.cpp")
-target_link_libraries(mpi_example ${MPI_LIBRARIES})
-
-add_executable(simu_and_infer "examples/simu_and_infer_example.cpp")
-target_link_libraries(simu_and_infer ${BASE_LIBS})
-
-add_executable(coin_tosses_mpi "src/coin_tosses_beta_MPI.cpp")
-target_link_libraries(coin_tosses_mpi ${MPI_LIBRARIES})
-
-add_executable(coin_tosses_modular_mpi "src/coin_tosses_beta_modular_MPI.cpp")
-target_link_libraries(coin_tosses_modular_mpi ${MPI_LIBRARIES})
-
-add_executable(globomMPI "src/globom_mpi.cpp")
-target_link_libraries(globomMPI ${BASE_LIBS} ${MPI_LIBRARIES})
-
-add_executable(geneom "src/geneom.cpp")
-target_link_libraries(geneom ${BASE_LIBS})
-
-add_executable(geneom_mpi "src/geneom_mpi.cpp")
-target_link_libraries(geneom_mpi ${BASE_LIBS} ${MPI_LIBRARIES})
