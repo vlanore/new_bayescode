@@ -71,6 +71,10 @@ class RelativePathSuffStat {
         }
         for (std::map<int, double>::const_iterator i = suffstat.GetWaitingTimeMap().begin();
              i != suffstat.GetWaitingTimeMap().end(); i++) {
+            if (! length)   {
+                std::cerr << "error in RelativePathSuffStat: length is 0\n";
+                exit(1);
+            }
             waitingtime[i->first] += i->second / length;
         }
     }

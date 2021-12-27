@@ -48,7 +48,7 @@ struct coevol {
 
         size_t ncont = cont_data.GetNsite();
         size_t nnode = tree->nb_nodes();
-        size_t nbranch = nnode-1;
+        // size_t nbranch = nnode-1;
 
         auto chronogram = make_chrono(tree);
         chronogram->Sample();
@@ -66,15 +66,12 @@ struct coevol {
         auto sigma = make_node_with_init<invwishart>(
                 {ncont+2, 1},
                 [&k = *kappa] () { return k; });
-
-        draw(sigma, gen);
-        auto& s = get<value>(sigma);
-        s *= 0.1;
+        // draw(sigma, gen);
+        get<value>(sigma).SetToIdentity();
 
         auto root_mean = make_param<std::vector<double>>(std::forward<RootMean>(inroot_mean));
         auto root_var = make_param<std::vector<double>>(std::forward<RootVar>(inroot_var));
 
-        std::cerr << "brownian process\n";
         auto brownian_process = make_brownian_tree_process(
                 tree,
                 [&chrono = *chronogram] (int node) -> const double& {return chrono[node];},
@@ -88,8 +85,6 @@ struct coevol {
         }
         brownian_process->PseudoSample(0.1);
         
-        std::cerr << "brownian process ok\n";
-
         auto synrate = make_branch_lengths(tree,
                 [&process = *brownian_process] (int node) -> const std::vector<double>& {return process[node];},
                 [&chrono = *chronogram] (int node) -> const double& {return chrono[node];},
@@ -145,35 +140,12 @@ struct coevol {
 
         // suff stats
         auto path_suffstats = pathss_factory::make_node_path_suffstat(*phyloprocess);
-        auto rel_path_suffstats = ss_factory::make_suffstat_array_with_init<RelativePathSuffStat>(
-                nnode,
-                {codon_statespace->GetNstate()},
-                [&pss = *path_suffstats, &ds = *synrate] (auto& rpss, int node) {
-                    rpss[node].Add(pss.get(node), node ? ds[node-1] : 1.0); 
-                },
-                nnode);
 
-        auto nucpath_ss = pathss_factory::make_nucpath_suffstat(codon_statespace, get<value>(codon_matrices), *path_suffstats);
+        auto rel_path_suffstats = pathss_factory::make_node_relpath_suffstat(nnode, codon_statespace, *path_suffstats, [&ds=*synrate] (int branch) {return ds[branch];});
 
-        auto dsom_ss = ss_factory::make_suffstat_array<dSOmegaPathSuffStat>(
-                nbranch,
-                [&mat = get<value>(codon_matrices), &rpss = *rel_path_suffstats, &om = *omega] (auto& omss, int branch) { omss[branch].AddSuffStat(mat[branch+1], rpss.get(branch+1), om[branch]); },
-                nbranch);
+        auto dsom_ss = pathss_factory::make_dsomega_suffstat(get<value>(codon_matrices), *rel_path_suffstats, [&ds=*synrate] (int branch) {return ds[branch];});
 
-        /*
-        auto dsom_ss = ss_factory::make_suffstat_array<dSOmegaPathSuffStat>(
-                nbranch,
-                [&mat = get<value>(codon_matrices), &pss = *path_suffstats, &ds = *synrate, &om = *omega] (auto& omss, int branch) { omss[branch].AddSuffStat(mat[branch+1], pss.get(branch+1), ds[branch], om[branch]); },
-                nbranch);
-        */
-
-        /*
-        auto dsom_ss = pathss_factory::make_dsomega_suffstat(
-                get<value>(codon_matrices), 
-                *path_suffstats,
-                [&ds = *synrate] (int node) {return node ? ds[node-1] : 1.0;},
-                [&om = *omega] (int node) {return node ? om[node-1] : 1.0;});
-        */
+        auto nucpath_ss = pathss_factory::make_nucpath_suffstat(codon_statespace, get<value>(codon_matrices), *rel_path_suffstats, [&ds=*synrate] (int branch) {return ds[branch];});
 
         auto covmat_ss = ss_factory::make_suffstat_with_init<MultivariateNormalSuffStat>({ncont+2},
                 [&process = *brownian_process] (auto& ss) { ss.AddSuffStat(process); });
@@ -207,6 +179,12 @@ struct coevol {
             phyloprocess_(model).Move(1.0);
         }
 
+    template<class Model>
+        static auto gather_path_suffstat(Model& model) {
+            path_suffstats_(model).gather();
+            rel_path_suffstats_(model).gather();
+        }
+
     template<class Model, class Gen>
         static auto move_chrono(Model& model, Gen& gen) {
 
@@ -217,14 +195,14 @@ struct coevol {
                 };
 
             auto branch_logprob = 
-                [&ss = dsom_suffstats_(model), &ds = synrate_(model), &om = omega_(model), &process = brownian_process_(model)]
+                [&ss = dsom_suffstats_(model), &ds = synrate_(model), &om = omega_(model)]
                 (int branch) {
-                    return process.GetLocalLogProb(branch) + ss.get(branch).GetLogProb(ds[branch], om[branch]);
+                    return ss.get(branch).GetLogProb(ds[branch], om[branch]);
                 };
 
             auto logprob =
-                [&bl = branch_lengths_(model), branch_logprob] (int node) {
-                    return bl.sum_around_node(branch_logprob, node); 
+                [&bl = branch_lengths_(model), &process = brownian_process_(model), branch_logprob] (int node) {
+                    return process.GetNodeLogProb(node) + bl.sum_around_node(branch_logprob, node); 
                 };
 
             chronogram_(model).MoveTimes(update, logprob);
@@ -262,13 +240,12 @@ struct coevol {
     template<class Model, class Gen>
         static auto move_params(Model& model, Gen& gen) {
 
-            // path_suffstats_(model).gather();
             dsom_suffstats_(model).gather();
-
             move_chrono(model, gen);
-            move_process(model, gen);
-            move_sigma(model, gen);
+            // move_process(model, gen);
             gather(codon_matrices_(model));
+
+            move_sigma(model, gen);
 
             nucpath_suffstats_(model).gather();
             nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);

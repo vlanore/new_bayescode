@@ -3,6 +3,7 @@
 #include <cassert>
 #include <typeinfo>
 #include "PathSuffStat.hpp"
+#include "RelativePathSuffStat.hpp"
 #include "PoissonSuffStat.hpp"
 
 /**
@@ -79,6 +80,54 @@ class NucPathSuffStat {
 
         const std::map<std::pair<int, int>, int> &codonpaircount =
             codonpathsuffstat.GetPairCountMap();
+        for (std::map<std::pair<int, int>, int>::const_iterator i = codonpaircount.begin();
+             i != codonpaircount.end(); i++) {
+            int cod1 = i->first.first;
+            int cod2 = i->first.second;
+            int pos = cod->GetDifferingPosition(cod1, cod2);
+            if (pos == 3) {
+                std::cerr << "error in codon conj path suffstat\n";
+                exit(1);
+            }
+            int n1 = cod->GetCodonPosition(pos, cod1);
+            int n2 = cod->GetCodonPosition(pos, cod2);
+            paircount[n1][n2] += i->second;
+        }
+    }
+
+    // RELATIVE version
+    void AddSuffStat(const NucCodonSubMatrix &codonmatrix, const RelativePathSuffStat &codonpathsuffstat, double length) {
+        const CodonStateSpace *cod = codonmatrix.GetCodonStateSpace();
+        const SubMatrix *nucmatrix = codonmatrix.GetNucMatrix();
+
+        // root part
+        const std::map<int, int> &codonrootcount = codonpathsuffstat.GetRootCountMap();
+        for (std::map<int, int>::const_iterator i = codonrootcount.begin();
+             i != codonrootcount.end(); i++) {
+            int codon = i->first;
+            rootcount[cod->GetCodonPosition(0, codon)] += i->second;
+            rootcount[cod->GetCodonPosition(1, codon)] += i->second;
+            rootcount[cod->GetCodonPosition(2, codon)] += i->second;
+        }
+
+        const std::map<int, double> &waitingtime = codonpathsuffstat.GetWaitingTimeMap();
+        for (std::map<int, double>::const_iterator i = waitingtime.begin(); i != waitingtime.end();
+             i++) {
+            int codon = i->first;
+            for (int c2 = 0; c2 < cod->GetNstate(); c2++) {
+                if (c2 != codon) {
+                    int pos = cod->GetDifferingPosition(codon, c2);
+                    if (pos < 3) {
+                        int n1 = cod->GetCodonPosition(pos, codon);
+                        int n2 = cod->GetCodonPosition(pos, c2);
+                        pairbeta[n1][n2] +=
+                            length * i->second * codonmatrix(codon, c2) / (*nucmatrix)(n1, n2);
+                    }
+                }
+            }
+        }
+
+        const std::map<std::pair<int, int>, int> &codonpaircount = codonpathsuffstat.GetPairCountMap();
         for (std::map<std::pair<int, int>, int>::const_iterator i = codonpaircount.begin();
              i != codonpaircount.end(); i++) {
             int cod1 = i->first.first;

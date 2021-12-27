@@ -57,6 +57,20 @@ struct pathss_factory {
         return site_node_path_suffstats;
     }
 
+
+    template<class BL>
+    static auto make_node_relpath_suffstat(size_t nnode, const CodonStateSpace* statespace, Proxy<PathSuffStat&, size_t>& pss, BL bl) {
+        auto relpath_suffstats = ss_factory::make_suffstat_array_with_init<RelativePathSuffStat>(
+                nnode,
+                {statespace->GetNstate()},
+                [&pss, bl, nnode] (auto& rpss)  {
+                    for (size_t node=0; node<nnode; node++) {
+                        rpss[node].Add(pss.get(node), node ? bl(node-1) : 1.0); 
+                    }
+                });
+        return relpath_suffstats;
+    }
+
     // a nuc path suff stat, based on a single codon matrix and a single path suff stat 
     // (used in site-homogeneous models)
     static auto make_nucpath_suffstat(const CodonStateSpace* codon_statespace, NucCodonSubMatrix& mat, Proxy<PathSuffStat&>& pss)    {
@@ -77,19 +91,19 @@ struct pathss_factory {
         return nucpath_ss;
     }
 
+    template<class Matrix, class BL>
+    static auto make_nucpath_suffstat(const CodonStateSpace* codon_statespace, std::vector<Matrix>& mat, Proxy<RelativePathSuffStat&, size_t>& rpss, BL bl)    {
+        auto nucpath_ss = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
+                {*codon_statespace},
+                [&mat, &rpss, bl] (auto& nucss, int node) { nucss.AddSuffStat(mat[node], rpss.get(node), node ? bl(node-1) : 0); },
+                mat.size());
+        return nucpath_ss;
+    }
+
     // an omega path suffstat based on a single matrix and path suffstat (site-homogeneous model)
     static auto make_omega_suffstat(OmegaCodonSubMatrix& mat, Proxy<PathSuffStat&>& pss)    {
         auto omega_ss = ss_factory::make_suffstat<OmegaPathSuffStat>(
                 [&mat, &pss] (auto& omss) { omss.AddSuffStat(mat, pss.get()); });
-        return omega_ss;
-    }
-
-    template<class Matrix, class DS, class OM>
-    static auto make_dsomega_suffstat(std::vector<Matrix>& mat, Proxy<PathSuffStat&, size_t>& pss, DS ds, OM om)  {
-        auto omega_ss = ss_factory::make_suffstat_array<dSOmegaPathSuffStat>(
-                mat.size(),
-                [&mat, &pss, ds, om] (auto& omss, int i) { omss[i].AddSuffStat(mat[i], pss.get(i), ds(i), om(i)); },
-                mat.size());
         return omega_ss;
     }
 
@@ -102,6 +116,32 @@ struct pathss_factory {
                 mat.size());
         return omega_ss;
     }
+
+    template<class Matrix, class OM>
+    static auto make_dsomega_suffstat(std::vector<Matrix>& mat, Proxy<RelativePathSuffStat&, size_t>& rpss, OM om)  {
+        auto dsom_ss = ss_factory::make_suffstat_array<dSOmegaPathSuffStat>(
+                mat.size()-1,
+                [&mat, &rpss, om, nnode=mat.size()] (auto& omss) {
+                    for (size_t branch=0; branch<nnode-1; branch++) {
+                        omss[branch].AddSuffStat(mat[branch+1], rpss.get(branch+1), om(branch)); 
+                    }
+                });
+                // [&mat, &rpss, om] (auto& omss, int branch) { omss[branch].AddSuffStat(mat[branch+1], rpss.get(branch+1), om(branch)); },
+                // mat.size()-1);
+        return dsom_ss;
+    }
+
+    /*
+    template<class Matrix, class DS, class OM>
+    static auto make_dsomega_suffstat(std::vector<Matrix>& mat, Proxy<PathSuffStat&, size_t>& pss, DS ds, OM om)  {
+        auto omega_ss = ss_factory::make_suffstat_array<dSOmegaPathSuffStat>(
+                mat.size(),
+                [&mat, &pss, ds, om] (auto& omss, int i) { omss[i].AddSuffStat(mat[i], pss.get(i), ds(i), om(i)); },
+                mat.size());
+        return omega_ss;
+    }
+    */
+
 };
 
 struct mixss_factory    {

@@ -71,6 +71,10 @@ class MultivariateBrownianTreeProcess   {
     void GetContrast(Tree::NodeIndex from, std::vector<double>& contrast) const {
             double dt = node_age(tree->parent(from)) - node_age(from);
             assert(dt > 0);
+            if (dt <= 0)    {
+                std::cerr << "error: negative time in chronogram\n";
+                exit(1);
+            }
             double scaling = sqrt(dt);
             const std::vector<double>& up = value[from];
             const std::vector<double>& down = value[tree->parent(from)];
@@ -113,6 +117,10 @@ class MultivariateBrownianTreeProcess   {
         else    {
             double dt = node_age(tree->parent(from)) - node_age(from);
             assert(dt > 0);
+            if (dt <= 0)    {
+                std::cerr << "error: negative time in chronogram\n";
+                exit(1);
+            }
             double scaling = sqrt(dt);
 
             const std::vector<double>& initval = value[tree->parent(from)];
@@ -165,6 +173,10 @@ class MultivariateBrownianTreeProcess   {
 
         double dt = node_age(tree->parent(from)) - node_age(from);
         assert(dt > 0);
+        if (dt <= 0)    {
+            std::cerr << "error: negative time in chronogram\n";
+            exit(1);
+        }
         double scaling = sqrt(dt);
 
         const std::vector<double>& up = value[from];
@@ -329,6 +341,10 @@ class MVBranchExpoLengthArray   {
             // double mean = (exp(up) - exp(down)) / (up - down);
             double dt = node_age(tree->parent(from)) - node_age(from);
             assert(dt > 0);
+            if (dt <= 0)    {
+                std::cerr << "error: negative time in chronogram\n";
+                exit(1);
+            }
             value[branch_index(from)] = mean * dt;
         }
     }
