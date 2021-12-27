@@ -66,8 +66,8 @@ struct coevol {
         auto sigma = make_node_with_init<invwishart>(
                 {ncont+2, 1},
                 [&k = *kappa] () { return k; });
-        // draw(sigma, gen);
-        get<value>(sigma).SetToIdentity();
+        draw(sigma, gen);
+        // get<value>(sigma).SetToIdentity();
 
         auto root_mean = make_param<std::vector<double>>(std::forward<RootMean>(inroot_mean));
         auto root_var = make_param<std::vector<double>>(std::forward<RootVar>(inroot_var));
@@ -143,7 +143,7 @@ struct coevol {
 
         auto rel_path_suffstats = pathss_factory::make_node_relpath_suffstat(nnode, codon_statespace, *path_suffstats, [&ds=*synrate] (int branch) {return ds[branch];});
 
-        auto dsom_ss = pathss_factory::make_dsomega_suffstat(get<value>(codon_matrices), *rel_path_suffstats, [&ds=*synrate] (int branch) {return ds[branch];});
+        auto dsom_ss = pathss_factory::make_dsomega_suffstat(get<value>(codon_matrices), *rel_path_suffstats, [&om=*omega] (int branch) {return om[branch];});
 
         auto nucpath_ss = pathss_factory::make_nucpath_suffstat(codon_statespace, get<value>(codon_matrices), *rel_path_suffstats, [&ds=*synrate] (int branch) {return ds[branch];});
 
@@ -242,7 +242,7 @@ struct coevol {
 
             dsom_suffstats_(model).gather();
             move_chrono(model, gen);
-            // move_process(model, gen);
+            move_process(model, gen);
             gather(codon_matrices_(model));
 
             move_sigma(model, gen);
