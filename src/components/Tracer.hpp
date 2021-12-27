@@ -6,6 +6,7 @@
 #include "mpi_components/partition.hpp"
 #include "tags/decl_utils.hpp"
 #include "traits.hpp"
+#include "custom_tracer.hpp"
 
 // template <class T, class... Args>
 // void call_interface_helper(std::true_type, T& target, Args&&... args) {
@@ -180,4 +181,18 @@ class Tracer {
             is >> d;
         });
     }
+
+    void process_declaration(
+        std::string name, custom_tracer& c) {
+        header_to_stream.emplace_back([&c, name](std::ostream& os) {
+            c.to_stream_header(name, os);
+        });
+        data_to_stream.emplace_back([&c](std::ostream& os) {
+            c.to_stream(os);
+        });
+        set_from_stream.emplace_back([&c](std::istream& is) {
+            c.from_stream(is);
+        });
+    }
+
 };
