@@ -1,12 +1,14 @@
 #pragma once
 
 #include "linalg.hpp"
+#include "components/custom_tracer.hpp"
 
-class CovMatrix : public std::vector<std::vector<double>> {
+class CovMatrix : public custom_tracer {
 
 	public:
 
-	CovMatrix(int indim) : std::vector<std::vector<double>>(indim, std::vector<double>(indim,0)),
+	CovMatrix(int indim) : 
+        value(indim, std::vector<double>(indim, 0)), 
         invvalue(indim, std::vector<double>(indim, 0)), 
         u(indim, std::vector<double>(indim, 0)), 
         invu(indim, std::vector<double>(indim, 0)), 
@@ -14,11 +16,12 @@ class CovMatrix : public std::vector<std::vector<double>> {
         logv(indim,0),
         diagflag(false) {
             for (size_t i=0; i<size(); i++) {
-                (*this)[i][i] = 1.0;
+                value[i][i] = 1.0;
             }
 	}
 
-    CovMatrix(const CovMatrix& from) : std::vector<std::vector<double>>(from),
+    CovMatrix(const CovMatrix& from) : 
+        value(from.value),
         invvalue(from.invvalue),
         u(from.u),
         invu(from.invu),
@@ -29,25 +32,70 @@ class CovMatrix : public std::vector<std::vector<double>> {
 
     virtual ~CovMatrix() {}
 
+    size_t size() const { return value.size(); }
+
+    const std::vector<double>& operator[](size_t i) const {return  value.at(i);}
+
 	double	operator()(int i, int j) const {
-		return at(i).at(j);
+		return value.at(i).at(j);
 	}
 
+    void to_stream_header(std::string name, std::ostream& os) const override {
+        for (size_t i=0; i<size(); i++) {
+            for (size_t j=i+1; j<size(); j++)   {
+                os << name << "[" << i << "][" << j << "]" << '\t';
+            }
+        }
+        for (size_t i=0; i<size(); i++) {
+            os << name << "[" << i << "][" << i << "]";
+            if (i<size()-1) {
+                os << '\t';
+            }
+        }
+    }
+
+    void to_stream(std::ostream& os) const override {
+        for (size_t i=0; i<size(); i++) {
+            for (size_t j=i+1; j<size(); j++)   {
+                os << value[i][j] << '\t';
+            }
+        }
+        for (size_t i=0; i<size(); i++) {
+            os << value[i][i];
+            if (i<size()-1) {
+                os << '\t';
+            }
+        }
+    }
+
+    void from_stream(std::istream& is) override {
+        for (size_t i=0; i<size(); i++) {
+            for (size_t j=i+1; j<size(); j++)   {
+                is >> value[i][j];
+                value[j][i] = value[i][j];
+            }
+        }
+        for (size_t i=0; i<size(); i++) {
+            is >>  value[i][i];
+        }
+        CorruptDiag();
+    }
+
     void setval(int i, int j, double val)   {
-        (*this)[i][j] = val;
+        value[i][j] = val;
         diagflag = false;
     }
 
     void add(int i, int j, double val)  {
-        (*this)[i][j] += val;
+        value[i][j] += val;
         diagflag = false;
     }
 
 	CovMatrix& operator*=(double scal) {
         for (size_t i=0; i<size(); i++) {
             for (size_t j=0; j<size(); j++) {
-                (*this)[i][j] *= scal;
-                std::cerr << (*this)[i][j] << '\t';
+                value[i][j] *= scal;
+                std::cerr << value[i][j] << '\t';
             }
             std::cerr << '\n';
         }
@@ -101,7 +149,6 @@ class CovMatrix : public std::vector<std::vector<double>> {
 		if (! diagflag)	{
 			Diagonalise();
 		}
-
 		return u;
 	}
 
@@ -121,7 +168,7 @@ class CovMatrix : public std::vector<std::vector<double>> {
 	void SetToZero()	{
         for (size_t i=0; i<size(); i++) {
             for (size_t j=0; j<size(); j++) {
-				(*this)[i][j] = 0;
+				value[i][j] = 0;
 			}
 		}
         diagflag = false;
@@ -130,11 +177,11 @@ class CovMatrix : public std::vector<std::vector<double>> {
 	void SetToIdentity()	{
         for (size_t i=0; i<size(); i++) {
             for (size_t j=0; j<size(); j++) {
-				(*this)[i][j] = 0;
+				value[i][j] = 0;
 			}
 		}
         for (size_t i=0; i<size(); i++) {
-			(*this)[i][i] = 1;
+			value[i][i] = 1;
 		}
         diagflag = false;
 	}
@@ -182,7 +229,7 @@ class CovMatrix : public std::vector<std::vector<double>> {
 		double max = 0;
         for (size_t i=0; i<size(); i++) {
             for (size_t j=0; j<size(); j++) {
-				double tmp = fabs(at(i).at(j));
+				double tmp = fabs(value.at(i).at(j));
 				if (max < tmp)	{
 					max = tmp;
 				}
@@ -198,11 +245,11 @@ class CovMatrix : public std::vector<std::vector<double>> {
 		// copy value into a :
         for (size_t i=0; i<size(); i++) {
             for (size_t j=0; j<size(); j++) {
-				a[i][j] = (*this)[i][j];
+				a[i][j] = value[i][j];
 			}
 		}
 
-		double logdet = LinAlg::Gauss(a,size(),*this);
+		double logdet = LinAlg::Gauss(a,size(), value);
 
 		diagflag = false;
 		if (std::isinf(logdet))	{
@@ -219,7 +266,7 @@ class CovMatrix : public std::vector<std::vector<double>> {
             for (size_t j=0; j<size(); j++) {
 				double tot = 0;
                 for (size_t k=0; k<size(); k++) {
-					tot += at(i).at(k) * GetInvMatrix()[k][j];
+					tot += value.at(i).at(k) * GetInvMatrix()[k][j];
 				}
 				if (i == j)	{
 					tot --;
@@ -237,14 +284,14 @@ class CovMatrix : public std::vector<std::vector<double>> {
 		int nmax = 1000;
 		double epsilon = 1e-10;
 
-		int n = LinAlg::DiagonalizeSymmetricMatrix(*this,size(),nmax,epsilon,v,u);
+		int n = LinAlg::DiagonalizeSymmetricMatrix(value,size(),nmax,epsilon,v,u);
 		bool failed = (n == nmax);
 		if (failed)	{
 			std::cerr << "diag failed\n";
 			std::cerr << n << '\n';
             for (size_t i=0; i<size(); i++) {
                 for (size_t j=0; j<size(); j++) {
-					std::cerr << at(i).at(j) << '\t';
+					std::cerr << value.at(i).at(j) << '\t';
 				}
 				std::cerr << '\n';
 			}
@@ -269,7 +316,7 @@ class CovMatrix : public std::vector<std::vector<double>> {
 			logv[i] = log(v[i]);
 		}
 
-		LinAlg::Gauss(*this,size(),invvalue);
+		LinAlg::Gauss(value,size(),invvalue);
 
 		diagflag = true;
 		double tmp = CheckDiag();
@@ -289,7 +336,7 @@ class CovMatrix : public std::vector<std::vector<double>> {
             for (size_t j=0; j<size(); j++) {
 				double tot = 0;
                 for (size_t k=0; k<size(); k++) {
-					tot += invu[i][k] * at(k).at(j);
+					tot += invu[i][k] * value.at(k).at(j);
 				}
 				a[i][j] = tot;
 			}
@@ -318,9 +365,9 @@ class CovMatrix : public std::vector<std::vector<double>> {
         int df = invals.size();
         for (size_t i=0; i<size(); i++) {
             for (size_t j=0; j<size(); j++) {
-				(*this)[i][j] = 0;
+				value[i][j] = 0;
 				for (int l=0; l<df; l++) {
-					(*this)[i][j] += invals[l][i] * invals[l][j];
+					value[i][j] += invals[l][i] * invals[l][j];
 				}
 			}
 		}
@@ -328,6 +375,8 @@ class CovMatrix : public std::vector<std::vector<double>> {
 	}
 
 	private:
+
+	std::vector<std::vector<double>> value;
 
     // inverse
 	mutable std::vector<std::vector<double>> invvalue;
