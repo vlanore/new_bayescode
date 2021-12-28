@@ -15,6 +15,10 @@ class Tree {
     virtual std::string node_name(NodeIndex) const = 0;
     virtual NodeIndex root() const = 0;
     virtual std::size_t nb_nodes() const = 0;
+    std::size_t nb_branches() const { return nb_nodes()-1; }
+    BranchIndex get_branch(NodeIndex node) const { return node-1; }
+    NodeIndex get_younger_node(BranchIndex branch) const { return branch+1; }
+    NodeIndex get_older_node(BranchIndex branch) const { return parent(branch+1); }
     virtual bool is_leaf(NodeIndex) const = 0;  // (for convenience)
     virtual bool is_root(NodeIndex) const = 0;  // (for convenience)
     // virtual const std::set<NodeIndex>& neighbors(NodeIndex) const = 0;  // for unrooted searches,
