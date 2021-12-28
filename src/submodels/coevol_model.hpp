@@ -24,7 +24,6 @@
 #include "bayes_toolbox.hpp"
 
 TOKEN(chrono)
-TOKEN(kappa)
 TOKEN(sigma)
 TOKEN(brownian_process)
 TOKEN(synrate)
@@ -52,10 +51,9 @@ struct coevol {
         draw(chrono, gen);
 
         // covariance matrix
-        auto kappa = std::make_unique<std::vector<double>>(ncont+2, 1.0);
         auto sigma = make_node_with_init<invwishart>(
-                {ncont+2, 1},
-                [&k = *kappa] () { return k; });
+                {ncont+2, 0},
+                std::vector<double>(ncont+2, 1.0));
         draw(sigma, gen);
 
         // mean and variance for normal prior for brownian process at the root
@@ -157,7 +155,6 @@ struct coevol {
 
         return make_model(
             chrono_ = move(chrono),
-            kappa_ = move(kappa),
             sigma_ = move(sigma),
             brownian_process_ = move(brownian_process),
             synrate_ = move(synrate),
