@@ -24,7 +24,6 @@
 #include "bayes_toolbox.hpp"
 
 TOKEN(chrono)
-TOKEN(branch_lengths)
 TOKEN(kappa)
 TOKEN(sigma)
 TOKEN(brownian_process)
@@ -47,38 +46,23 @@ struct coevol {
 
         size_t ncont = cont_data.GetNsite();
         size_t nnode = tree->nb_nodes();
-        // size_t nbranch = nnode-1;
 
-        // relative dates (root has age 1, i.e. tree has depth 1)
+        // chronogram - relative dates (root has age 1, i.e. tree has depth 1)
         auto chrono = make_node_with_init<chronogram>({tree});
         draw(chrono, gen);
 
-        // branch lengths in relative time units
-        auto branch_lengths = make_dnode_array<custom_dnode<double>>(tree->nb_branches(), 
-            [&ch = get<value>(chrono)] (int branch) {
-                return 
-                    [&old_age = ch[ch.get_tree().get_older_node(branch)], 
-                     &young_age = ch[ch.get_tree().get_younger_node(branch)]] () {
-                        return old_age - young_age;
-                    };
-            });
-        gather(branch_lengths);
-
-        /*
-        auto kappa = make_node_array<gamma_mi>(ncont+2, n_to_const(1.0), n_to_const(1.0));
-        draw(kappa, gen);
-        */
+        // covariance matrix
         auto kappa = std::make_unique<std::vector<double>>(ncont+2, 1.0);
-
         auto sigma = make_node_with_init<invwishart>(
                 {ncont+2, 1},
                 [&k = *kappa] () { return k; });
         draw(sigma, gen);
-        // get<value>(sigma).SetToIdentity();
 
+        // mean and variance for normal prior for brownian process at the root
         auto root_mean = make_param<std::vector<double>>(std::forward<RootMean>(inroot_mean));
         auto root_var = make_param<std::vector<double>>(std::forward<RootVar>(inroot_var));
 
+        // brownian process
         auto brownian_process = make_brownian_tree_process(
                 tree,
                 [&ch = get<value>(chrono)] (int node) -> const double& {return ch[node];},
@@ -92,19 +76,7 @@ struct coevol {
         }
         brownian_process->PseudoSample(0.1);
         
-        /*
-        auto synrate = make_branch_lengths(tree,
-                [&process = *brownian_process] (int node) -> const std::vector<double>& {return process[node];},
-                [&ch = get<value>(chrono)] (int node) -> const double& {return ch[node];},
-                0);
-        synrate->Update();
-
-        auto omega = make_branch_means(tree,
-                [&process = *brownian_process] (int node) -> const std::vector<double>& {return process[node];},
-                1);
-        omega->Update();
-        */
-
+        // branch dS
         auto synrate = make_dnode_array<custom_dnode<double>>(tree->nb_branches(), 
             [&ch = get<value>(chrono), &process = *brownian_process] (int branch) {
                 return 
@@ -117,6 +89,7 @@ struct coevol {
             });
         gather(synrate);
 
+        // branch dN/dS
         auto omega = make_dnode_array<custom_dnode<double>>(tree->nb_branches(), 
             [&ch = get<value>(chrono), &process = *brownian_process] (int branch) {
                 return 
@@ -141,10 +114,11 @@ struct coevol {
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(codon_data.GetStateSpace());
 
+        // branch codon matrices
         auto codon_matrices = make_dnode_array_with_init<mgomega>(
                 nnode,
                 {codon_statespace, &get<nuc_matrix,value>(nuc_rates), 1.0},
-                (const SubMatrix&) get<nuc_matrix,value>(nuc_rates),
+                n_to_one(get<nuc_matrix,value>(nuc_rates)),
                 [&om = get<value>(omega)] (int node) {return node ? om[node-1] : 1.0;}
                 );
         gather(codon_matrices);
@@ -152,8 +126,7 @@ struct coevol {
         auto phyloprocess = std::make_unique<PhyloProcess>(tree, &codon_data,
 
             // branch lengths
-            // n_to_n(synrate),
-            [&ds = get<value>(synrate)] (int branch) {return ds[branch];},
+            n_to_n(synrate),
 
             // site-specific rates
             n_to_const(1.0),
@@ -184,7 +157,6 @@ struct coevol {
 
         return make_model(
             chrono_ = move(chrono),
-            branch_lengths_ = move(branch_lengths),
             kappa_ = move(kappa),
             sigma_ = move(sigma),
             brownian_process_ = move(brownian_process),
@@ -220,18 +192,9 @@ struct coevol {
     template<class Model, class Gen>
         static auto move_chrono(Model& model, Gen& gen) {
 
-            auto chrono_node_update = tree_factory::do_around_node(
-                    get<chrono,value>(model).get_tree(),
-                    array_element_gather(branch_lengths_(model)));
-
-            auto synrate_node_update = tree_factory::do_around_node(
+            auto node_update = tree_factory::do_around_node(
                     get<chrono,value>(model).get_tree(),
                     array_element_gather(synrate_(model)));
-
-            auto node_update = [chrono_node_update, synrate_node_update] (int node) {
-                chrono_node_update(node);
-                synrate_node_update(node);
-            };
 
             auto branch_suffstat_logprob = 
                 [&ss = dsom_suffstats_(model), &ds = get<synrate,value>(model), &om = get<omega,value>(model)]
@@ -262,20 +225,30 @@ struct coevol {
                     get<chrono,value>(model).get_tree(),
                     array_element_gather(omega_(model)));
 
-            auto node_update = [synrate_node_update, omega_node_update] (int node) {
-                synrate_node_update(node);
-                omega_node_update(node);
-            };
-
-            auto branch_logprob = 
+            auto branch_suffstat_logprob = 
                 [&ss = dsom_suffstats_(model), &ds = get<synrate,value>(model), &om = get<omega,value>(model)]
                 (int branch) {
                     return ss.get(branch).GetLogProb(ds[branch], om[branch]);
                 };
 
-            auto node_logprob = tree_factory::sum_around_node(get<chrono,value>(model).get_tree(), branch_logprob);
-            brownian_process_(model).SingleNodeMove(1.0, node_update, node_logprob);
-            brownian_process_(model).SingleNodeMove(0.3, node_update, node_logprob);
+            auto node_logprob = tree_factory::sum_around_node(
+                    get<chrono,value>(model).get_tree(), branch_suffstat_logprob);
+
+            auto no_update = [] (int node) {};
+            auto no_logprob = [] (int node) {return 0;};
+
+            size_t dim = get<sigma,value>(model).size();
+
+            brownian_process_(model).SingleNodeMove(0, 1.0, synrate_node_update, node_logprob);
+            brownian_process_(model).SingleNodeMove(0, 0.3, synrate_node_update, node_logprob);
+
+            brownian_process_(model).SingleNodeMove(1, 1.0, omega_node_update, node_logprob);
+            brownian_process_(model).SingleNodeMove(1, 0.3, omega_node_update, node_logprob);
+
+            for (size_t i=2; i<dim; i++) {
+                brownian_process_(model).SingleNodeMove(i, 1.0, no_update, no_logprob);
+                brownian_process_(model).SingleNodeMove(i, 0.3, no_update, no_logprob);
+            }
         }
 
     template<class Model, class Gen>
@@ -297,16 +270,6 @@ struct coevol {
             nucpath_suffstats_(model).gather();
             nucrates_sm::move_nucrates(nuc_rates_(model), nucpath_suffstats_(model), gen, 1, 1.0);
             gather(codon_matrices_(model));
-        }
-
-    template<class Model>
-        static auto get_total_length(Model& model)  {
-            auto& bl = branch_lengths_(model);
-            double tot = 0;
-            for (size_t b=0; b<bl.size(); b++)  {
-                tot += bl[b];
-            }
-            return tot;
         }
 
     template<class Model>
