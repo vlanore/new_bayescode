@@ -1,7 +1,8 @@
 #pragma once
 #include "tree/implem.hpp"
+#include "components/custom_tracer.hpp"
 
-class Chronogram {
+class Chronogram : public custom_tracer {
 
     public:
 
@@ -24,6 +25,7 @@ class Chronogram {
     }
 
     size_t nb_nodes() const {return node_ages.size();}
+    size_t size() const {return node_ages.size();}
 
     //! sample all entries from prior
     void Sample() {
@@ -35,7 +37,8 @@ class Chronogram {
         RecursiveMoveTimes(1.0, GetRoot(), update, logprob);
     }
 
-    const Tree *GetTree() const { return tree; }
+    const Tree* GetTree() const { return tree; }
+    const Tree& get_tree() const { return *tree; }
     Tree::NodeIndex GetRoot() const { return tree->root(); }
     int GetNnode() const { return tree->nb_nodes(); }
 
@@ -133,9 +136,4 @@ class Chronogram {
     std::vector<double> node_ages;
 
 };
-
-static auto make_chrono(const Tree* tree)   {
-    return std::make_unique<Chronogram>(tree);
-}
-
 

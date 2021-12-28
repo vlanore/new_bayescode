@@ -12,19 +12,17 @@
 #include "lib/CodonSubMatrix.hpp"
 #include "lib/CodonSuffStat.hpp"
 #include "lib/PoissonSuffStat.hpp"
-#include "lib/Chronogram.hpp"
-#include "lib/ChronoBranchLengths.hpp"
+#include "chronogram.hpp"
 #include "submodels/move_reporter.hpp"
 #include "submodels/nucrates_sm.hpp"
 #include "submodels/mgomega.hpp"
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
 #include "bayes_toolbox.hpp"
-#include "detfunctions/dfunc.hpp"
 #include "tree_factory.hpp"
 
 TOKEN(global_omega)
-TOKEN(chronogram)
+TOKEN(chrono)
 TOKEN(branch_lengths)
 TOKEN(ds)
 TOKEN(nuc_rates)
@@ -41,18 +39,21 @@ struct globom {
     template <class Gen>
     static auto make(PreparedData& data, Gen& gen) {
 
-        auto global_omega = make_node<gamma_mi>(1.0, 1.0);
-        draw(global_omega, gen);
+        // relative dates (root has age 1, i.e. tree has depth 1)
+        auto chrono = make_node_with_init<chronogram>({data.tree.get()});
+        draw(chrono, gen);
 
-        auto chronogram = make_chrono(data.tree.get());
-        chronogram->Sample();
-
+        // strict clock
+        // absolute synonymous substitution rate (per tree depth)
         auto ds = make_node<gamma_mi>(1.0, 1.0);
         draw(ds, gen);
+        // for easier start
+        get<value>(ds) = 0.1;
 
-        auto branch_lengths = make_dnode_array<dfunc>(data.tree->nb_nodes()-1, 
-            [&chrono = *chronogram, &tree = *data.tree, &r = get<value>(ds)] (int branch) {
-                return [&older = chrono[tree.parent(branch+1)], &younger = chrono[branch+1], &r] ()    {
+        // synonymous branch lengths
+        auto branch_lengths = make_dnode_array<custom_dnode<double>>(data.tree->nb_branches(), 
+            [&ch = get<value>(chrono), &r = get<value>(ds)] (int branch) {
+                return [&older = ch[ch.get_tree().get_older_node(branch)], &younger = ch[ch.get_tree().get_younger_node(branch)], &r] () {
                     return r*(older-younger);
                 };
             });
@@ -69,22 +70,27 @@ struct globom {
                 nucrr_hypercenter, nucrr_hyperinvconc, 
                 nucstat_hypercenter, nucstat_hyperinvconc, gen);
 
+        // global dN/dS uniform across sites and branches
+        auto global_omega = make_node<gamma_mi>(1.0, 1.0);
+        draw(global_omega, gen);
+
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
 
         auto codon_submatrix = make_dnode_with_init<mgomega>(
                 {codon_statespace, &get<nuc_matrix,value>(nuc_rates), 1.0},
-                (const SubMatrix&) get<nuc_matrix,value>(nuc_rates),
+                one_to_one(get<nuc_matrix,value>(nuc_rates)),
+                // why doesn't this work (seg faults):
+                // one_to_one(get<nuc_matrix>(nuc_rates)),
+                // this works but requires explicit cast:
+                // (const SubMatrix&) get<nuc_matrix,value>(nuc_rates),
                 global_omega 
                 );
         gather(codon_submatrix);
             
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
-
             // branch lengths
-            // n_to_n(bl);
-            [&bl = get<value>(branch_lengths)] (int branch) {
-                return bl[branch];},
+            n_to_n(branch_lengths),
 
             // site-specific rates
             n_to_const(1.0),
@@ -109,7 +115,7 @@ struct globom {
 
         return make_model(
             global_omega_ = move(global_omega),
-            chronogram_ = move(chronogram),
+            chrono_ = move(chrono),
             branch_lengths_ = move(branch_lengths),
             ds_ = move(ds),
             nuc_rates_ = move(nuc_rates),
@@ -135,15 +141,15 @@ struct globom {
     template<class Model, class Gen>
         static auto move_chrono(Model& model, Gen& gen) {
 
-            auto update = tree_factory::do_around_node(
-                    *chronogram_(model).GetTree(), 
+            auto node_update = tree_factory::do_around_node(
+                    get<chrono,value>(model).get_tree(),
                     array_element_gather(branch_lengths_(model)));
 
-            auto logprob = tree_factory::sum_around_node(
-                    *chronogram_(model).GetTree(),
+            auto node_logprob = tree_factory::sum_around_node(
+                    get<chrono,value>(model).get_tree(),
                     suffstat_array_element_logprob(branch_lengths_(model), bl_suffstats_(model)));
 
-            chronogram_(model).MoveTimes(update, logprob);
+            get<chrono,value>(model).MoveTimes(node_update, node_logprob);
         }
 
     template<class Model, class Gen>
