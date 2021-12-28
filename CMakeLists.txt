@@ -55,6 +55,10 @@ set(BASE_LIBS
     global_lib
 )
 
+# clock_globom (clock_globom)
+add_executable(clock_globom "src/clock_globom.cpp")
+target_link_libraries(clock_globom ${BASE_LIBS})
+
 # coevol (coevol)
 add_executable(coevol "src/coevol.cpp")
 target_link_libraries(coevol ${BASE_LIBS})

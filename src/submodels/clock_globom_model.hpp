@@ -20,6 +20,7 @@
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
 #include "bayes_toolbox.hpp"
+#include "detfunctions/dfunc.hpp"
 
 TOKEN(global_omega)
 TOKEN(chronogram)
@@ -45,10 +46,20 @@ struct globom {
         auto chronogram = make_chrono(data.tree.get());
         chronogram->Sample();
 
+        auto branch_lengths = make_dnode_array<dfunc>(data.tree->nb_nodes()-1, 
+            [&chrono = *chronogram, &tree = *data.tree] (int branch) {
+                return [&older = chrono[tree.parent(branch+1)], &younger = chrono[branch+1]] ()    {
+                    return older-younger;
+                };
+            });
+        gather(branch_lengths);
+
+        /*
         auto branch_lengths = make_chrono_branch_lengths(
                 data.tree.get(), 
                 [&chrono = *chronogram] (int node) {return chrono[node];});
         branch_lengths->Update();
+        */
 
         auto ds = make_node<gamma_mi>(1.0, 1.0);
         draw(ds, gen);
@@ -77,7 +88,7 @@ struct globom {
         auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
 
             // branch lengths
-            [&bl = *branch_lengths, &r = get<value>(ds)] (int branch) {
+            [&bl = get<value>(branch_lengths), &r = get<value>(ds)] (int branch) {
                 return r*bl[branch];},
 
             // site-specific rates
@@ -129,11 +140,24 @@ struct globom {
     template<class Model, class Gen>
         static auto move_chrono(Model& model, Gen& gen) {
 
+            /*
             auto update = 
                 [&bl = branch_lengths_(model)] 
                 (int node) 
                 { bl.LocalNodeUpdate(node); };
+            */
 
+            auto branch_update = array_element_gather(branch_lengths_(model));
+            auto update = [branch_update, &chrono = chronogram_(model)] (int node) {
+                if (node)   {
+                    branch_update(node-1);
+                }
+                for (auto c : chrono.GetTree()->children(node))  {
+                    branch_update(c-1);
+                }    
+            };
+
+            /*
             auto branch_logprob = 
                 [&ss = bl_suffstats_(model), &bl = branch_lengths_(model), &r = get<ds,value>(model)] 
                 (int branch) 
@@ -143,6 +167,20 @@ struct globom {
                 [&bl = branch_lengths_(model), branch_logprob] 
                 (int node) 
                 { return bl.sum_around_node(branch_logprob, node); };
+            */
+
+            auto logprob =
+                [&ss = bl_suffstats_(model), &bl = get<branch_lengths,value>(model), &r = get<ds,value>(model), &chrono = chronogram_(model)]
+                (int node)  {
+                    double ret = 0;
+                    if (node)   {
+                        ret += ss.get(node-1).GetLogProb(r*bl[node-1]);
+                    }
+                    for (auto c : chrono.GetTree()->children(node))  {
+                        ret += ss.get(c-1).GetLogProb(r*bl[c-1]);
+                    }    
+                    return ret;
+                };
 
             chronogram_(model).MoveTimes(update, logprob);
         }
@@ -153,9 +191,9 @@ struct globom {
             auto update = [] () {};
 
             auto logprob =
-                [&ss = bl_suffstats_(model), &bl = branch_lengths_(model), &r = get<ds,value>(model)] () {
+                [&ss = bl_suffstats_(model), &bl = get<branch_lengths,value>(model), &r = get<ds,value>(model)] () {
                     double total = 0;
-                    for (size_t branch=0; branch<bl.nb_branches(); branch++)  {
+                    for (size_t branch=0; branch<bl.size(); branch++)  {
                         total += ss.get(branch).GetLogProb(r*bl[branch]);
                     }
                     return total;
@@ -184,9 +222,9 @@ struct globom {
 
     template<class Model>
         static auto get_total_length(Model& model)  {
-            auto& bl = branch_lengths_(model);
+            auto& bl = get<branch_lengths,value>(model);
             double tot = 0;
-            for (size_t b=0; b<bl.nb_branches(); b++)   {
+            for (size_t b=0; b<bl.size(); b++)   {
                 tot += bl[b];
             }
             return tot;

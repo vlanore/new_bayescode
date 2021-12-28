@@ -35,11 +35,11 @@ class Chronogram {
         RecursiveMoveTimes(1.0, GetRoot(), update, logprob);
     }
 
-    private:
-
     const Tree *GetTree() const { return tree; }
     Tree::NodeIndex GetRoot() const { return tree->root(); }
     int GetNnode() const { return tree->nb_nodes(); }
+
+    private:
 
     double RecursiveSample(Tree::NodeIndex from)  {
         double max = 0;
