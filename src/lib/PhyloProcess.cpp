@@ -11,7 +11,7 @@ PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
     std::function<double (int)> inbranchlength,
     std::function<double (int)> insiterate,
     std::function<const SubMatrix &(int, int)> insubmatrixarray,
-    std::function<const SubMatrix &(int)> inrootsubmatrixarray, PolyProcess *inpolyprocess)
+    std::function<const std::vector<double> &(int)> inrootfreqarray, PolyProcess *inpolyprocess)
     :
 
       tree(intree),
@@ -19,7 +19,7 @@ PhyloProcess::PhyloProcess(const Tree *intree, const SequenceAlignment *indata,
       branchlength(inbranchlength),
       siterate(insiterate),
       submatrixarray(insubmatrixarray),
-      rootsubmatrixarray(inrootsubmatrixarray),
+      rootfreqarray(inrootfreqarray),
       polyprocess(inpolyprocess) {
     Nstate = data->GetNstate();
     taxon_table = data->GetTaxonSet()->get_index_table(tree);

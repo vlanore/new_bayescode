@@ -51,6 +51,9 @@ class SubMatrix {
     //! const access to equilbrium frequency vector (checked for current update
     //! status)
     const std::vector<double> &GetStationary() const;
+    const std::vector<double> &eq_freqs() const {
+        return GetStationary();
+    }
 
     //! dimension of the statespace
     int GetNstate() const { return Nstate; }

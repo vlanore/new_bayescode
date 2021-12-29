@@ -131,9 +131,8 @@ struct coevol {
 
             // branch and site specific matrices 
             [&m = get<value>(codon_matrices)] (int branch, int site) -> const SubMatrix& {return m[branch+1];},
-            
             // root matrices
-            [&m = get<value>(codon_matrices)] (int site) -> const SubMatrix& {return m[0];},
+            n_to_one(get<value>(codon_matrices)[0].eq_freqs()),
 
             // no polymorphism
             nullptr);

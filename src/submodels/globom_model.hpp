@@ -90,9 +90,9 @@ struct globom {
             // [&m = get<value>(codon_submatrix)] (int branch, int site) -> const SubMatrix& {return m;},
             
             // site-specific matrices for root equilibrium frequencies (here same for all sites)
-            n_to_one(get<value>(codon_submatrix)),
+            n_to_one(get<value>(codon_submatrix).eq_freqs()),
             // lambda-explicit syntax:
-            // [&m = get<value>(codon_submatrix)] (int site) -> const SubMatrix& {return m;},
+            // [&m = get<value>(codon_submatrix)] (int site) -> const std::vector<double>& {return m.eq_freqs();},
 
             // no polymorphism
             nullptr);

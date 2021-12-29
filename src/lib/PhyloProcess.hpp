@@ -35,7 +35,7 @@ class PhyloProcess {
         std::function<double (int)> inbranchlength,
         std::function<double (int)> insiterate,
         std::function<const SubMatrix &(int, int)> insubmatrixarray,
-        std::function<const SubMatrix &(int)> inrootsubmatrixarray,
+        std::function<const std::vector<double>& (int)> inrootfreqarray,
         PolyProcess *inpolyprocess = nullptr);
 
     PhyloProcess(const PhyloProcess &) = delete;
@@ -100,7 +100,7 @@ class PhyloProcess {
         return submatrixarray(GetBranchIndex(index), site);
     }
 
-    const std::vector<double> &GetRootFreq(int site) const { return rootsubmatrixarray(site).GetStationary(); }
+    const std::vector<double> &GetRootFreq(int site) const { return rootfreqarray(site); }
 
     const StateSpace *GetStateSpace() const { return data->GetStateSpace(); }
     const TaxonSet *GetTaxonSet() const { return data->GetTaxonSet(); }
@@ -286,7 +286,7 @@ class PhyloProcess {
     std::function<double (int)> branchlength;
     std::function<double (int)> siterate{[](int) { return 1.0; }};
     std::function<const SubMatrix &(int, int)> submatrixarray;
-    std::function<const SubMatrix &(int)> rootsubmatrixarray;
+    std::function<const std::vector<double> &(int)> rootfreqarray;
 
     PolyProcess *polyprocess;
 

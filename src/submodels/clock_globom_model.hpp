@@ -99,7 +99,7 @@ struct globom {
             mn_to_one(get<value>(codon_submatrix)),
             
             // site-specific matrices for root equilibrium frequencies (here same for all sites)
-            n_to_one(get<value>(codon_submatrix)),
+            n_to_one(get<value>(codon_submatrix).eq_freqs()),
 
             // no polymorphism
             nullptr);

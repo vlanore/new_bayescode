@@ -67,11 +67,9 @@ struct geneom {
             // site-specific rates: all equal to 1
             n_to_const(1.0),
             // branch and site specific matrices (here, same matrix for everyone)
-            [& m = get<value>(codon_submatrix)](
-                int branch, int site) -> const SubMatrix& { return m; },
-            // site-specific matrices for root equilibrium frequencies (here same for all sites)
-            [& m = get<value>(codon_submatrix)](int site) -> const SubMatrix& { return m; },
-            // no polymorphism
+            mn_to_one(get<value>(codon_submatrix)),
+            // root freqs
+            n_to_one(get<value>(codon_submatrix).eq_freqs()),
             nullptr);
 
         phyloprocess->Unfold();
