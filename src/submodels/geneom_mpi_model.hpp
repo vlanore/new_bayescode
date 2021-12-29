@@ -110,7 +110,7 @@ struct geneom_slave {
             // branch and site specific matrices (here, same matrix for everyone)
             mn_to_one(get<value>(codon_submatrix)),
             // root freqs
-            n_to_one(get<value>(codon_submatrix).eq_freqs()),
+            [&m = get<value>(codon_submatrix)] (int site) -> const std::vector<double>& {return m.eq_freqs();},
             // no polymorphism
             nullptr);
 
