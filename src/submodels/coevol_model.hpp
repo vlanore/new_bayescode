@@ -100,7 +100,9 @@ struct coevol {
                      &young_age = ch[ch.get_tree().get_younger_node(branch)],
                      &old_val = process[ch.get_tree().get_older_node(branch)],
                      &young_val = process[ch.get_tree().get_younger_node(branch)]] ()   {
-                        return 0.5 * (old_age - young_age) * (exp(old_val[0]) + exp(young_val[0]));
+                        double exp_old_val = old_val[0] > 10 ? 100 : (old_val[0] < -10 ? 1e-3 : exp(old_val[0]));
+                        double exp_young_val = young_val[0] > 10 ? 100 : (young_val[0] < -10 ? 1e-3 : exp(young_val[0]));
+                        return 0.5 * (old_age - young_age) * (exp_old_val + exp_young_val);
                     };
             });
         gather(synrate);
@@ -112,7 +114,9 @@ struct coevol {
                 return 
                     [&old_val = process[ch.get_tree().get_older_node(branch)],
                      &young_val = process[ch.get_tree().get_younger_node(branch)]] ()   {
-                        return 0.5 * (exp(old_val[1]) + exp(young_val[1]));
+                        double exp_old_val = old_val[1] > 10 ? 100 : (old_val[1] < -10 ? 1e-3 : exp(old_val[1]));
+                        double exp_young_val = young_val[1] > 10 ? 100 : (young_val[1] < -10 ? 1e-3 : exp(young_val[1]));
+                        return 0.5 * (exp_old_val + exp_young_val);
                     };
             });
         gather(omega);
@@ -303,22 +307,19 @@ struct coevol {
             // moving dS
             brownian_process_(model).SingleNodeMove(0, 1.0, synrate_node_update, node_logprob);
             brownian_process_(model).SingleNodeMove(0, 0.3, synrate_node_update, node_logprob);
-            // brownian_process_(model).FilterMove(0, 5, 0.1, 0.2, synrate_branch_update, branch_suffstat_logprob);
-            // brownian_process_(model).FilterMove(0, 5, 1.0, 4.0, synrate_branch_update, branch_suffstat_logprob);
+            brownian_process_(model).FilterMove(0, 10, 0.01, 0.2, synrate_branch_update, branch_suffstat_logprob);
 
             // moving dN/dS
             brownian_process_(model).SingleNodeMove(1, 1.0, omega_node_update, node_logprob);
             brownian_process_(model).SingleNodeMove(1, 0.3, omega_node_update, node_logprob);
-            // brownian_process_(model).FilterMove(1, 5, 0.1, 0.2, omega_branch_update, branch_suffstat_logprob);
-            // brownian_process_(model).FilterMove(1, 5, 1.0, 4.0, omega_branch_update, branch_suffstat_logprob);
+            brownian_process_(model).FilterMove(1, 10, 0.01, 0.2, omega_branch_update, branch_suffstat_logprob);
 
             // moving traits does not change sequence likelihood, so no update and no log prob
             // (apart from brownian process, but that's already accounted for in SingleNodeMove)
             for (size_t i=2; i<dim; i++) {
                 brownian_process_(model).SingleNodeMove(i, 1.0, no_update, no_logprob);
                 brownian_process_(model).SingleNodeMove(i, 0.3, no_update, no_logprob);
-                // brownian_process_(model).FilterMove(i, 5, 1.0, 4.0, no_update, no_logprob);
-                // brownian_process_(model).FilterMove(i, 5, 0.1, 0.4, no_update, no_logprob);
+                brownian_process_(model).FilterMove(i, 10, 0.1, 1.0, no_update, no_logprob);
             }
         }
 

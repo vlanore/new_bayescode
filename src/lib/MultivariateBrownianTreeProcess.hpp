@@ -280,7 +280,7 @@ class MultivariateBrownianTreeProcess   {
     template<class Update, class LogProb>
     void FilterMove(int index, int nspan, double min_delta, double max_delta, Update update, LogProb logprob)   {
         std::vector<std::vector<double>> proposal(tree->nb_nodes(), std::vector<double>(2*nspan+1, 0));
-        std::vector<std::vector<double>> condl(tree->nb_nodes(), std::vector<double>(2*nspan+1, 0));
+        std::vector<std::vector<double>> logcondl(tree->nb_nodes(), std::vector<double>(2*nspan+1, 0));
         for (size_t i=0; i<tree->nb_nodes(); i++) {
             double delta = min_delta + (max_delta - min_delta)*Random::Uniform();
             double center = value[i][index];
@@ -288,187 +288,169 @@ class MultivariateBrownianTreeProcess   {
                 proposal[i][k] = center + delta*(k - nspan);
             }
         }
-        BackwardFilterMove(GetRoot(), index, nspan, update, logprob, proposal, condl);
-        ForwardFilterMove(GetRoot(), index, nspan, update, logprob, proposal, condl);
+        BackwardFilterMove(GetRoot(), index, nspan, update, logprob, proposal, logcondl);
+        FilterSampleRoot(index, nspan, update, logprob, proposal, logcondl);
+        ForwardFilterMove(GetRoot(), index, nspan, update, logprob, proposal, logcondl);
     }
 
     template<class Update, class LogProb>
-    std::vector<double> BackwardPropagate(Tree::NodeIndex from, int index, int nspan, Update update, LogProb logprob, std::vector<std::vector<double>>& proposal, std::vector<std::vector<double>>& condl)  {
+    void BackwardFilterMove(Tree::NodeIndex from, int index, int nspan, Update update, LogProb logprob, std::vector<std::vector<double>>& proposal, std::vector<std::vector<double>>& logcondl)  {
+
+        for (auto c : tree->children(from)) {
+            BackwardFilterMove(c, index, nspan, update, logprob, proposal, logcondl);
+            std::vector<double> tmp = BackwardPropagate(c, index, nspan, update, logprob, proposal, logcondl);
+            for (size_t k=0; k<logcondl[from].size(); k++)    {
+                logcondl[from][k] += tmp[k];
+            }
+        }
+
+        if (tree->is_root(from))    {
+            for (size_t k=0; k<logcondl[from].size(); k++)    {
+                value[from][index] = proposal[from][k];
+                logcondl[from][k] += GetLocalLogProb(from);
+            }
+            value[from][index] = proposal[from][nspan];
+        }
+    }
+
+    template<class Update, class LogProb>
+    void ForwardFilterMove(Tree::NodeIndex from, int index, int nspan, Update update, LogProb logprob, std::vector<std::vector<double>>& proposal, std::vector<std::vector<double>>& logcondl)  {
+
+        for (auto c : tree->children(from)) {
+            if (clamp[c][index])   {
+                if (! tree->is_leaf(c)) {
+                    std::cerr << "error in forward filter: only tips can be clamped\n";
+                    exit(1);
+                }
+                update(tree->get_branch(c));
+            }
+            else    {
+                ForwardPropagate(c, index, nspan, update, logprob, proposal, logcondl);
+                ForwardFilterMove(c, index, nspan, update, logprob, proposal, logcondl);
+            }
+        }
+    }
+
+    template<class Update, class LogProb>
+    std::vector<double> ClampedBackwardPropagate(Tree::NodeIndex from, int index, int nspan, Update update, LogProb logprob, std::vector<std::vector<double>>& proposal, std::vector<std::vector<double>>& logcondl)  {
+
+        Tree::BranchIndex branch = tree->get_branch(from);
+        Tree::NodeIndex p = tree->parent(from);
+
+        std::vector<double> tmp(logcondl[from].size(), 0);
+        for (size_t k=0; k<logcondl[from].size(); k++)    {
+            value[p][index] = proposal[p][k];
+            update(branch);
+            tmp[k] = GetLocalLogProb(from) + logprob(branch);
+        }
+        value[p][index] = proposal[p][nspan];
+        update(branch);
+        return tmp;
+    }
+
+
+    template<class Update, class LogProb>
+    std::vector<double> UnclampedBackwardPropagate(Tree::NodeIndex from, int index, int nspan, Update update, LogProb logprob, std::vector<std::vector<double>>& proposal, std::vector<std::vector<double>>& logcondl)  {
 
         // up[k] = sum_l q_kl * down[l]
 
         Tree::BranchIndex branch = tree->get_branch(from);
         Tree::NodeIndex p = tree->parent(from);
 
-        std::vector<std::vector<double>> logl(condl[from].size(), std::vector<double>(condl[from].size(), 0));
+        std::vector<std::vector<double>> logl(logcondl[from].size(), std::vector<double>(logcondl[from].size(), 0));
 
-        for (size_t k=0; k<condl[from].size(); k++)    {
+        for (size_t k=0; k<logcondl[from].size(); k++)    {
             value[p][index] = proposal[p][k];
-            for (size_t l=0; l<condl[from].size(); l++)    {
+            for (size_t l=0; l<logcondl[from].size(); l++)    {
                 value[from][index] = proposal[from][l];
                 update(branch);
-                logl[k][l] = GetLocalLogProb(from) + logprob(branch) + log(condl[from][l]);
+                logl[k][l] = GetLocalLogProb(from) + logprob(branch) + logcondl[from][l];
             }
         }
         double max = logl[0][0];
-        for (size_t k=0; k<condl[from].size(); k++)    {
-            for (size_t l=0; l<condl[from].size(); l++)    {
+        for (size_t k=0; k<logcondl[from].size(); k++)    {
+            for (size_t l=0; l<logcondl[from].size(); l++)    {
                 if (max < logl[k][l])   {
                     max = logl[k][l];
                 }
             }
         }
-        if (std::isinf(max))    {
-            std::cerr << "max is inf\n";
-            exit(1);
-        }
-        if (std::isnan(max))    {
-            std::cerr << "max is nan\n";
-            exit(1);
-        }
 
-        std::vector<double> tmp(condl[from].size(), 0);
-        for (size_t k=0; k<condl[from].size(); k++)    {
-            for (size_t l=0; l<condl[from].size(); l++)    {
+        std::vector<double> tmp(logcondl[from].size(), 0);
+        for (size_t k=0; k<logcondl[from].size(); k++)    {
+            for (size_t l=0; l<logcondl[from].size(); l++)    {
                 tmp[k] += exp(logl[k][l] - max);
-                if (std::isinf(tmp[k]))    {
-                    std::cerr << "tmp[k] is inf\n";
-                    exit(1);
-                }
-                if (std::isnan(max))    {
-                    std::cerr << "tmp[k] is nan\n";
-                    exit(1);
-                }
-                // tmp[k] += exp(logl[k][l] - max) * condl[from][l];
+            }
+        }
+        for (size_t k=0; k<logcondl[from].size(); k++)    {
+            if (std::isinf(tmp[k]))    {
+                std::cerr << "tmp[k] is inf\n";
+                exit(1);
+            }
+            if (std::isnan(max))    {
+                std::cerr << "tmp[k] is nan\n";
+                exit(1);
             }
         }
 
         double max2 = tmp[0];
-        for (size_t k=1; k<condl[from].size(); k++)    {
+        for (size_t k=1; k<logcondl[from].size(); k++)    {
             if (max2 < tmp[k])   {
                 max2 = tmp[k];
             }
         }
         if (max2 <= 0)   {
             std::cerr << "non positive propagate\n";
-            for (size_t k=0; k<condl[from].size(); k++)    {
-                std::cerr << tmp[k] << '\t';
-            }
-            std::cerr << '\n';
-            for (size_t k=0; k<condl[from].size(); k++)    {
-                value[p][index] = proposal[p][k];
-                for (size_t l=0; l<condl[from].size(); l++)    {
-                    value[from][index] = proposal[from][l];
-                    update(branch);
-                    std::cerr << proposal[p][k] << '\t' << proposal[from][l] << '\t' << GetLocalLogProb(from) << '\t' << logprob(branch) << '\t' << condl[from][l] << '\n';
-                }
-            }
             exit(1);
+        }
+
+        std::vector<double> logtmp(logcondl[from].size(), 0);
+        for (size_t k=0; k<logcondl[from].size(); k++)    {
+            logtmp[k] = log(tmp[k]);
         }
 
         value[from][index] = proposal[from][nspan];
         value[p][index] = proposal[p][nspan];
         update(branch);
-        return tmp;
+
+        return logtmp;
     }
 
     template<class Update, class LogProb>
-    void BackwardFilterMove(Tree::NodeIndex from, int index, int nspan, Update update, LogProb logprob, std::vector<std::vector<double>>& proposal, std::vector<std::vector<double>>& condl)  {
-
-        if (tree->is_leaf(from))    {
-            if (clamp[from][index]) {
-                for (size_t k=0; k<condl[from].size(); k++)    {
-                    condl[from][k] = 0;
-                }
-                condl[from][nspan] = 1.0;
-            }
-            else    {
-                for (size_t k=0; k<condl[from].size(); k++)    {
-                    condl[from][k] = 1.0;
-                }
-            }
+    std::vector<double> BackwardPropagate(Tree::NodeIndex from, int index, int nspan, Update update, LogProb logprob, std::vector<std::vector<double>>& proposal, std::vector<std::vector<double>>& logcondl)  {
+        if (clamp[from][index]) {
+            return ClampedBackwardPropagate(from, index, nspan, update, logprob, proposal, logcondl);
         }
-        else    {
-            for (size_t k=0; k<condl[from].size(); k++)    {
-                condl[from][k] = 1.0;
-            }
-            for (auto c : tree->children(from)) {
-                BackwardFilterMove(c, index, nspan, update, logprob, proposal, condl);
-                std::vector<double> tmp = BackwardPropagate(c, index, nspan, update, logprob, proposal, condl);
-                for (size_t k=0; k<condl[from].size(); k++)    {
-                    condl[from][k] *= tmp[k];
-                }
-            }
-        }
-        if (tree->is_root(from))    {
-            for (size_t k=0; k<condl[from].size(); k++)    {
-                value[from][index] = proposal[from][k];
-                condl[from][k] *= exp(GetLocalLogProb(from));
-            }
-            value[from][index] = proposal[from][nspan];
-        }
-        double max = 0;
-        for (size_t k=0; k<condl[from].size(); k++)    {
-            if (condl[from][k] < 0) {
-                std::cerr << "negative condl\n";
-                for (size_t l=0; l<condl[from].size(); l++)    {
-                    std::cerr << condl[from][l] << '\t';
-                }
-                std::cerr << '\n';
-                exit(1);
-            }
-            if (max < condl[from][k])   {
-                max = condl[from][k];
-            }
-        }
-        for (size_t k=0; k<condl[from].size(); k++)    {
-            condl[from][k] /= max;
-        }
-
-        // numerical check
-        for (size_t k=0; k<condl[from].size(); k++)    {
-            if (std::isinf(condl[from][k])) {
-                std::cerr << "filter move: inf\n";
-                exit(1);
-            }
-            if (std::isnan(condl[from][k])) {
-                std::cerr << "filter move: nan\n";
-                std::cerr << max << '\n';
-                for (size_t l=0; l<condl[from].size(); l++)    {
-                    std::cerr << condl[from][l] << '\t';
-                }
-                std::cerr << '\n';
-                for (size_t l=0; l<condl[from].size(); l++)    {
-                    std::cerr << proposal[from][l] << '\t';
-                }
-                std::cerr << '\n';
-                std::cerr << clamp[from][index] << '\n';
-                std::cerr << from << '\n';
-                if (tree->is_leaf(from))    {
-                    std::cerr << "is leaf\n";
-                }
-                exit(1);
-            }
-        }
+        return UnclampedBackwardPropagate(from, index, nspan, update, logprob, proposal, logcondl);
     }
 
     template<class Update, class LogProb>
-    void ForwardPropagate(Tree::NodeIndex from, int index, int nspan, Update update, LogProb logprob, std::vector<std::vector<double>>& proposal, std::vector<std::vector<double>>& condl)  {
+    void ForwardPropagate(Tree::NodeIndex from, int index, int nspan, Update update, LogProb logprob, std::vector<std::vector<double>>& proposal, std::vector<std::vector<double>>& logcondl)  {
 
         Tree::BranchIndex branch = tree->get_branch(from);
-        std::vector<double> tmp(condl[from].size(), 0);
-        double tot = 0;
-        for (size_t l=0; l<condl[from].size(); l++) {
+        std::vector<double> logtmp(logcondl[from].size(), 0);
+        for (size_t l=0; l<logcondl[from].size(); l++) {
             value[from][index] = proposal[from][l];
             update(branch);
-            tmp[l] = exp(GetLocalLogProb(from) + logprob(branch)) * condl[from][l];
+            logtmp[l] = GetLocalLogProb(from) + logprob(branch) + logcondl[from][l];
+        }
+        double max = logtmp[0];
+        for (size_t l=0; l<logcondl[from].size(); l++) {
+            if (max < logtmp[l])    {
+                max = logtmp[l];
+            }
+        }
+        double tot = 0;
+        std::vector<double> tmp(logcondl[from].size(), 0);
+        for (size_t l=0; l<logcondl[from].size(); l++) {
+            tmp[l] = exp(logtmp[l] - max);
             tot += tmp[l];
         }
-        for (size_t l=0; l<condl[from].size(); l++) {
+        for (size_t l=0; l<logcondl[from].size(); l++) {
             tmp[l] /= tot;
         }
         int choose = Random::DrawFromDiscreteDistribution(tmp);
-        if ((choose < 0) || (choose >= int(condl[from].size()))) {
+        if ((choose < 0) || (choose >= int(logcondl[from].size()))) {
             std::cerr << "error: choose out of range\n";
             exit(1);
         }
@@ -477,30 +459,33 @@ class MultivariateBrownianTreeProcess   {
     }
 
     template<class Update, class LogProb>
-    void ForwardFilterMove(Tree::NodeIndex from, int index, int nspan, Update update, LogProb logprob, std::vector<std::vector<double>>& proposal, std::vector<std::vector<double>>& condl)  {
+    void FilterSampleRoot(int index, int nspan, Update update, LogProb logprob, std::vector<std::vector<double>>& proposal, std::vector<std::vector<double>>& logcondl)  {
 
-        if (tree->is_root(from))    {
-            double tot = 0;
-            for (size_t k=0; k<condl[from].size(); k++)    {
-                tot += condl[from][k];
+        Tree::NodeIndex from = tree->root();
+
+        double max = logcondl[from][0];
+        for (size_t k=0; k<logcondl[from].size(); k++)    {
+            if (max < logcondl[from][k])    {
+                max = logcondl[from][k];
             }
-            for (size_t k=0; k<condl[from].size(); k++)    {
-                condl[from][k] /= tot;
-            }
-            int choose = Random::DrawFromDiscreteDistribution(condl[from]);
-            if ((choose < 0) || (choose >= int(condl[from].size()))) {
-                std::cerr << "error: choose out of range\n";
-                exit(1);
-            }
-            value[from][index] = proposal[from][choose];
         }
 
-        for (auto c : tree->children(from)) {
-            if (! clamp[c][index])   {
-                ForwardPropagate(c, index, nspan, update, logprob, proposal, condl);
-            }
-            ForwardFilterMove(c, index, nspan, update, logprob, proposal, condl);
+        std::vector<double> tmp(logcondl[from].size(), 0);
+        double tot = 0;
+        for (size_t k=0; k<logcondl[from].size(); k++)    {
+            tmp[k] = exp(logcondl[from][k] - max);
+            tot += tmp[k];
         }
+        for (size_t k=0; k<logcondl[from].size(); k++)    {
+            tmp[k] /= tot;
+        }
+
+        int choose = Random::DrawFromDiscreteDistribution(tmp);
+        if ((choose < 0) || (choose >= int(logcondl[from].size()))) {
+            std::cerr << "error: choose out of range\n";
+            exit(1);
+        }
+        value[from][index] = proposal[from][choose];
     }
 
     private:
