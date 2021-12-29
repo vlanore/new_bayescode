@@ -158,7 +158,8 @@ struct coevol {
             mn_to_m(get<value>(codon_matrices)),
 
             // root freqs
-            n_to_one(get<value>(root_codon_matrix).eq_freqs()),
+            // n_to_one(get<value>(root_codon_matrix).eq_freqs()),
+            [&mat = get<value>(root_codon_matrix)] (int site) -> const std::vector<double>& { return mat.eq_freqs(); },
 
             // no polymorphism
             nullptr);
