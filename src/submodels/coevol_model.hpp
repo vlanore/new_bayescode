@@ -172,7 +172,6 @@ struct coevol {
         // relative path suff stats (events are mapped in relative time along a given branch)
         // are computed based on absolute path suff stats but we need to know the absolute branch lengths
         auto rel_path_suffstats = pathss_factory::make_node_relpath_suffstat(
-                nnode, 
                 codon_statespace, 
                 *path_suffstats, 
                 n_to_n(synrate));

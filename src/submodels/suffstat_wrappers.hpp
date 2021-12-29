@@ -59,12 +59,12 @@ struct pathss_factory {
 
 
     template<class BL>
-    static auto make_node_relpath_suffstat(size_t nnode, const CodonStateSpace* statespace, Proxy<PathSuffStat&, size_t>& pss, BL bl) {
+    static auto make_node_relpath_suffstat(const CodonStateSpace* statespace, Proxy<PathSuffStat&, size_t>& pss, BL bl) {
         auto relpath_suffstats = ss_factory::make_suffstat_array_with_init<RelativePathSuffStat>(
-                nnode,
+                pss.size(),
                 {statespace->GetNstate()},
-                [&pss, bl, nnode] (auto& rpss)  {
-                    for (size_t node=0; node<nnode; node++) {
+                [&pss, bl] (auto& rpss)  {
+                    for (size_t node=0; node<pss.size(); node++) {
                         rpss[node].Add(pss.get(node), node ? bl(node-1) : 1.0); 
                     }
                 });
