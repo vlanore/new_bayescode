@@ -51,7 +51,7 @@ void SubMatrix::Create() {
     invu = EMatrix(Nstate, Nstate);
     v = EVector(Nstate);
     vi = EVector(Nstate);
-    mStationary = EVector(Nstate);
+    mStationary.assign(Nstate, 0);
 
     ptrQ = nullptr;
     ptru = nullptr;

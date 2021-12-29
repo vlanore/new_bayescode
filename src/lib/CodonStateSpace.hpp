@@ -97,7 +97,7 @@ class CodonStateSpace : public StateSpace {
     bool CheckStop(int pos1, int pos2, int pos3) const;
 
     //! computes the sum of nuc stats over stop codons (S) and returns 1-S
-    double GetNormStat(const EVector &nucstat) const {
+    double GetNormStat(const std::vector<double> &nucstat) const {
         double stopstat = 0;
         for (int i = 0; i < Nstop; i++) {
             stopstat += nucstat[StopPos1[i]] * nucstat[StopPos2[i]] * nucstat[StopPos3[i]];

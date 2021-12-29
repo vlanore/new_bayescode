@@ -1,14 +1,13 @@
 #pragma once
 
-// #include "Eigen/Dense"
+#include "Eigen/Dense"
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include "global/Random.hpp"
 
-// using EMatrix = Eigen::MatrixXd;
-// using EVector = Eigen::VectorXd;
-//
+typedef Eigen::MatrixXd EMatrix;
+typedef Eigen::VectorXd EVector;
 
 /** \brief A generic substitution matrix class.
  *
@@ -51,7 +50,7 @@ class SubMatrix {
 
     //! const access to equilbrium frequency vector (checked for current update
     //! status)
-    const EVector &GetStationary() const;
+    const std::vector<double> &GetStationary() const;
 
     //! dimension of the statespace
     int GetNstate() const { return Nstate; }
@@ -185,7 +184,7 @@ class SubMatrix {
 
     // the stationary probabilities of the matrix
     mutable double *ptrStationary;
-    mutable EVector mStationary;  // the stationary probabilities of the matrix
+    mutable std::vector<double> mStationary;
 
     mutable Eigen::EigenSolver<EMatrix> solver;
 
@@ -231,11 +230,12 @@ inline const double *SubMatrix::GetRow(int i) const {
 }
 */
 
-inline const EVector &SubMatrix::GetStationary() const {
+inline const std::vector<double> &SubMatrix::GetStationary() const {
     // inline const double *SubMatrix::GetStationary() const {
     if (!statflag) { UpdateStationary(); }
     return mStationary;
 }
+
 
 inline double SubMatrix::Stationary(int i) const {
     if (!statflag) { UpdateStationary(); }

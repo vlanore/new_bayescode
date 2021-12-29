@@ -100,7 +100,7 @@ class PhyloProcess {
         return submatrixarray(GetBranchIndex(index), site);
     }
 
-    const EVector &GetRootFreq(int site) const { return rootsubmatrixarray(site).GetStationary(); }
+    const std::vector<double> &GetRootFreq(int site) const { return rootsubmatrixarray(site).GetStationary(); }
 
     const StateSpace *GetStateSpace() const { return data->GetStateSpace(); }
     const TaxonSet *GetTaxonSet() const { return data->GetTaxonSet(); }

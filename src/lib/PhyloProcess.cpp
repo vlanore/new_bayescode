@@ -170,7 +170,7 @@ double PhyloProcess::SiteLogLikelihood(int site) const {
     Pruning(GetRoot(), site);
     double ret = 0;
     double *t = uppercondlmap[GetRoot()];
-    const EVector &stat = GetRootFreq(site);
+    const std::vector<double> &stat = GetRootFreq(site);
 
     for (int k = 0; k < GetNstate(); k++) { ret += t[k] * stat[k]; }
     if (ret == 0) {
@@ -184,7 +184,7 @@ double PhyloProcess::SiteLogLikelihood(int site) const {
 double PhyloProcess::FastSiteLogLikelihood(int site) const {
     double ret = 0;
     double *t = uppercondlmap[GetRoot()];
-    const EVector &stat = GetRootFreq(site);
+    const std::vector<double> &stat = GetRootFreq(site);
     for (int k = 0; k < GetNstate(); k++) { ret += t[k] * stat[k]; }
     if (ret == 0) {
         cerr << "pruning : 0 \n";
@@ -279,7 +279,7 @@ void PhyloProcess::PruningAncestral(Tree::NodeIndex from, int site) {
         double cumulaux[GetNstate()];
         try {
             double *tbl = uppercondlmap[from];
-            const EVector &stat = GetRootFreq(site);
+            const std::vector<double> &stat = GetRootFreq(site);
             double tot = 0;
             for (int k = 0; k < GetNstate(); k++) {
                 aux[k] = stat[k] * tbl[k];
@@ -349,7 +349,7 @@ void PhyloProcess::PruningAncestral(Tree::NodeIndex from, int site) {
 void PhyloProcess::RootPosteriorDraw(int site) {
     double aux[GetNstate()];
     double *tbl = uppercondlmap[GetRoot()];
-    const EVector &stat = GetRootFreq(site);
+    const std::vector<double> &stat = GetRootFreq(site);
     for (int k = 0; k < GetNstate(); k++) { aux[k] = stat[k] * tbl[k]; }
     statemap[GetRoot()][site] = Random::DrawFromDiscreteDistribution(aux, GetNstate());
 }
@@ -358,7 +358,7 @@ void PhyloProcess::PriorSample(Tree::NodeIndex from, int site, bool rootprior) {
     int &state = statemap[from][site];
     if (tree->is_root(from)) {
         if (rootprior) {
-            state = Random::DrawFromDiscreteDistribution(GetRootFreq(site), GetNstate());
+            state = Random::DrawFromDiscreteDistribution(GetRootFreq(site));
         } else {
             RootPosteriorDraw(site);
         }

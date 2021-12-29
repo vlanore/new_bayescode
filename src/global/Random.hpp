@@ -1,14 +1,6 @@
 #pragma once
 
 #include <random>
-#include "Eigen/Dense"
-//
-// c++11
-// using EMatrix = Eigen::MatrixXd;
-// using EVector = Eigen::VectorXd;
-
-typedef Eigen::MatrixXd EMatrix;
-typedef Eigen::VectorXd EVector;
 
 #define MT_LEN 624  // (VL) required for magic
 #include <vector>
@@ -51,7 +43,6 @@ class Random {
     static int Choose(int);
     static int FiniteDiscrete(int n, const double *probarray);
     static void DrawFromUrn(int *, int n, int N);
-    static int DrawFromDiscreteDistribution(const EVector &prob, int nstate);
     static int DrawFromDiscreteDistribution(const double *prob, int nstate);
     static int DrawFromDiscreteDistribution(const std::vector<double> &prob);
 
