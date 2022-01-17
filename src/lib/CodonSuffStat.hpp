@@ -229,6 +229,7 @@ class NucPathSuffStat {
     }
 };
 
+template <> struct has_custom_serialization<NucPathSuffStat> : std::true_type {};
 
 /**
  * \brief A sufficient statistic for substitution histories, as a function of
