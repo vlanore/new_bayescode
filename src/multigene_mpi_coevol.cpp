@@ -67,12 +67,12 @@ int compute(int argc, char* argv[]) {
 
     // model declarations
     auto master_m = 
-        master_only_ptr([ngene, &tree, &codon_statespace, &cont_data, &root_mean, &root_var, &gen] () { 
-                return coevol_master::make(ngene, tree.get(), codon_statespace.get(), cont_data, root_mean, root_var, gen); });
+        master_only_ptr([&tree, &codon_statespace, &cont_data, &root_mean, &root_var, &gen] () { 
+                return coevol_master::make(tree.get(), codon_statespace.get(), cont_data, root_mean, root_var, gen);});
 
     auto slave_m =
         slave_only_ptr([&tree, &data, &gen]() {
-                return coevol_slave::make(tree.get(), data, gen); });
+                return coevol_slave::make(tree.get(), data, gen);});
 
     // communication between processes
 
@@ -102,10 +102,6 @@ int compute(int argc, char* argv[]) {
 
         MPI::p->message("move");
         if (!master) {
-            // redundant (done at end of cycle)
-            // coevol_slave::gene_update_nuc_matrix(*slave_m);
-            // coevol_slave::gene_update_codon_matrices(*slave_m);
-
             coevol_slave::gene_resample_sub(*slave_m, gen);
             coevol_slave::gene_collect_path_suffstats(*slave_m);
         }
@@ -128,7 +124,7 @@ int compute(int argc, char* argv[]) {
             // broadcast ds om, update gene codon matrices and collect nuc suffstats
             master_to_slave(broadcast_dsom);
             if (!master) {
-                coevol_slave::gene_update_codon_matrices(*slave_m);
+                coevol_slave::update_codon_matrices(*slave_m);
                 coevol_slave::gene_collect_nucsuffstats(*slave_m);
             }
             slave_to_master(reduce_nucss);
@@ -141,8 +137,8 @@ int compute(int argc, char* argv[]) {
             // broadcast nucrates and update gene matrices
             master_to_slave(broadcast_nuc);
             if (!master) {
-                coevol_slave::gene_update_nuc_matrix(*slave_m);
-                coevol_slave::gene_update_codon_matrices(*slave_m);
+                coevol_slave::update_nuc_matrix(*slave_m);
+                coevol_slave::update_codon_matrices(*slave_m);
             }
         }
 

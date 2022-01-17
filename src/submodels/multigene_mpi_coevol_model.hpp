@@ -49,7 +49,7 @@ TOKEN(gene_model_array)
 
 struct coevol_master {
     template <class RootMean, class RootVar, class Gen>
-    static auto make(int ngene, const Tree* tree, const CodonStateSpace* codon_statespace, const ContinuousData& cont_data, RootMean inroot_mean, RootVar inroot_var, Gen& gen) {
+    static auto make(const Tree* tree, const CodonStateSpace* codon_statespace, const ContinuousData& cont_data, RootMean inroot_mean, RootVar inroot_var, Gen& gen) {
 
         // number of quantitative traits
         size_t ncont = cont_data.GetNsite();
@@ -289,40 +289,16 @@ struct coevol_master {
 
 struct coevol_slave {
 
-    template <class Data, class SynRate, class Omega, class NucRR, class NucStat, class Gen>
-    static auto make_gene(const Tree* tree, Data& data, SynRate& synrate, Omega& omega, NucRR& nucrr, NucStat& nucstat, Gen& gen) {
-
-        size_t nnode = tree->nb_nodes();
-        size_t nbranch = nnode-1;
-
-        auto nuc_matrix = make_dnode_with_init<gtr>(
-                {4, nucrr, nucstat, true},
-                nucrr,
-                nucstat);
-        gather(nuc_matrix);
+    template <class Data, class SynRate, class Omega, class CodonMatrices, class RootCodonMatrix, class Gen>
+    static auto make_gene(const Tree* tree, Data& data, SynRate& synrate, Omega& omega, CodonMatrices& codon_matrices, RootCodonMatrix& root_codon_matrix, Gen& gen) {
 
         auto codon_statespace =
             dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
 
-        // branch codon matrices
-        auto codon_matrices = make_dnode_array_with_init<mgomega>(
-                nbranch,
-                {codon_statespace, &get<value>(nuc_matrix), 1.0},
-                n_to_one(get<value>(nuc_matrix)),
-                [&omega] (int branch) {return omega[branch];});
-        gather(codon_matrices);
-
-        // root codon matrix with default omega = 1.0 (for root freqs)
-        auto root_codon_matrix = make_dnode_with_init<mgomega>(
-                {codon_statespace, &get<value>(nuc_matrix), 1.0},
-                one_to_one(get<value>(nuc_matrix)),
-                one_to_const(1.0));
-        gather(root_codon_matrix);
-
         auto phyloprocess = std::make_unique<PhyloProcess>(tree, &data.alignment,
 
             // branch lengths
-            [&synrate] (int branch) {return synrate[branch];},
+            n_to_n(synrate),
 
             // site-specific rates
             n_to_const(1.0),
@@ -347,13 +323,13 @@ struct coevol_slave {
         auto rel_path_suffstats = pathss_factory::make_node_relpath_suffstat(
                 codon_statespace, 
                 *path_suffstats, 
-                [&synrate] (int branch) {return synrate[branch];});
+                n_to_n(synrate));
 
         // reducing rel path suffstats into suff stats for dS and dN/dS (bi-poisson)
         auto dsom_ss = pathss_factory::make_dsomega_suffstat(
                 get<value>(codon_matrices),
                 *rel_path_suffstats,
-                [&omega] (int branch) {return omega[branch];});
+                n_to_n(omega));
 
         // reducing the rel path suffstats into nuc rates suff stats
         auto nucpath_ss = pathss_factory::make_nucpath_suffstat(
@@ -361,12 +337,9 @@ struct coevol_slave {
                 get<value>(codon_matrices),
                 get<value>(root_codon_matrix),
                 *rel_path_suffstats,
-                [&synrate] (int branch) {return synrate[branch];});
+                n_to_n(synrate));
 
         return make_model(
-            nuc_matrix_ = move(nuc_matrix),
-            codon_matrices_ = move(codon_matrices),
-            root_codon_matrix_ = move(root_codon_matrix),
             phyloprocess_ = move(phyloprocess),
             path_suffstats_ = move(path_suffstats),
             rel_path_suffstats_ = move(rel_path_suffstats),
@@ -374,13 +347,12 @@ struct coevol_slave {
             dsom_suffstats_ = move(dsom_ss));
     }
 
-    template <class Data, class SynRate, class Omega, class NucRR, class NucStat, class Gen>
-        static auto make_gene_array(const Tree* tree, Data& data, SynRate& synrate, Omega& omega, NucRR& nucrr, NucStat& nucstat, Gen& gen)   {
+    template <class Data, class SynRate, class Omega, class CodonMatrices, class RootCodonMatrix, class Gen>
+        static auto make_gene_array(const Tree* tree, Data& data, SynRate& synrate, Omega& omega, CodonMatrices& codon_matrices, RootCodonMatrix& root_codon_matrix, Gen& gen)   {
 
-            auto lambda = [&tree, &data, &synrate, &omega, &nucrr, &nucstat, &gen] (int i) {
-                return make_gene(tree, *data[i], synrate, omega, nucrr, nucstat, gen);
+            auto lambda = [&] (int i)   {
+                return make_gene(tree, *data[i], synrate, omega, codon_matrices, root_codon_matrix, gen);
             };
-
             return make_model_array(data.size(), lambda);
         }
 
@@ -396,7 +368,31 @@ struct coevol_slave {
         auto nucrr = std::make_unique<std::vector<double>>(6, 1./6);
         auto nucstat = std::make_unique<std::vector<double>>(4, 1./4);
 
-        auto gene_model_array = make_gene_array(tree, data, *synrate, *omega, *nucrr, *nucstat, gen);
+        auto nuc_matrix = make_dnode_with_init<gtr>(
+                {4, *nucrr, *nucstat, true},
+                one_to_one(*nucrr),
+                one_to_one(*nucstat));
+        gather(nuc_matrix);
+
+        auto codon_statespace =
+            dynamic_cast<const CodonStateSpace*>((*data[0]).alignment.GetStateSpace());
+
+        // branch codon matrices
+        auto codon_matrices = make_dnode_array_with_init<mgomega>(
+                nbranch,
+                {codon_statespace, &get<value>(nuc_matrix), 1.0},
+                n_to_one(get<value>(nuc_matrix)),
+                n_to_n(*omega));
+        gather(codon_matrices);
+
+        // root codon matrix with default omega = 1.0 (for root freqs)
+        auto root_codon_matrix = make_dnode_with_init<mgomega>(
+                {codon_statespace, &get<value>(nuc_matrix), 1.0},
+                one_to_one(get<value>(nuc_matrix)),
+                one_to_const(1.0));
+        gather(root_codon_matrix);
+
+        auto gene_model_array = make_gene_array(tree, data, *synrate, *omega, codon_matrices, root_codon_matrix, gen);
 
         // reducing dsom path suffstats across genes
         auto dsom_ss = ss_factory::make_suffstat_array<dSOmegaPathSuffStat>(
@@ -410,8 +406,6 @@ struct coevol_slave {
                     }
                 });
 
-        // reducing nuc path suffstats across genes
-        auto codon_statespace = dynamic_cast<const CodonStateSpace*>(data[0]->alignment.GetStateSpace());
         auto nuc_ss = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
                 {*codon_statespace},
                 [&array = *gene_model_array] (auto& nucss) {
@@ -425,6 +419,9 @@ struct coevol_slave {
                 omega_ = move(omega),
                 nucrr_ = move(nucrr),
                 nucstat_ = move(nucstat),
+                nuc_matrix_ = move(nuc_matrix),
+                codon_matrices_ = move(codon_matrices),
+                root_codon_matrix_ = move(root_codon_matrix),
                 gene_model_array_ = move(gene_model_array),
                 nucpath_suffstats_ = move(nuc_ss),
                 dsom_suffstats_ = move(dsom_ss));
@@ -443,18 +440,14 @@ struct coevol_slave {
     }
 
     template <class Model>
-    static auto gene_update_nuc_matrix(Model& model) {
-        for (auto& gene_model : get<gene_model_array>(model)) {
-            gather(nuc_matrix_(gene_model));
-        }
+    static auto update_nuc_matrix(Model& model) {
+        gather(nuc_matrix_(model));
     }
 
     template <class Model>
-    static auto gene_update_codon_matrices(Model& model) {
-        for (auto& gene_model : get<gene_model_array>(model)) {
-            gather(root_codon_matrix_(gene_model));
-            gather(codon_matrices_(gene_model));
-        }
+    static auto update_codon_matrices(Model& model) {
+        gather(root_codon_matrix_(model));
+        gather(codon_matrices_(model));
     }
 
     template <class Model>
