@@ -213,7 +213,7 @@ class dSOmegaPathSuffStat {
         bnonsyn *= factor;
     }
         
-    private:
+    // private:
 
     double nsyn;
     double nnonsyn;
