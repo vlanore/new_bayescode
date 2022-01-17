@@ -1,6 +1,7 @@
 #include "mpi_components/broadcast.hpp"
 #include "mpi_components/gather.hpp"
 #include "mpi_components/reduce.hpp"
+#include "mpi_components/reduce_suffstats.hpp"
 #include "mpi_components/unique_ptr_utils.hpp"
 
 #include "submodels/multigene_mpi_coevol_model.hpp"
@@ -64,7 +65,7 @@ int compute(int argc, char* argv[]) {
         }
     }
 
-    // Model declarations
+    // model declarations
     auto master_m = 
         master_only_ptr([ngene, &tree, &codon_statespace, &cont_data, &root_mean, &root_var, &gen] () { 
                 return coevol_master::make(ngene, tree.get(), codon_statespace.get(), cont_data, root_mean, root_var, gen); });
@@ -75,49 +76,23 @@ int compute(int argc, char* argv[]) {
 
     // communication between processes
 
-    // reducing suff stats
-    auto& nucss = master ? nucpath_suffstats_(*master_m).get() : nucpath_suffstats_(*slave_m).get();
-    auto reduce_nucss = reduce(nucss.rootcount, nucss.paircount, nucss.pairbeta);
+    // reducing path suff stats slave -> master
+    auto reduce_nucss = master ? 
+        reduce_suffstats(nucpath_suffstats_(*master_m)) : 
+        reduce_suffstats(nucpath_suffstats_(*slave_m));
 
-    size_t nbranch = tree->nb_nodes() - 1;
-    auto reduce_nsyn = [&master, &master_m, &slave_m] (size_t i) -> double& {
-        if (master) {
-            return dsom_suffstats_(*master_m).get(i).nsyn;
-        }
-        return dsom_suffstats_(*slave_m).get(i).nsyn;
-    };
+    auto reduce_dsomss = master ? 
+        reduce_suffstats(dsom_suffstats_(*master_m)) : 
+        reduce_suffstats(dsom_suffstats_(*slave_m));
         
-    auto reduce_nnonsyn = [&master, &master_m, &slave_m] (size_t i) -> double& {
-        if (master) {
-            return dsom_suffstats_(*master_m).get(i).nnonsyn;
-        }
-        return dsom_suffstats_(*slave_m).get(i).nnonsyn;
-    };
-        
-    auto reduce_bsyn = [&master, &master_m, &slave_m] (size_t i) -> double& {
-        if (master) {
-            return dsom_suffstats_(*master_m).get(i).bsyn;
-        }
-        return dsom_suffstats_(*slave_m).get(i).bsyn;
-    };
-        
-    auto reduce_bnonsyn = [&master, &master_m, &slave_m] (size_t i) -> double& {
-        if (master) {
-            return dsom_suffstats_(*master_m).get(i).bnonsyn;
-        }
-        return dsom_suffstats_(*slave_m).get(i).bnonsyn;
-    };
-        
-    auto reduce_dsomss = reduce_from_lambda(nbranch, reduce_nsyn, reduce_nnonsyn, reduce_bsyn, reduce_bnonsyn);
+    // broadcasting global parameters master -> slave
+    auto broadcast_dsom = master ?
+        broadcast(get<synrate,value>(*master_m), get<omega,value>(*master_m)) :
+        broadcast(get<synrate>(*slave_m), get<omega>(*slave_m));
 
-    // broadcasting ds, omega and nuc rates
-    auto& ds = master ? get<synrate,value>(*master_m) : get<synrate>(*slave_m);
-    auto& om = master ? get<omega,value>(*master_m) : get<omega>(*slave_m);
-    auto broadcast_dsom = broadcast(ds, om);
-
-    auto& nuc_rr = master ? get<nuc_rates, exch_rates, value>(*master_m) : get<nucrr>(*slave_m);
-    auto& nuc_stat = master ? get<nuc_rates, eq_freq, value>(*master_m) : get<nucstat>(*slave_m);
-    auto broadcast_nuc = broadcast(nuc_rr, nuc_stat);
+    auto broadcast_nuc = master ?
+        broadcast(get<nuc_rates,exch_rates,value>(*master_m), get<nuc_rates,eq_freq,value>(*master_m)) :
+        broadcast(get<nucrr>(*slave_m), get<nucstat>(*slave_m));
 
     // move success stats
     MoveStatsRegistry ms;
@@ -127,8 +102,7 @@ int compute(int argc, char* argv[]) {
 
         MPI::p->message("move");
         if (!master) {
-
-            // redundant in cycle
+            // redundant (done at end of cycle)
             // coevol_slave::gene_update_nuc_matrix(*slave_m);
             // coevol_slave::gene_update_codon_matrices(*slave_m);
 
