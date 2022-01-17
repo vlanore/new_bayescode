@@ -63,6 +63,10 @@ target_link_libraries(clock_globom ${BASE_LIBS})
 add_executable(coevol "src/coevol.cpp")
 target_link_libraries(coevol ${BASE_LIBS})
 
+# coevol (multicoevol)
+add_executable(multicoevol "src/multigene_mpi_coevol.cpp")
+target_link_libraries(multicoevol ${BASE_LIBS} ${MPI_LIBRARIES})
+
 # Single omega (globom)
 add_executable(globom "src/globom.cpp")
 target_link_libraries(globom ${BASE_LIBS})
