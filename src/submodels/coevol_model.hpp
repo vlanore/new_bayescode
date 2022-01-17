@@ -22,6 +22,7 @@
 #include "submodels/suffstat_wrappers.hpp"
 #include "tree_factory.hpp"
 #include "bayes_toolbox.hpp"
+#include "branch_map.hpp"
 
 TOKEN(chrono)
 TOKEN(sigma)
@@ -92,33 +93,11 @@ struct coevol {
         brownian_process->PseudoSample(0.1);
         
         // branch dS = delta_time * (exp(X_up(0)) + exp(X_down(0)) / 2
-
-        auto synrate = make_dnode_array<custom_dnode<double>>(nbranch,
-            [&ch = get<value>(chrono), &process = *brownian_process] (int branch) {
-                return 
-                    [&old_age = ch[ch.get_tree().get_older_node(branch)], 
-                     &young_age = ch[ch.get_tree().get_younger_node(branch)],
-                     &old_val = process[ch.get_tree().get_older_node(branch)],
-                     &young_val = process[ch.get_tree().get_younger_node(branch)]] ()   {
-                        double exp_old_val = old_val[0] > 10 ? 100 : (old_val[0] < -10 ? 1e-3 : exp(old_val[0]));
-                        double exp_young_val = young_val[0] > 10 ? 100 : (young_val[0] < -10 ? 1e-3 : exp(young_val[0]));
-                        return 0.5 * (old_age - young_age) * (exp_old_val + exp_young_val);
-                    };
-            });
+        auto synrate = branch_map::make_branch_sums(get<value>(chrono), *brownian_process, 0);
         gather(synrate);
 
         // branch dN/dS = (exp(X_up(1)) + exp(X_down(1))/2
-
-        auto omega = make_dnode_array<custom_dnode<double>>(nbranch,
-            [&ch = get<value>(chrono), &process = *brownian_process] (int branch) {
-                return 
-                    [&old_val = process[ch.get_tree().get_older_node(branch)],
-                     &young_val = process[ch.get_tree().get_younger_node(branch)]] ()   {
-                        double exp_old_val = old_val[1] > 10 ? 100 : (old_val[1] < -10 ? 1e-3 : exp(old_val[1]));
-                        double exp_young_val = young_val[1] > 10 ? 100 : (young_val[1] < -10 ? 1e-3 : exp(young_val[1]));
-                        return 0.5 * (exp_old_val + exp_young_val);
-                    };
-            });
+        auto omega = branch_map::make_branch_means(get<value>(chrono), *brownian_process, 1);
         gather(omega);
 
         // nuc exch rates and eq freqs: uniform dirichlet
