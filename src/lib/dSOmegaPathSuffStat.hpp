@@ -213,7 +213,12 @@ class dSOmegaPathSuffStat {
         bnonsyn *= factor;
     }
         
-    // private:
+    template <class T>
+    void serialization_interface(T &x) {
+        x.add(nsyn, nnonsyn, bsyn, bnonsyn);
+    }
+
+    private:
 
     double nsyn;
     double nnonsyn;
@@ -221,3 +226,4 @@ class dSOmegaPathSuffStat {
     double bnonsyn;
 };
 
+template <> struct has_custom_serialization<dSOmegaPathSuffStat> : std::true_type {};
