@@ -57,6 +57,46 @@ auto prepare_data_ptr(std::string alignfile, std::string treefile) {
     return std::make_unique<PreparedData>(align_stream, tree_stream);
 }
 
+struct PreparedDataWithoutTree {
+    FileSequenceAlignment nuc_align;
+    CodonSequenceAlignment alignment;
+    TaxonSet taxon_set;
+
+    PreparedDataWithoutTree(std::istream& alignfile) :
+          nuc_align(alignfile),
+          alignment(&nuc_align),
+          taxon_set(*alignment.GetTaxonSet()) {
+
+        assert(nuc_align.GetNtaxa() > 0 && nuc_align.GetNsite() > 0);
+        DEBUG("Parsed alignment with {} sequences of length {}. Example taxon name: {}.",
+            nuc_align.GetNtaxa(), nuc_align.GetNsite(), nuc_align.GetTaxonSet()->GetTaxon(0));
+
+        assert(alignment.GetNtaxa() > 0 && alignment.GetNsite() > 0);
+        DEBUG("Converted alignment to codons (new length: {}).", alignment.GetNsite());
+
+        DEBUG("Got a taxon set of length {}. Example taxon name: {}.", taxon_set.GetNtaxa(),
+            taxon_set.GetTaxon(0));
+    }
+};
+
+PreparedDataWithoutTree prepare_data(std::istream& align_stream)    {
+    return {align_stream};
+}
+
+PreparedDataWithoutTree prepare_data(std::string alignfile) {
+    std::ifstream align_stream{alignfile};
+    return {align_stream};
+}
+
+auto prepare_data_ptr(std::istream& align_stream)   {
+    return std::make_unique<PreparedDataWithoutTree>(align_stream);
+}
+
+auto prepare_data_ptr(std::string alignfile)    {
+    std::ifstream align_stream{alignfile};
+    return std::make_unique<PreparedDataWithoutTree>(align_stream);
+}
+
 // detailed parsing of concatenated file of gene alignments
 struct multi_gene_data {
 
@@ -114,6 +154,63 @@ struct multi_gene_data {
     }
 };
 
+// detailed parsing of concatenated file of gene alignments
+struct multi_gene_data_without_tree {
+
+    static auto make(std::string datafile, const Partition& partition)    {
+
+        std::vector<std::unique_ptr<PreparedDataWithoutTree>> data;
+
+        std::ifstream is(datafile.c_str());
+        std::string tmp;
+        is >> tmp;
+        size_t Ngene;
+        is >> Ngene;
+
+        for (size_t gene = 0; gene < Ngene; gene++) {
+            string gene_name;
+            is >> gene_name;
+
+            if (partition.contains(gene_name))   {
+                MPI::p->message("partition contains " + gene_name);
+                auto d = prepare_data_ptr(is);
+                MPI::p->message("prepare data ok");
+                data.push_back(std::move(d));
+                MPI::p->message("push back ok");
+            }
+            else    {
+                // skip this alignment
+                size_t ntaxa, nsite;
+                is >> ntaxa >> nsite;
+                std::string tmp;
+                for (size_t i=0; i<ntaxa; i++)  {
+                    is >> tmp >> tmp;
+                }
+            }
+        }
+        return data;
+    }
+
+    static auto make(std::string datafile)  {
+
+        std::vector<std::unique_ptr<PreparedDataWithoutTree>> data;
+
+        std::ifstream is(datafile.c_str());
+        std::string tmp;
+        is >> tmp;
+        size_t Ngene;
+        is >> Ngene;
+
+        for (size_t gene = 0; gene < Ngene; gene++) {
+            string gene_name;
+            is >> gene_name;
+            auto d = prepare_data_ptr(is);
+            data.push_back(std::move(d));
+        }
+        return data;
+    }
+};
+
 // fast reading of concatenated file of gene alignments
 struct MultiGeneList {
 
@@ -147,3 +244,4 @@ struct MultiGeneList {
         }
     }
 };
+
