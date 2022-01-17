@@ -82,7 +82,7 @@ struct coevol {
                 root_var);
 
         // fix brownian process to observed trait values in extant species
-        std::cerr << "brownian process: set and clamp\n";
+        std::cerr << "brownian process: condition on traits in extant species\n";
         for (size_t i=0; i<ncont; i++)  {
             // first index maps to brownian process, second index maps to continuous data
             brownian_process->SetAndClamp(cont_data, i+2, i);
@@ -270,11 +270,11 @@ struct coevol {
     template<class Model, class Gen>
         static auto move_process(Model& model, Gen& gen) {
 
-            // update dS on given branch
-            auto synrate_branch_update = array_element_gather(synrate_(model));
+            // update dS on given branch (for FilterMove)
+            // auto synrate_branch_update = array_element_gather(synrate_(model));
 
-            // update dN/dS on given branch
-            auto omega_branch_update = array_element_gather(omega_(model));
+            // update dN/dS on given branch (for FilterMove)
+            // auto omega_branch_update = array_element_gather(omega_(model));
 
             // update dS on branches around changing node
             auto synrate_node_update = tree_factory::do_around_node(
@@ -307,19 +307,19 @@ struct coevol {
             // moving dS
             brownian_process_(model).SingleNodeMove(0, 1.0, synrate_node_update, node_logprob);
             brownian_process_(model).SingleNodeMove(0, 0.3, synrate_node_update, node_logprob);
-            brownian_process_(model).FilterMove(0, 10, 0.01, 0.2, synrate_branch_update, branch_suffstat_logprob);
+            // brownian_process_(model).FilterMove(0, 10, 0.01, 0.2, synrate_branch_update, branch_suffstat_logprob);
 
             // moving dN/dS
             brownian_process_(model).SingleNodeMove(1, 1.0, omega_node_update, node_logprob);
             brownian_process_(model).SingleNodeMove(1, 0.3, omega_node_update, node_logprob);
-            brownian_process_(model).FilterMove(1, 10, 0.01, 0.2, omega_branch_update, branch_suffstat_logprob);
+            // brownian_process_(model).FilterMove(1, 10, 0.01, 0.2, omega_branch_update, branch_suffstat_logprob);
 
             // moving traits does not change sequence likelihood, so no update and no log prob
             // (apart from brownian process, but that's already accounted for in SingleNodeMove)
             for (size_t i=2; i<dim; i++) {
                 brownian_process_(model).SingleNodeMove(i, 1.0, no_update, no_logprob);
                 brownian_process_(model).SingleNodeMove(i, 0.3, no_update, no_logprob);
-                brownian_process_(model).FilterMove(i, 10, 0.1, 1.0, no_update, no_logprob);
+                // brownian_process_(model).FilterMove(i, 10, 0.1, 1.0, no_update, no_logprob);
             }
         }
 
