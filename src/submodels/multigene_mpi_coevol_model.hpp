@@ -83,13 +83,11 @@ struct coevol_master {
                 root_var);
 
         // fix brownian process to observed trait values in extant species
-        std::cerr << "brownian process: condition on traits in extant species\n";
         for (size_t i=0; i<ncont; i++)  {
             // first index maps to brownian process, second index maps to continuous data
             brownian_process->SetAndClamp(cont_data, i+2, i);
         }
-        // not drawing from brownian process prior (otherwise, makes unreasonable values for dS, dN/dS)
-        // instead draw from some jitter around root prior
+        // not drawing from brownian process prior 
         brownian_process->PseudoSample(0.1);
         
         // branch dS = delta_time * (exp(X_up(0)) + exp(X_down(0)) / 2
@@ -110,6 +108,8 @@ struct coevol_master {
         auto nuc_rates = nucrates_sm::make(
                 nucrr_hypercenter, nucrr_hyperinvconc, 
                 nucstat_hypercenter, nucstat_hyperinvconc, gen);
+
+        // no phyloprocess, no codon matrices: on slaves
 
         // suffstats (branchwise independent contrasts of brownian process) for updating sigma
         auto covmat_ss = ss_factory::make_suffstat_with_init<MultivariateNormalSuffStat>({ncont+2},

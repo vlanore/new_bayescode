@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
 
     // move schedule
     auto scheduler = make_move_scheduler([&gen, &model]() {
-        coevol::update_matrices(model);
+        // coevol::update_matrices(model);
         coevol::resample_sub(model, gen);
         coevol::gather_path_suffstat(model);
         for (int rep = 0; rep < 30; rep++) {

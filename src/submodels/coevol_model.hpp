@@ -70,26 +70,17 @@ struct coevol {
         // brownian process
         auto brownian_process = make_brownian_tree_process(
                 tree,
-
                 [&ch = get<value>(chrono)] (int node) -> const double& {return ch[node];},
-                // QUESTION n_to_n pattern does not compile with complex custom random object:
-                // n_to_n(get<value>(chrono)),
-
                 one_to_one(get<value>(sigma)),
-                // QUESTION: one_to_one works, but seg faults if not using get<value>
-                // one_to_one(sigma),
-
                 root_mean,
                 root_var);
 
         // fix brownian process to observed trait values in extant species
-        std::cerr << "brownian process: condition on traits in extant species\n";
         for (size_t i=0; i<ncont; i++)  {
             // first index maps to brownian process, second index maps to continuous data
             brownian_process->SetAndClamp(cont_data, i+2, i);
         }
-        // not drawing from brownian process prior (otherwise, makes unreasonable values for dS, dN/dS)
-        // instead draw from some jitter around root prior
+        // not drawing from brownian process prior
         brownian_process->PseudoSample(0.1);
         
         // branch dS = delta_time * (exp(X_up(0)) + exp(X_down(0)) / 2
@@ -141,14 +132,12 @@ struct coevol {
             mn_to_m(get<value>(codon_matrices)),
 
             // root freqs
-            // n_to_one(get<value>(root_codon_matrix).eq_freqs()),
             [&mat = get<value>(root_codon_matrix)] (int site) -> const std::vector<double>& { return mat.eq_freqs(); },
 
             // no polymorphism
             nullptr);
 
         phyloprocess->Unfold();
-        std::cerr << "lnL: " << phyloprocess->GetLogLikelihood() << '\n';
 
         // general path suff stats in absolute time
         auto path_suffstats = pathss_factory::make_node_path_suffstat(*phyloprocess);

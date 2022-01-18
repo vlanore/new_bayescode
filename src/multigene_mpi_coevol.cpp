@@ -76,15 +76,6 @@ int compute(int argc, char* argv[]) {
 
     // communication between processes
 
-    // reducing path suff stats slave -> master
-    auto reduce_nucss = master ? 
-        reduce_suffstats(nucpath_suffstats_(*master_m)) : 
-        reduce_suffstats(nucpath_suffstats_(*slave_m));
-
-    auto reduce_dsomss = master ? 
-        reduce_suffstats(dsom_suffstats_(*master_m)) : 
-        reduce_suffstats(dsom_suffstats_(*slave_m));
-        
     // broadcasting global parameters master -> slave
     auto broadcast_dsom = master ?
         broadcast(get<synrate,value>(*master_m), get<omega,value>(*master_m)) :
@@ -93,6 +84,15 @@ int compute(int argc, char* argv[]) {
     auto broadcast_nuc = master ?
         broadcast(get<nuc_rates,exch_rates,value>(*master_m), get<nuc_rates,eq_freq,value>(*master_m)) :
         broadcast(get<nucrr>(*slave_m), get<nucstat>(*slave_m));
+
+    auto reduce_dsomss = master ? 
+        reduce_suffstats(dsom_suffstats_(*master_m)) : 
+        reduce_suffstats(dsom_suffstats_(*slave_m));
+        
+    // reducing path suff stats slave -> master
+    auto reduce_nucss = master ? 
+        reduce_suffstats(nucpath_suffstats_(*master_m)) : 
+        reduce_suffstats(nucpath_suffstats_(*slave_m));
 
     // move success stats
     MoveStatsRegistry ms;
