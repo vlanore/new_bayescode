@@ -29,5 +29,25 @@ namespace tree_factory {
             }
         };
     }
+
+    template<class SuffStat, class Lambda>
+        static auto suffstat_logprob(Proxy<SuffStat>& suffstat, Lambda lambda)  {
+            return [&suffstat, lambda] () {return suffstat.get().GetLogProb(lambda());};
+        }
+
+    template<class SuffStat, class Lambda1, class Lambda2>
+        static auto suffstat_logprob(Proxy<SuffStat>& suffstat, Lambda1 lambda1, Lambda2 lambda2)   {
+            return [&suffstat, lambda1, lambda2] () {return suffstat.get().GetLogProb(lambda1(), lambda2());};
+        }
+
+    template<class SuffStat, class Lambda>
+        static auto suffstat_logprob(Proxy<SuffStat, size_t>& suffstat, Lambda lambda)  {
+            return [&suffstat, lambda] (size_t i) {return suffstat.get(i).GetLogProb(lambda(i));};
+        }
+
+    template<class SuffStat, class Lambda1, class Lambda2>
+        static auto suffstat_logprob(Proxy<SuffStat, size_t>& suffstat, Lambda1 lambda1, Lambda2 lambda2)   {
+            return [&suffstat, lambda1, lambda2] (size_t i) {return suffstat.get(i).GetLogProb(lambda1(i), lambda2(i));};
+        }
 };
 

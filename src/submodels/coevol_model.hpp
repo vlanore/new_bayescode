@@ -205,11 +205,18 @@ struct coevol {
     template<class Model, class Gen>
         static auto move_chrono(Model& model, Gen& gen) {
 
-            // update dS on branches around changing node
-            auto node_update = tree_factory::do_around_node(
-                    get<chrono,value>(model).get_tree(),
-                    array_element_gather(synrate_(model)));
+            const Tree& tree = get<chrono,value>(model).get_tree();
 
+            // update dS on branches around changing node
+            auto node_update = tree_factory::do_around_node(tree, array_element_gather(synrate_(model)));
+
+            // compute suffstat log prob for all branches around changing node
+            auto node_suffstat_logprob = tree_factory::sum_around_node(tree,
+                    tree_factory::suffstat_logprob(dsom_suffstats_(model),
+                                    n_to_n(get<synrate,value>(model)),
+                                    n_to_n(get<omega,value>(model))));
+
+            /*
             // log prob of substitution mappings on a given branch,
             // given dS and dN/dS on that branch
             auto branch_suffstat_logprob = 
@@ -217,11 +224,7 @@ struct coevol {
                 (int branch) {
                     return ss.get(branch).GetLogProb(ds[branch], om[branch]);
                 };
-
-            // compute suffstat log prob for all branches around changing node
-            auto node_suffstat_logprob = tree_factory::sum_around_node(
-                    get<chrono,value>(model).get_tree(),
-                    branch_suffstat_logprob);
+            */
 
             // should recompute new suffstat log prob, but also new brownian process log prob
             // locally around changing node
@@ -238,6 +241,8 @@ struct coevol {
     template<class Model, class Gen>
         static auto move_process(Model& model, Gen& gen) {
 
+            const Tree& tree = get<chrono,value>(model).get_tree();
+
             // update dS on given branch (for FilterMove)
             // auto synrate_branch_update = array_element_gather(synrate_(model));
 
@@ -245,24 +250,27 @@ struct coevol {
             // auto omega_branch_update = array_element_gather(omega_(model));
 
             // update dS on branches around changing node
-            auto synrate_node_update = tree_factory::do_around_node(
-                    get<chrono,value>(model).get_tree(),
+            auto synrate_node_update = tree_factory::do_around_node(tree, 
                     array_element_gather(synrate_(model)));
 
             // update dN/dS on branches around changing node
-            auto omega_node_update = tree_factory::do_around_node(
-                    get<chrono,value>(model).get_tree(),
+            auto omega_node_update = tree_factory::do_around_node(tree,
                     array_element_gather(omega_(model)));
 
-            // see above (move chrono)
+            // compute suffstat log probs around node
+            auto node_logprob = tree_factory::sum_around_node(tree,
+                    tree_factory::suffstat_logprob(dsom_suffstats_(model),
+                                    n_to_n(get<synrate,value>(model)),
+                                    n_to_n(get<omega,value>(model))));
+
+            /*
             auto branch_suffstat_logprob = 
                 [&ss = dsom_suffstats_(model), &ds = get<synrate,value>(model), &om = get<omega,value>(model)]
                 (int branch) {
                     return ss.get(branch).GetLogProb(ds[branch], om[branch]);
                 };
-
-            auto node_logprob = tree_factory::sum_around_node(
-                    get<chrono,value>(model).get_tree(), branch_suffstat_logprob);
+            auto node_logprob = tree_factory::sum_around_node(tree, branch_suffstat_logprob);
+            */
 
             auto no_update = [] (int node) {};
             auto no_logprob = [] (int node) {return 0;};
