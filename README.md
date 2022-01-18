@@ -22,8 +22,12 @@ This should create a folder called `bayescode` (the BayesCode root folder). You 
 cd bayescode
 ```
 
-Then, to build BayesCode simply run:
+Download git submodules
+```bash
+git submodule update --init --recursive
+```
 
+Then, to build BayesCode simply run:
 ```bash
 make
 ```
