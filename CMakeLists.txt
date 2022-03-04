@@ -55,6 +55,10 @@ set(BASE_LIBS
     global_lib
 )
 
+# mutseldp (mutseldp)
+add_executable(mutseldp "src/mutseldp.cpp")
+target_link_libraries(mutseldp ${BASE_LIBS})
+
 # clock_globom (clock_globom)
 add_executable(clock_globom "src/clock_globom.cpp")
 target_link_libraries(clock_globom ${BASE_LIBS})
