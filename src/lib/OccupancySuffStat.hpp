@@ -43,6 +43,17 @@ class OccupancySuffStat : public std::vector<size_t>    {
         }
     }
 
+    double GetLogProb(const std::vector<double>& weights) const {
+        assert(size() != weights.size());
+        double tot = 0;
+        for (size_t i=0; i<weights.size(); i++) {
+            if (at(i)) {
+                tot += at(i) * log(weights[i]);
+            }
+        }
+        return tot;
+    }
+
     bool operator==(const OccupancySuffStat& other) const {
         if (size() != other.size()) {
             return false;
