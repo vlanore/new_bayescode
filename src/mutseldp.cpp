@@ -1,4 +1,5 @@
-#include "submodels/mutseldp_model.hpp"
+#include "submodels/mutselg_model.hpp"
+// #include "submodels/mutseldp_model.hpp"
 #include "traceable_collection.hpp"
 
 int main(int argc, char* argv[]) {
@@ -14,7 +15,7 @@ int main(int argc, char* argv[]) {
     auto gen = make_generator();
 
     // model
-    auto model = mutseldp::make(data, 100, gen);
+    auto model = mutseldp::make(data, 100, 4, gen);
 
     // move success stats
     MoveStatsRegistry ms;
@@ -34,8 +35,10 @@ int main(int argc, char* argv[]) {
 
             site_path_suffstat_(model).gather();
             for (size_t mixrep=0; mixrep<mix_nrep; mixrep++)    {
+                mutseldp::resample_g_alloc(model, gen);
                 mutseldp::resample_aa_alloc(model, gen);
                 comp_path_suffstat_(model).gather();
+                mutseldp::move_g(model, gen);
                 mutseldp::move_mutseldp(model, gen);
             }
 
@@ -65,6 +68,7 @@ int main(int argc, char* argv[]) {
         trace_entry("lnL", [& model] () {return get<phyloprocess>(model).GetLogLikelihood();}),
         trace_entry("Keff", [& model] () {return mutseldp::get_Keff(model);}),
         trace_entry("omega", get<omega>(model)),
+        trace_entry("g_alpha", get<g_alpha>(model)),
         trace_entry("statent", [& model] () {return mutseldp::get_statent(model);}),
         trace_entry("statalpha", [& model] () {return mutseldp::get_statalpha(model);})
     );

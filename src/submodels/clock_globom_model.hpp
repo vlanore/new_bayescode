@@ -53,8 +53,8 @@ struct globom {
         // synonymous branch lengths
         auto branch_lengths = make_dnode_array<custom_dnode<double>>(data.tree->nb_branches(), 
             [&ch = get<value>(chrono), &r = get<value>(ds)] (int branch) {
-                return [&older = ch[ch.get_tree().get_older_node(branch)], &younger = ch[ch.get_tree().get_younger_node(branch)], &r] () {
-                    return r*(older-younger);
+                return [&older = ch[ch.get_tree().get_older_node(branch)], &younger = ch[ch.get_tree().get_younger_node(branch)], &r] (double& bl) {
+                    bl = r*(older-younger);
                 };
             });
         gather(branch_lengths);
