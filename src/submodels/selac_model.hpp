@@ -145,7 +145,7 @@ struct selac {
             n_to_n(get<bl_array, value>(branch_lengths)),
             n_to_const(1.0),
             [&m=get<value>(codon_submatrix_bidimarray), &y=get<value>(g_alloc), &z=get<value>(aa_alloc)] (int branch, int site) -> const SubMatrix& {return m[y[site]][z[site]];},
-            [&m=get<value>(codon_submatrix_bidimarray), &y=get<value>(g_alloc), &z=get<value>(aa_alloc)] (int site) -> const SubMatrix& {return m[y[site]][z[site]];},
+            [&m=get<value>(codon_submatrix_bidimarray), &y=get<value>(g_alloc), &z=get<value>(aa_alloc)] (int site) -> const std::vector<double>& {return m[y[site]][z[site]].eq_freqs();},
             nullptr);
 
         phyloprocess->Unfold();

@@ -59,9 +59,9 @@ set(BASE_LIBS
 add_executable(mutseldp "src/mutseldp.cpp")
 target_link_libraries(mutseldp ${BASE_LIBS})
 
-# clock_globom (clock_globom)
-add_executable(clock_globom "src/clock_globom.cpp")
-target_link_libraries(clock_globom ${BASE_LIBS})
+# selac (selac)
+add_executable(selac "src/selac.cpp")
+target_link_libraries(selac ${BASE_LIBS})
 
 # coevol (coevol)
 add_executable(coevol "src/coevol.cpp")
