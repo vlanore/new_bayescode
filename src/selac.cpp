@@ -1,4 +1,4 @@
-#include "submodels/selac_model.hpp"
+#include "submodels/grid_selac_model.hpp"
 #include "traceable_collection.hpp"
 
 int main(int argc, char* argv[]) {
@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
     auto gen = make_generator();
 
     // model
-    auto model = selac::make(data, 4, gen);
+    auto model = selac::make(data, 20, -5.0, 5.0, gen);
 
     // move success stats
     MoveStatsRegistry ms;
@@ -36,10 +36,12 @@ int main(int argc, char* argv[]) {
             for (size_t mixrep=0; mixrep<mix_nrep; mixrep++)    {
                 selac::resample_g_alloc(model, gen);
                 selac::resample_aa_alloc(model, gen);
-                comp_path_suffstat_(model).gather();
-                selac::move_selac(model, gen);
+                // comp_path_suffstat_(model).gather();
+                // selac::move_selac(model, gen);
+                selac::move_hyper_selac(model, gen);
             }
 
+            comp_path_suffstat_(model).gather();
             gather(codon_submatrix_bidimarray_(model));
             selac::move_omega(model, gen);
             gather(codon_submatrix_bidimarray_(model));
@@ -62,7 +64,8 @@ int main(int argc, char* argv[]) {
     auto trace = make_custom_tracer(cmd.chain_name() + ".trace",  //
         trace_entry("lnL", [& model] () {return get<phyloprocess>(model).GetLogLikelihood();}),
         trace_entry("omega", get<omega>(model)),
-        trace_entry("g_alpha", get<g_alpha>(model)),
+        trace_entry("g_var", get<g_var>(model)),
+        // trace_entry("g_alpha", get<g_alpha>(model)),
         trace_entry("psi", get<psi>(model)),
         trace_entry("wpol", get<wpol>(model)),
         trace_entry("wcom", get<wcom>(model))
