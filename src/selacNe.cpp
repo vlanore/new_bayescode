@@ -7,14 +7,29 @@ int main(int argc, char* argv[]) {
     InferenceAppArgParse args(cmd);
     cmd.parse();
 
-    // input data
-    auto data = prepare_data(args.alignment.getValue(), args.treefile.getValue());
+    // input tree
+    std::ifstream tis(args.treefile.getValue());
+    NHXParser parser(tis);
+    auto tree = make_from_parser(parser);
+    auto nuc_align = FileSequenceAlignment(args.alignment.getValue());
+    auto codon_align = CodonSequenceAlignment(&nuc_align);
+    auto cont_data = FileContinuousData(args.contdatafile.getValue());
+
+    std::ifstream is(args.rootfile.getValue());
+    size_t ncont;
+    is >> ncont;
+    auto root_mean = std::vector<double>(ncont,0);
+    auto root_var = std::vector<double>(ncont,0);
+    for (size_t i=0; i<ncont; i++)  {
+        is >> root_mean[i] >> root_var[i];
+        std::cerr << root_mean[i] << '\t' << root_var[i] << '\n';
+    }
 
     // random generator
-    auto gen = make_generator();
+    auto gen = make_generator(42);
 
     // model
-    auto model = selacNe::make(data, 4, gen);
+    auto model = selacNe::make(tree.get(), codon_align, cont_data, root_mean, root_var, 4, gen);
 
     // move success stats
     MoveStatsRegistry ms;
@@ -24,27 +39,9 @@ int main(int argc, char* argv[]) {
 
     // move schedule
     auto scheduler = make_move_scheduler([&gen, &model, &nrep, &mix_nrep]() {
-
         selacNe::resample_sub(model, gen);
-
         for (size_t rep = 0; rep < nrep; rep++) {
-
-            selacNe::move_bl(model, gen);
-
-            site_path_suffstat_(model).gather();
-
-            for (size_t mixrep=0; mixrep<mix_nrep; mixrep++)    {
-                selacNe::resample_g_alloc(model, gen);
-                selacNe::resample_aa_alloc(model, gen);
-
-                comp_path_suffstat_(model).gather();
-
-                selacNe::move_selac(model, gen);
-            }
-
-            selacNe::move_Ne(model, gen);
-            selacNe::move_omega(model, gen);
-            selacNe::move_nuc(model, gen);
+            selacNe::move_params(model, gen);
         }
     });
 
@@ -61,12 +58,14 @@ int main(int argc, char* argv[]) {
     // chain_driver.add(chain_checkpoint);
     auto trace = make_custom_tracer(cmd.chain_name() + ".trace",  //
         trace_entry("lnL", [& model] () {return get<phyloprocess>(model).GetLogLikelihood();}),
-        trace_entry("tl", [& model] () {return selacNe::get_total_length(model);}),
-        trace_entry("meanNe", [& model] () {return selacNe::get_mean_Ne(model);}),
-        trace_entry("varNe", [& model] () {return selacNe::get_var_Ne(model);}),
-        trace_entry("omega", get<omega>(model)),
+        trace_entry("ds", [& model] () {return selacNe::get_total_ds(model);}),
+        trace_entry("meanne", [& model] () {return selacNe::get_mean_Ne(model);}),
+        trace_entry("rootne", get<rootNe>(model)),
+        trace_entry("sigma01", [& model] () {return get<sigma,value>(model)[0][1];}),
+        trace_entry("sigma02", [& model] () {return get<sigma,value>(model)[0][2];}),
+        trace_entry("sigma12", [& model] () {return get<sigma,value>(model)[1][2];}),
         trace_entry("g_alpha", get<g_alpha>(model)),
-        trace_entry("psi", get<psi>(model)),
+        // trace_entry("psi", get<psi>(model)),
         trace_entry("wpol", get<wpol>(model)),
         trace_entry("wcom", get<wcom>(model))
     );

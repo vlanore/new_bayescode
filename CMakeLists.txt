@@ -63,6 +63,10 @@ target_link_libraries(mutseldp ${BASE_LIBS})
 add_executable(selac "src/selac.cpp")
 target_link_libraries(selac ${BASE_LIBS})
 
+# selacNe (selacNe)
+add_executable(selacNe "src/selacNe.cpp")
+target_link_libraries(selacNe ${BASE_LIBS})
+
 # coevol (coevol)
 add_executable(coevol "src/coevol.cpp")
 target_link_libraries(coevol ${BASE_LIBS})

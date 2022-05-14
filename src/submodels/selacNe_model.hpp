@@ -27,7 +27,19 @@
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
 
-TOKEN(branch_lengths)
+#include "tree_factory.hpp"
+#include "chronogram.hpp"
+#include "lib/MultivariateBrownianTreeProcess.hpp"
+#include "submodels/mgomega.hpp"
+#include "submodels/invwishart.hpp"
+#include "branch_map.hpp"
+
+TOKEN(chronotree)
+TOKEN(sigma)
+TOKEN(brownian_process)
+TOKEN(synrate)
+TOKEN(branchNe)
+TOKEN(rootNe)
 TOKEN(kappa)
 TOKEN(gc)
 TOKEN(nuc_matrix)
@@ -39,7 +51,6 @@ TOKEN(psi)
 TOKEN(g_alpha)
 TOKEN(g)
 TOKEN(profiles)
-TOKEN(Ne_invshape)
 TOKEN(branch_Ne)
 TOKEN(omega)
 TOKEN(g_weights)
@@ -51,22 +62,62 @@ TOKEN(phyloprocess)
 TOKEN(bl_suffstat)
 TOKEN(site_path_suffstat)
 TOKEN(comp_path_suffstat)
-TOKEN(omega_suffstat)
 TOKEN(nucpath_suffstat)
 TOKEN(aa_alloc_suffstat)
+TOKEN(covmat_suffstat)
 
 struct selacNe {
 
-    template <class Gen>
-    static auto make(PreparedData& data, size_t ncat, Gen& gen) {
+    template <class RootMean, class RootVar, class Gen>
+    static auto make(const Tree* tree, const CodonSequenceAlignment& codon_data, const ContinuousData& cont_data, RootMean inroot_mean, RootVar inroot_var, int ncat, Gen& gen) {
 
-        size_t nsite = data.alignment.GetNsite();
-        size_t nnode = data.parser.get_tree().nb_nodes();
-        size_t nbranch = nnode - 1;
+        // number of quantitative traits
+        size_t ncont = cont_data.GetNsite();
 
-        // bl : iid gamma across sites, with constant hyperparams
-        auto branch_lengths =
-            branchlengths_sm::make(data.parser, *data.tree, 0.1, 1.0, gen);
+        // number of nodes and branches in tree
+        size_t nnode = tree->nb_nodes();
+        // size_t nbranch = nnode-1;
+
+        size_t nsite = codon_data.GetNsite();
+
+        // chronogram - relative dates (root has age 1, i.e. tree has depth 1)
+        auto chronotree = make_node_with_init<chronogram>({tree});
+        draw(chronotree, gen);
+
+        // covariance matrix; dim = 2 + ncont (dS, dN/dS, traits)
+        auto sigma = make_node_with_init<invwishart>(
+                {2 + ncont, 0},
+                std::vector<double>(2 + ncont, 1.0));
+        draw(sigma, gen);
+
+        // mean and variance for normal prior for brownian process at the root
+        // (dim: 2 + ncont)
+        auto root_mean = make_param<std::vector<double>>(std::forward<RootMean>(inroot_mean));
+        auto root_var = make_param<std::vector<double>>(std::forward<RootVar>(inroot_var));
+        // brownian process
+        auto brownian_process = make_brownian_tree_process(
+                tree,
+                [&ch = get<value>(chronotree)] (int node) -> const double& {return ch[node];},
+                one_to_one(get<value>(sigma)),
+                root_mean,
+                root_var);
+
+        // fix brownian process to observed trait values in extant species
+        for (size_t i=0; i<ncont; i++)  {
+            // first index maps to brownian process, second index maps to continuous data
+            brownian_process->SetAndClamp(cont_data, i+2, i);
+        }
+        // not drawing from brownian process prior
+        brownian_process->PseudoSample(0.1);
+        
+        auto synrate = branch_map::make_branch_sums(get<value>(chronotree), *brownian_process, 0);
+        gather(synrate);
+
+        auto branchNe = branch_map::make_branch_means(get<value>(chronotree), *brownian_process, 1);
+        gather(branchNe);
+
+        auto rootNe = make_node<gamma_mi>(one_to_const(1.0), one_to_const(1.0));
+        raw_value(rootNe) = 1.0;
 
         // T92 process
         auto kappa = make_node<gamma_mi>(one_to_const(1.0), one_to_const(1.0));
@@ -92,19 +143,14 @@ struct selacNe {
         // expression level
         auto psi = make_node<gamma_mi>(one_to_const(10.0), one_to_const(1.0));
         draw(psi, gen);
-        get<value>(psi) = 0.5;
+        get<value>(psi) = 1.0;
+        // get<value>(psi) = 0.5;
 
         // discretized gamma (g) for stringency across sites, of shape g_alpha
         auto g_alpha = make_node<gamma_mi>(one_to_const(1.0), one_to_const(1.0));
         draw(g_alpha, gen);
         auto g = make_dnode_with_init<discrete_gamma>(std::vector<double>(ncat,1.0), one_to_one(g_alpha));
         gather(g);
-
-        // Ne
-        auto Ne_invshape = make_node<gamma_mi>(one_to_const(1.0), one_to_const(1.0));
-        get<value>(Ne_invshape) = 0.1;
-        auto branch_Ne = make_node_array<gamma_mi>(nbranch, n_to_const(1.0), n_to_one(Ne_invshape));
-        draw(branch_Ne, gen);
 
         // amino-acid fitness profiles for each g*psi and each possible preferred amino-acid
         auto profiles = make_dnode_array_with_init<selac_profilearray>(
@@ -114,25 +160,21 @@ struct selacNe {
                 [&ppsi = get<value>(psi), &gg = get<value>(g)] (int i) {return ppsi*gg[i];});
         gather(profiles);
 
-        // global omega modulator
-        auto omega = make_node<gamma_mi>(one_to_const(1.0), one_to_const(1.0));
-        draw(omega, gen);
-        get<value>(omega) = 1.0;
-
         // a ncat x Naa bidim array of mutsel omega codon matrices
         auto codon_statespace =
-            dynamic_cast<const CodonStateSpace*>(data.alignment.GetStateSpace());
+            dynamic_cast<const CodonStateSpace*>(codon_data.GetStateSpace());
 
         std::vector<double> default_aa(Naa,1.0);
+
         auto codon_matrices = make_dnode_cubix_with_init<mutselomega>(
                 nnode,
                 ncat,
                 Naa,
                 {codon_statespace, (SubMatrix*) &get<value>(nuc_matrix), default_aa, 1.0, 1.0, false},
-                [&mat = get<value>(nuc_matrix)] (int branch, int cat, int aa) -> const SubMatrix& {return mat;},
+                [&mat = get<value>(nuc_matrix)] (int node, int cat, int aa) -> const SubMatrix& {return mat;},
                 [&pr = get<value>(profiles)] (int node, int cat, int aa) {return pr[cat][aa];},
-                [&om = get<value>(omega)] (int node, int cat, int aa) {return om;},
-                [&Ne = get<value>(branch_Ne)] (int node, int cat, int aa) {return node? Ne[node-1] : 1.0;}
+                [] (int node, int cat, int aa) {return 1.0;},
+                [&rootne=get<value>(rootNe), &Ne=get<value>(branchNe)] (int node, int cat, int aa) {return node ? Ne[node-1] : rootne;}
                 );
         gather(codon_matrices);
 
@@ -152,20 +194,18 @@ struct selacNe {
         draw(aa_alloc, gen);
 
         // phyloprocess
-        auto phyloprocess = std::make_unique<PhyloProcess>(data.tree.get(), &data.alignment,
-            n_to_n(get<bl_array, value>(branch_lengths)),
+        auto phyloprocess = std::make_unique<PhyloProcess>(tree, &codon_data,
+            n_to_n(synrate),
             n_to_const(1.0),
             [&m=get<value>(codon_matrices), &y=get<value>(g_alloc), &z=get<value>(aa_alloc)] (int branch, int site) -> const SubMatrix& {return m[branch+1][y[site]][z[site]];},
-            [&m=get<value>(codon_matrices), &y=get<value>(g_alloc), &z=get<value>(aa_alloc)] (int site) -> const SubMatrix& {return m[0][y[site]][z[site]];},
+            [&m=get<value>(codon_matrices), &y=get<value>(g_alloc), &z=get<value>(aa_alloc)] (int site) -> const std::vector<double>& {return m[0][y[site]][z[site]].eq_freqs();},
             nullptr);
 
         phyloprocess->Unfold();
         std::cerr << "lnl : " << phyloprocess->GetLogLikelihood() << '\n';
 
-        // branch lengths suff stats
         auto bl_suffstat = pathss_factory::make_bl_suffstat(*phyloprocess);
 
-        // site path suff stats
         auto site_path_ss = pathss_factory::make_site_node_path_suffstat(*phyloprocess);
 
         auto comp_path_ss = ss_factory::make_suffstat_cubix<PathSuffStat>(
@@ -178,23 +218,27 @@ struct selacNe {
             },
             nsite,nnode);
 
-        // alloction suff stat (= current occupancies of mixture components)
-        // useful for resampling mixture weigths
-        auto aa_alloc_ss = mixss_factory::make_alloc_suffstat(Naa, get<value>(aa_alloc));
-
-        // omega suff stats (reduced across components)
-        auto omega_ss = ss_factory::make_suffstat<OmegaPathSuffStat>(
-            [&mat=get<value>(codon_matrices), &pss=*comp_path_ss] (auto& omss, int node, int cat, int aa) { omss.AddSuffStat(mat[node][cat][aa], pss.get(node,cat,aa)); },
-            nnode, ncat, Naa);
-
         // nuc path suff stats (reduced across components)
         auto nucpath_ss = ss_factory::make_suffstat_with_init<NucPathSuffStat>(
             {*codon_statespace},
             [&mat=get<value>(codon_matrices), &pss=*comp_path_ss] (auto& nucss, int node, int cat, int aa) { nucss.AddSuffStat(mat[node][cat][aa], pss.get(node,cat,aa)); },
             nnode, ncat, Naa);
 
+        // suffstats (branchwise independent contrasts of brownian process) for updating sigma
+        auto covmat_ss = ss_factory::make_suffstat_with_init<MultivariateNormalSuffStat>({ncont+2},
+                [&process = *brownian_process] (auto& ss) { ss.AddSuffStat(process); });
+
+        // alloction suff stat (= current occupancies of mixture components)
+        // useful for resampling mixture weigths
+        auto aa_alloc_ss = mixss_factory::make_alloc_suffstat(Naa, get<value>(aa_alloc));
+
         return make_model(
-            branch_lengths_ = move(branch_lengths),
+            chronotree_ = move(chronotree),
+            sigma_ = move(sigma),
+            brownian_process_ = move(brownian_process),
+            synrate_ = move(synrate),
+            branchNe_ = move(branchNe),
+            rootNe_ = move(rootNe),
             kappa_ = move(kappa),
             gc_ = move(gc),
             nuc_matrix_ = move(nuc_matrix),
@@ -206,9 +250,6 @@ struct selacNe {
             g_alpha_ = move(g_alpha),
             g_ = move(g),
             profiles_ = move(profiles),
-            Ne_invshape_ = move(Ne_invshape),
-            branch_Ne_ = move(branch_Ne),
-            omega_ = move(omega),
             g_weights_ = move(g_weights),
             g_alloc_ = move(g_alloc),
             aa_weights_ = move(aa_weights),
@@ -218,9 +259,9 @@ struct selacNe {
             bl_suffstat_ = move(bl_suffstat),
             site_path_suffstat_ = move(site_path_ss),
             comp_path_suffstat_ = move(comp_path_ss),
-            omega_suffstat_ = move(omega_ss),
             nucpath_suffstat_ = move(nucpath_ss),
-            aa_alloc_suffstat_ = move(aa_alloc_ss));
+            aa_alloc_suffstat_ = move(aa_alloc_ss),
+            covmat_suffstat_ = move(covmat_ss));
     }
 
     template<class Model>
@@ -239,12 +280,6 @@ struct selacNe {
     template<class Model, class Gen>
         static auto resample_sub(Model& model, Gen& gen)    {
             phyloprocess_(model).Move(1.0);
-        }
-
-    template<class Model, class Gen>
-        static auto move_bl(Model& model, Gen& gen) {
-            bl_suffstat_(model).gather();
-            branchlengths_sm::gibbs_resample(branch_lengths_(model), bl_suffstat_(model), gen);
         }
 
     template<class Model, class Gen>
@@ -295,23 +330,6 @@ struct selacNe {
         }
 
     template<class Model, class Gen>
-        static auto move_omega(Model& model, Gen& gen)  {
-            omega_suffstat_(model).gather();
-            gibbs_resample(omega_(model), omega_suffstat_(model), gen);
-            gather(codon_matrices_(model));
-        }
-
-    template<class Model, class Gen>
-        static auto move_Ne(Model& model, Gen& gen) {
-            auto Ne_update = cubix_slice011_gather(codon_matrices_(model));
-            auto Ne_logprob = suffstat_cubix_slice011_logprob(codon_matrices_(model), comp_path_suffstat_(model));
-            scaling_move(branch_Ne_(model), Ne_logprob, 1, 10, gen, Ne_update);
-            scaling_move(branch_Ne_(model), Ne_logprob, 0.3, 10, gen, Ne_update);
-        }
-
-    // should add psi / Ne compensatory move
-
-    template<class Model, class Gen>
         static auto move_selac(Model& model, Gen& gen) {
             auto selac_logprob = suffstat_logprob(codon_matrices_(model), comp_path_suffstat_(model));
 
@@ -331,42 +349,180 @@ struct selacNe {
             scaling_move(wpol_(model), selac_logprob, 1, 10, gen, w_update);
             scaling_move(wpol_(model), selac_logprob, 0.3, 10, gen, w_update);
 
+            /*
             auto psi_update = [&model] () {
                 gather(aadist_(model)); 
                 gather(profiles_(model));
                 gather(codon_matrices_(model));};
             scaling_move(psi_(model), selac_logprob, 1, 10, gen, psi_update);
             scaling_move(psi_(model), selac_logprob, 0.3, 10, gen, psi_update);
+            */
+        }
+
+    template<class Model, class Gen>
+        static auto move_chrono(Model& model, Gen& gen) {
+
+            const Tree& tree = get<chronotree,value>(model).get_tree();
+
+            auto node_update = tree_factory::do_around_node(tree, array_element_gather(synrate_(model)));
+            auto node_suffstat_logprob = tree_factory::sum_around_node(tree,
+                    tree_factory::suffstat_logprob(bl_suffstat_(model),
+                        n_to_n(get<synrate,value>(model))));
+
+            auto node_logprob =
+                [&process = brownian_process_(model), node_suffstat_logprob] (int node) {
+                    return process.GetNodeLogProb(node) + node_suffstat_logprob(node);
+                };
+
+            get<chronotree,value>(model).MoveTimes(node_update, node_logprob);
+        }
+
+    template<class Model, class Gen>
+        static auto move_synrate(Model& model, Gen& gen) {
+
+            const Tree& tree = get<chronotree,value>(model).get_tree();
+
+            auto synrate_node_update = tree_factory::do_around_node(tree, 
+                    array_element_gather(synrate_(model)));
+
+            auto synrate_node_logprob = tree_factory::sum_around_node(tree,
+                    tree_factory::suffstat_logprob(bl_suffstat_(model),
+                        n_to_n(get<synrate,value>(model))));
+
+            brownian_process_(model).SingleNodeMove(0, 1.0, synrate_node_update, synrate_node_logprob);
+            brownian_process_(model).SingleNodeMove(0, 0.3, synrate_node_update, synrate_node_logprob);
+        }
+
+    template<class Model, class Gen>
+        static auto move_rootNe(Model& model, Gen& gen) {
+
+            auto Ne_update = [&model] () {
+                auto rootmats = subsets::slice011(codon_matrices_(model), 0);
+                gather(rootmats);
+            };
+
+            auto Ne_logprob = 
+                [&ss = comp_path_suffstat_(model), &mat = get<codon_matrices,value>(model)] ()  {
+                size_t node = 0;
+                double tot = 0;
+                for (size_t cat=0; cat<mat[node].size(); cat++) {
+                    for (size_t aa=0; aa<mat[node][0].size(); aa++) {
+                        tot += ss.get(node,cat,aa).GetLogProb(mat[node][cat][aa]);
+                    }
+                }
+                return tot;
+            };
+
+            scaling_move(rootNe_(model), Ne_logprob, 0.3, 10, gen, Ne_update);
+        }
+
+    template<class Model, class Gen>
+        static auto move_Ne(Model& model, Gen& gen) {
+
+            const Tree& tree = get<chronotree,value>(model).get_tree();
+
+            auto Ne_node_update = tree_factory::do_around_node(tree,
+                    [&model] (int branch)   {
+                        auto branchne = subsets::element(branchNe_(model), branch);
+                        gather(branchne);
+                        auto branchmats = subsets::slice011(codon_matrices_(model), branch+1);
+                        gather(branchmats);
+                    });
+
+            auto Ne_branch_logprob = 
+                [&ss = comp_path_suffstat_(model), &mat = get<codon_matrices,value>(model)]
+                (size_t branch) {
+                    size_t node = branch+1;
+                    double tot = 0;
+                    for (size_t cat=0; cat<mat[node].size(); cat++) {
+                        for (size_t aa=0; aa<mat[node][0].size(); aa++) {
+                            tot += ss.get(node,cat,aa).GetLogProb(mat[node][cat][aa]);
+                        }
+                    }
+                    return tot;
+                };
+
+            auto Ne_node_logprob = tree_factory::sum_around_node(tree,Ne_branch_logprob);
+                    // tree_factory::suffstat_logprob(comp_path_suffstat_(model), 
+                    //                 n_to_n(get<codon_matrices,value>(model))));
+
+            brownian_process_(model).SingleNodeMove(1, 1.0, Ne_node_update, Ne_node_logprob);
+            brownian_process_(model).SingleNodeMove(1, 0.3, Ne_node_update, Ne_node_logprob);
+        }
+
+    template<class Model, class Gen>
+        static auto move_traits(Model& model, Gen& gen) {
+
+            auto no_update = [] (int node) {};
+            auto no_logprob = [] (int node) {return 0;};
+
+            size_t dim = get<sigma,value>(model).size();
+
+            for (size_t i=2; i<dim; i++) {
+                brownian_process_(model).SingleNodeMove(i, 1.0, no_update, no_logprob);
+                brownian_process_(model).SingleNodeMove(i, 0.3, no_update, no_logprob);
+            }
+        }
+
+    template<class Model, class Gen>
+        static auto move_sigma(Model& model, Gen& gen)  {
+            covmat_suffstat_(model).gather();
+            gibbs_resample(sigma_(model), covmat_suffstat_(model), gen);
+        }
+
+    template<class Model, class Gen>
+        static auto move_params(Model& model, Gen& gen) {
+
+            bl_suffstat_(model).gather();
+            std::cerr << "move chrono\n";
+            selacNe::move_chrono(model, gen);
+            std::cerr << "move synrate\n";
+            selacNe::move_synrate(model, gen);
+
+            site_path_suffstat_(model).gather();
+
+            std::cerr << "resample alloc\n";
+            selacNe::resample_g_alloc(model, gen);
+            selacNe::resample_aa_alloc(model, gen);
+
+            comp_path_suffstat_(model).gather();
+
+            std::cerr << "move Ne\n";
+            selacNe::move_Ne(model, gen);
+            std::cerr << "move traits\n";
+            selacNe::move_traits(model, gen);
+
+            std::cerr << "move sigma\n";
+            selacNe::move_sigma(model, gen);
+
+            std::cerr << "move root Ne\n";
+            selacNe::move_rootNe(model, gen);
+
+            std::cerr << "move selac\n";
+            selacNe::move_selac(model, gen);
+            std::cerr << "move nuc\n";
+            selacNe::move_nuc(model, gen);
+            std::cerr << "move ok\n";
+        }
+
+    template<class Model>
+        static auto get_total_ds(Model& model)  {
+            auto& ds = get<synrate,value>(model);
+            double tot = 0;
+            for (size_t b=0; b<ds.size(); b++)   {
+                tot += ds[b];
+            }
+            return tot;
         }
 
     template<class Model>
         static auto get_mean_Ne(Model& model)  {
-            auto& v = get<branch_Ne, value>(model);
-            double m1 = 0;
-            for (auto& ne:v)   {
-                m1 += ne;
+            auto& branchne = get<branchNe,value>(model);
+            double tot = 0;
+            for (size_t b=0; b<branchne.size(); b++)   {
+                tot += branchne[b];
             }
-            m1 /= v.size();
-            return m1;
-        }
-
-    template<class Model>
-        static auto get_var_Ne(Model& model)  {
-            auto& v = get<branch_Ne, value>(model);
-            double m1 = 0;
-            double m2 = 0;
-            for (auto& ne:v)   {
-                m1 += ne;
-                m2 += ne*ne;
-            }
-            m1 /= v.size();
-            m2 /= v.size();
-            m2 -= m1*m1;
-            return m2;
-        }
-
-    template<class Model>
-        static auto get_total_length(Model& model)  {
-            return branchlengths_sm::get_total_length(get<branch_lengths>(model));
+            tot /= branchne.size();
+            return tot;
         }
 };

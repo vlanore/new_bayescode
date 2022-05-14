@@ -14,7 +14,7 @@ struct chronogram    {
         x.Sample();
     }
 
-    static real logprob(const T& x) {
+    static double logprob(const T& x) {
         return 0;
     }
 };

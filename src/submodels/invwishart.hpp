@@ -13,7 +13,7 @@ struct invwishart {
         x.Sample(kappa);
     }
 
-    static real logprob(const T& x, const std::vector<double>& kappa)   {
+    static double logprob(const T& x, const std::vector<double>& kappa)   {
         return x.GetLogProb(kappa);
     }
 
