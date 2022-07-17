@@ -45,11 +45,11 @@ class PoissonSuffStat {
 
     void IncrementCount() { count++; }
 
-    void AddCount(int in) { count += in; }
+    void AddCount(double in) { count += in; }
 
     void AddBeta(double in) { beta += in; }
 
-    void AddSuffStat(int incount, double inbeta) {
+    void AddSuffStat(double incount, double inbeta) {
         count += incount;
         beta += inbeta;
     }
@@ -70,7 +70,7 @@ class PoissonSuffStat {
     //! read structure from generic input stream
     void FromStream(std::istream &is) { is >> count >> beta; }
 
-    int GetCount() const { return count; }
+    double GetCount() const { return count; }
 
     double GetBeta() const { return beta; }
 
@@ -93,7 +93,7 @@ class PoissonSuffStat {
     }
 
     // protected:
-    int count;
+    double count;
     double beta;
 
     bool operator==(const PoissonSuffStat& other) const {
