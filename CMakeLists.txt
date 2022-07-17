@@ -55,9 +55,9 @@ set(BASE_LIBS
     global_lib
 )
 
-# brownian_clock_globom (brownian_clock_globom)
-add_executable(brownian_clock_globom "src/brownian_clock_globom.cpp")
-target_link_libraries(brownian_clock_globom ${BASE_LIBS})
+# mapping_brownian_clock_globom (mapping_brownian_clock_globom)
+add_executable(mapping_brownian_clock_globom "src/mapping_brownian_clock_globom.cpp")
+target_link_libraries(mapping_brownian_clock_globom ${BASE_LIBS})
 
 # mutseldp (mutseldp)
 add_executable(mutseldp "src/mutseldp.cpp")

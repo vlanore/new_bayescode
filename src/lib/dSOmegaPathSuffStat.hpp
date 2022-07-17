@@ -227,3 +227,5 @@ class dSOmegaPathSuffStat {
 };
 
 template <> struct has_custom_serialization<dSOmegaPathSuffStat> : std::true_type {};
+
+
