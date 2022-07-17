@@ -4,7 +4,7 @@
 
 int main(int argc, char* argv[]) {
     // parsing command-line arguments
-    ChainCmdLine cmd{argc, argv, "SingleOmega", ' ', "0.1"};
+    ChainCmdLine cmd{argc, argv, "SelAC", ' ', "0.1"};
     InferenceAppArgParse args(cmd);
     cmd.parse();
 

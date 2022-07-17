@@ -21,8 +21,8 @@ int compute(int argc, char* argv[]) {
     auto size = MPI::p->size;  // ... and size
     const auto master = !rank;
 
-    ChainCmdLine cmd{argc, argv, "SingleOmega", ' ', "0.1"};
-    InferenceAppArgParse args(cmd);
+    ChainCmdLine cmd{argc, argv, "MultiGeneCoevol", ' ', "0.1"};
+    CoevolInferenceAppArgParse args(cmd);
     cmd.parse();
 
     std::string datafile = args.alignment.getValue();
