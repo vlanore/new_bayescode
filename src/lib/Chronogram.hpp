@@ -42,6 +42,14 @@ class Chronogram : public custom_tracer {
     Tree::NodeIndex GetRoot() const { return tree->root(); }
     int GetNnode() const { return tree->nb_nodes(); }
 
+    double GetTotalTime() const {
+        double tot = 0;
+        for (size_t c=1; c<tree->nb_nodes(); c++)   {
+            tot += node_ages[tree->parent(c)] - node_ages[c];
+        }
+        return tot;
+    }
+
     private:
 
     double RecursiveSample(Tree::NodeIndex from)  {
@@ -61,7 +69,7 @@ class Chronogram : public custom_tracer {
     }
 
     void Rescale(double f)  {
-        for (auto a : node_ages)    {
+        for (auto& a : node_ages)    {
             a *= f;
         }
     }

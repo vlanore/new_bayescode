@@ -222,4 +222,9 @@ struct brownian_clock_globom {
             }
             return tot;
         }
+
+    template<class Model>
+        static auto get_total_time(Model& model)  {
+            return get<chrono,value>(model).GetTotalTime();
+        }
 };

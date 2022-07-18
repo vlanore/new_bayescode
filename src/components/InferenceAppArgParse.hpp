@@ -18,8 +18,9 @@ class InferenceAppArgParse : public BaseArgParse {
 class MappingInferenceAppArgParse : public BaseArgParse {
   public:
     MappingInferenceAppArgParse(ChainCmdLine &cmd) : BaseArgParse(cmd) {}
-    ValueArg<std::string> alignment{
-        "t", "suffstats", "ds omega suffstats (newick)", true, "", "string", cmd};
+    ValueArg<std::string> suffstats{
+        "s", "suffstats", "ds omega suffstats (newick)", true, "", "string", cmd};
+    ValueArg<std::string> treefile{"t", "tree", "Tree file (NHX)", true, "", "string", cmd};
     ValueArg<int> every{
         "e", "every", "Number of iterations between two traces", false, 1, "int", cmd};
     ValueArg<int> until{"u", "until", "Maximum number of (saved) iterations (-1 means unlimited)",

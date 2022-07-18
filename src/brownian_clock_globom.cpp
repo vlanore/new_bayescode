@@ -38,6 +38,7 @@ int main(int argc, char* argv[]) {
     auto trace = make_custom_tracer(cmd.chain_name() + ".trace",
         trace_entry("lnL", [& model] () {return get<phyloprocess>(model).GetLogLikelihood();}),
         trace_entry("tl", [& model] () {return brownian_clock_globom::get_total_ds(model);}),
+        trace_entry("chrono", [& model] () {return brownian_clock_globom::get_total_time(model);}),
         trace_entry("om", get<global_omega>(model)), 
         trace_entry("tau", get<tau>(model)));
 

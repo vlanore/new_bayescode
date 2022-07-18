@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <sstream>
 #include "components/ChainCheckpoint.hpp"
 #include "components/ChainDriver.hpp"
 #include "components/ConsoleLogger.hpp"
@@ -22,6 +23,7 @@
 #include "tree_factory.hpp"
 #include "lib/UnivariateBrownianTreeProcess.hpp"
 #include "univariate_branch_map.hpp"
+#include "tree/newick_output.hpp"
 
 TOKEN(global_omega)
 TOKEN(chrono)
@@ -53,8 +55,8 @@ struct brownian_clock_globom {
         auto tau= make_node<gamma_mi>(1.0, 1.0);
         draw(tau, gen);
 
-        auto root_mean = -3;
-        auto root_var = 2;
+        auto root_mean = 0;
+        auto root_var = 4;
 
         auto brownian_process = make_brownian_tree_process(
                 tree,
@@ -158,22 +160,23 @@ struct brownian_clock_globom {
         }
 
     template<class Model, class Gen>
-        static auto move_tau(Model& model, Gen& gen)  {
-            tau_suffstats_(model).gather();
-            gibbs_resample(tau_(model), tau_suffstats_(model), gen);
-        }
-
-    template<class Model, class Gen>
         static auto move_params(Model& model, Gen& gen) {
             // move branch times and rates
             move_chrono(model, gen);
             move_ds(model, gen);
 
             // move variance parameter of Brownian process
-            move_tau(model, gen);
+            tau_suffstats_(model).gather();
+            // gibbs_resample(tau_(model), tau_suffstats_(model), gen);
 
+            // move omega
             omegapath_suffstats_(model).gather();
             gibbs_resample(global_omega_(model), omegapath_suffstats_(model), gen);
+        }
+
+    template<class Model>
+        static auto get_total_time(Model& model)  {
+            return get<chrono,value>(model).GetTotalTime();
         }
 
     template<class Model>
@@ -184,5 +187,20 @@ struct brownian_clock_globom {
                 tot += bl[b];
             }
             return tot;
+        }
+
+    template<class Model>
+        static std::string get_annotated_tree(Model& model) {
+            const Tree& tree = get<chrono,value>(model).get_tree();
+            auto branchlength = [&ch = get<chrono,value>(model), &t=tree] (int branch) {
+                return ch[t.get_older_node(branch)] - ch[t.get_younger_node(branch)];
+            };
+            auto nodeval = [&br = get<brownian_process>(model)] (int node) {
+                // return br[node];
+                return exp(br[node]);
+            };
+            std::stringstream s;
+            newick_output::print(s, &tree, nodeval, branchlength);
+            return s.str();
         }
 };
