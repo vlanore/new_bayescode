@@ -3,6 +3,8 @@
 #include <set>
 #include <string>
 
+struct tree_field {};
+
 class Tree {
   public:
     using NodeIndex = int;  // guaranteed to be [0... nb_nodes() - 1] U {no_parent}
