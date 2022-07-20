@@ -24,93 +24,79 @@
 #include "lib/UnivariateBrownianTreeProcess.hpp"
 #include "univariate_branch_map.hpp"
 #include "tree/newick_output.hpp"
+#include "tree_process_move.hpp"
 
 TOKEN(global_omega)
 TOKEN(chrono)
 TOKEN(tau)
-TOKEN(brownian_process)
+TOKEN(log_synrate)
 TOKEN(synrate)
 TOKEN(dsom_suffstats)
 TOKEN(omegapath_suffstats)
 TOKEN(tau_suffstats)
 
 
-static auto make_brownian_tree_process(const Tree* intree, std::function<const double& (int)> innode_age, std::function<double ()> intau, std::function<double ()> inrootmean, std::function<double ()> inrootvar)  {
-    return std::make_unique<UnivariateBrownianTreeProcess>(intree, innode_age, intau, inrootmean, inrootvar);
-}
-
 struct brownian_clock_globom {
 
     template <class Gen>
     static auto make(const Tree* tree, std::vector<std::vector<double>>& suffstat, Gen& gen)  {
 
-        size_t nbranch = tree->nb_nodes() - 1;
-
+        // uniform prior over divergence times
         // relative dates (root has age 1, i.e. tree has depth 1)
         auto chrono = make_node_with_init<chronogram>({tree});
         draw(chrono, gen);
 
-        // strict clock
-        // absolute synonymous substitution rate (per tree depth)
-        auto tau= make_node<gamma_mi>(1.0, 1.0);
+        // precision (inverse variance) per time unit
+        auto tau = make_node<gamma_mi>(1.0, 1.0);
         draw(tau, gen);
 
+        // normal dist for root value
         auto root_mean = 0;
         auto root_var = 4;
 
-        auto brownian_process = make_brownian_tree_process(
-                tree,
-                [&ch = get<value>(chrono)] (int node) -> const double& {return ch[node];},
+        // geometric brownian subst rates
+        auto log_synrate = make_node_tree_process<univariate_brownian>(
+                *tree, 
+                time_frame(get<value>(chrono)), 
                 one_to_one(tau),
                 one_to_one(root_mean),
                 one_to_one(root_var));
+        draw(log_synrate, gen);
 
-        brownian_process->PseudoSample(0.1);
-
-        auto synrate = branch_map::make_branch_sums(get<value>(chrono), *brownian_process);
+        // branchwise sums of exp
+        auto synrate = branch_map::make_branch_sums(
+                get<value>(chrono), 
+                get<value>(log_synrate));
         gather(synrate);
 
         // global dN/dS uniform across sites and branches
         auto global_omega = make_node<gamma_mi>(1.0, 1.0);
         draw(global_omega, gen);
 
-        // dsom_ss 
-        // Ms ~ Poisson(dS_norm * ds)
-        // Mn ~ Poisson(dN_norm * ds * om) ~ om^Mn * exp(-dN_norm*ds * om)
-        // om_suffstat: (sum_j Mn_j, sum_j ds_j * dN_norm_j)
+        // mapping suffstats for dS and dN
+        auto dsom_ss = pathss_factory::make_dsom_suffstat_from_mappings(suffstat);
 
-        auto dsom_ss = ss_factory::make_suffstat_array<dSOmegaPathSuffStat>(
-                nbranch, 
-                [&suffstat, &nbranch] (auto& omss) {
-                    for (size_t branch=0; branch<nbranch; branch++) {
-                        omss[branch].Add(suffstat[0][branch], suffstat[1][branch], suffstat[2][branch], suffstat[3][branch]);
-                    }
-                
-                });
+        // collapse dS dN mapping branch suffstats into one single suffstat for global omega
+        auto omega_ss = pathss_factory::make_omega_suffstat(
+                n_to_n(get<value>(synrate)),
+                *dsom_ss);
 
-        (*dsom_ss).gather();
-
-        auto omega_ss = ss_factory::make_suffstat<OmegaPathSuffStat>(
-                [&ds_tree = get<value>(synrate), &dsom_ss_tree = *dsom_ss] (auto& omss, int branch) { 
-                    auto& dsomss = dsom_ss_tree.get(branch);
-                    double ds = ds_tree[branch];
-                    omss.PoissonSuffStat::AddSuffStat(dsomss.GetNonSynCount(), ds * dsomss.GetNonSynBeta());
-                },
-                nbranch);
-
+        // suffstats for tau (sum of squared scaled branchwise contrasts of Brownian process)
+        auto tau_ss = ss_factory::make_suffstat<PoissonSuffStat>( [] (auto& ss) {} );
+        /*
         auto tau_ss = ss_factory::make_suffstat<PoissonSuffStat>(
-                [&process = *brownian_process] (auto& ss) { 
-                    double var = 0;
-                    int n = 0;
-                    process.GetSampleVariance(var, n);
-                    ss.AddSuffStat(0.5*n, 0.5*var); 
+                [&process = log_synrate] (auto& ss) { 
+                    tree_process_add_branch_suffstat<brownian_tau>(process,ss);
                 });
+        std::cerr << "preliminary gather of tau ss\n";
+        (*tau_ss).gather();
+        */
 
         return make_model(
             global_omega_ = move(global_omega),
             chrono_ = move(chrono),
             tau_ = move(tau),
-            brownian_process_ = move(brownian_process),
+            log_synrate_ = move(log_synrate),
             synrate_ = move(synrate),
             dsom_suffstats_ = move(dsom_ss),
             omegapath_suffstats_ = move(omega_ss),
@@ -120,43 +106,35 @@ struct brownian_clock_globom {
     template<class Model, class Gen>
         static auto move_chrono(Model& model, Gen& gen) {
 
-            const Tree& tree = get<chrono,value>(model).get_tree();
+            auto branch_update = array_element_gather(synrate_(model));
 
-            auto node_update = tree_factory::do_around_node(
-                    tree,
-                    array_element_gather(synrate_(model)));
+            auto suffstat_logprob = suffstat_array_element_logprob(
+                    n_to_n(get<synrate,value>(model)),
+                    n_to_one(get<global_omega,value>(model)),
+                    dsom_suffstats_(model));
 
-            // compute suffstat log prob for all branches around changing node
-            auto node_suffstat_logprob = tree_factory::sum_around_node(tree,
-                    tree_factory::suffstat_logprob(dsom_suffstats_(model),
-                                    n_to_n(get<synrate,value>(model)),
-                                    n_to_one(get<global_omega,value>(model))));
+            auto synrate_logprob = tree_process_branch_logprob(get<log_synrate>(model));
 
-            auto node_logprob =
-                [&process = brownian_process_(model), node_suffstat_logprob] (int node) {
-                    return process.GetNodeLogProb(node) + node_suffstat_logprob(node);
-                };
+            auto branch_logprob = sum_of_lambdas(suffstat_logprob, synrate_logprob);
 
-            get<chrono,value>(model).MoveTimes(node_update, node_logprob);
+            get<chrono,value>(model).MoveTimes(branch_update, branch_logprob);
         }
 
     template<class Model, class Gen>
         static auto move_ds(Model& model, Gen& gen) {
 
-            const Tree& tree = get<chrono,value>(model).get_tree();
+            auto branch_update = array_element_gather(synrate_(model));
 
-            // update dS on branches around changing node
-            auto synrate_node_update = tree_factory::do_around_node(tree, 
-                    array_element_gather(synrate_(model)));
+            auto branch_logprob = suffstat_array_element_logprob(
+                    n_to_n(get<synrate,value>(model)),
+                    n_to_one(get<global_omega,value>(model)),
+                    dsom_suffstats_(model));
 
-            // compute suffstat log probs around node
-            auto node_logprob = tree_factory::sum_around_node(tree,
-                    tree_factory::suffstat_logprob(dsom_suffstats_(model),
-                                    n_to_n(get<synrate,value>(model)),
-                                    n_to_one(get<global_omega,value>(model))));
+            tree_process_node_by_node_mh_move(get<log_synrate>(model), 
+                    proposals::sliding(1.0), branch_update, branch_logprob, gen);
 
-            brownian_process_(model).SingleNodeMove(1.0, synrate_node_update, node_logprob);
-            brownian_process_(model).SingleNodeMove(0.3, synrate_node_update, node_logprob);
+            tree_process_node_by_node_mh_move(get<log_synrate>(model),
+                    proposals::sliding(0.3), branch_update, branch_logprob, gen);
         }
 
     template<class Model, class Gen>
@@ -166,8 +144,10 @@ struct brownian_clock_globom {
             move_ds(model, gen);
 
             // move variance parameter of Brownian process
-            tau_suffstats_(model).gather();
-            // gibbs_resample(tau_(model), tau_suffstats_(model), gen);
+            // tau_suffstats_(model).gather();
+            tau_suffstats_(model).get().Clear();
+            tree_process_add_branch_suffstat<brownian_tau>(get<log_synrate>(model),tau_suffstats_(model).get());
+            gibbs_resample(tau_(model), tau_suffstats_(model), gen);
 
             // move omega
             omegapath_suffstats_(model).gather();
@@ -195,7 +175,7 @@ struct brownian_clock_globom {
             auto branchlength = [&ch = get<chrono,value>(model), &t=tree] (int branch) {
                 return ch[t.get_older_node(branch)] - ch[t.get_younger_node(branch)];
             };
-            auto nodeval = [&br = get<brownian_process>(model)] (int node) {
+            auto nodeval = [&br = get<log_synrate,value>(model)] (int node) {
                 // return br[node];
                 return exp(br[node]);
             };

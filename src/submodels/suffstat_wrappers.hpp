@@ -142,6 +142,29 @@ struct pathss_factory {
                 });
         return dsom_ss;
     }
+
+    static auto make_dsom_suffstat_from_mappings(std::vector<std::vector<double>>& suffstat)    {
+        auto dsom_ss = ss_factory::make_suffstat_array<dSOmegaPathSuffStat>(
+            suffstat[0].size(),
+            [&suffstat] (auto& omss)    {
+                for (size_t branch=0; branch<suffstat[0].size(); branch++) {
+                    omss[branch].Add(suffstat[0][branch], suffstat[1][branch], suffstat[2][branch], suffstat[3][branch]);
+                }
+            });
+        (*dsom_ss).gather();
+        return dsom_ss;
+    }
+
+    template<class SynRate>
+    static auto make_omega_suffstat(SynRate synrate, Proxy<dSOmegaPathSuffStat&, size_t>& dsomss)    {
+        auto omega_ss = ss_factory::make_suffstat<OmegaPathSuffStat>(
+                [synrate, &dsomss] (auto& omss, int branch) { 
+                    auto& ss = dsomss.get(branch);
+                    omss.PoissonSuffStat::AddSuffStat(ss.GetNonSynCount(), synrate(branch) * ss.GetNonSynBeta());
+                },
+                dsomss.size());
+        return omega_ss;
+    }
 };
 
 struct mixss_factory    {

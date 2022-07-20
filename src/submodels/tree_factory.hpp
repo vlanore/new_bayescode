@@ -2,6 +2,11 @@
 
 #include "tree/interface.hpp"
 
+template<class Lambda1, class Lambda2>
+auto sum_of_lambdas(Lambda1 lambda1, Lambda2 lambda2)   {
+    return [lambda1, lambda2] (auto x) {return lambda1(x) + lambda2(x);};
+}
+
 namespace tree_factory {
 
     template<class Lambda>

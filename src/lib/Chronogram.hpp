@@ -33,6 +33,7 @@ class Chronogram : public custom_tracer {
         Rescale(1.0 / age);
     }
 
+    // assumes branchwise update and logprob
     template<class Update, class LogProb> void MoveTimes(Update update, LogProb logprob)    {
         RecursiveMoveTimes(1.0, GetRoot(), update, logprob);
     }
@@ -125,17 +126,29 @@ class Chronogram : public custom_tracer {
     }
 
     template<class Update, class LogProb> double LocalMoveTime(double tuning, Tree::NodeIndex from, Update update, LogProb logprob) {
-        double logprob1 = logprob(from);
+        double logprob1 = logprob(tree->get_branch(from));
+        for (auto c : tree->children(from)) {
+            logprob1 += logprob(tree->get_branch(c));
+        }
         double bk = node_ages[from];
         double loghastings = LocalProposeMove(from, tuning);
-        update(from);
-        double logprob2 = logprob(from);
+        update(tree->get_branch(from));
+        for (auto c : tree->children(from)) {
+            update(tree->get_branch(c));
+        }
+        double logprob2 = logprob(tree->get_branch(from));
+        for (auto c : tree->children(from)) {
+            logprob2 += logprob(tree->get_branch(c));
+        }
 
         double deltalogprob = logprob2 - logprob1 + loghastings;
         int accepted = (log(Random::Uniform()) < deltalogprob);
         if (!accepted)   {
             node_ages[from] = bk;
-            update(from);
+            update(tree->get_branch(from));
+            for (auto c : tree->children(from)) {
+                update(tree->get_branch(c));
+            }
         }
         return ((double) accepted);
     }

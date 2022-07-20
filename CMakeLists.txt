@@ -63,18 +63,6 @@ target_link_libraries(brownian_clock_globom ${BASE_LIBS})
 add_executable(mapping_brownian_clock_globom "src/mapping_brownian_clock_globom.cpp")
 target_link_libraries(mapping_brownian_clock_globom ${BASE_LIBS})
 
-# mutseldp (mutseldp)
-add_executable(mutseldp "src/mutseldp.cpp")
-target_link_libraries(mutseldp ${BASE_LIBS})
-
-# selac (selac)
-add_executable(selac "src/selac.cpp")
-target_link_libraries(selac ${BASE_LIBS})
-
-# selacNe (selacNe)
-add_executable(selacNe "src/selacNe.cpp")
-target_link_libraries(selacNe ${BASE_LIBS})
-
 # coevol (coevol)
 add_executable(coevol "src/coevol.cpp")
 target_link_libraries(coevol ${BASE_LIBS})
