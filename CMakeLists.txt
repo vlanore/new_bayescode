@@ -63,13 +63,17 @@ target_link_libraries(brownian_clock_globom ${BASE_LIBS})
 add_executable(mapping_brownian_clock_globom "src/mapping_brownian_clock_globom.cpp")
 target_link_libraries(mapping_brownian_clock_globom ${BASE_LIBS})
 
+# mapping_coevol (mapping_coevol)
+# add_executable(mapping_coevol "src/mapping_coevol.cpp")
+# target_link_libraries(mapping_coevol ${BASE_LIBS})
+
 # coevol (coevol)
-add_executable(coevol "src/coevol.cpp")
-target_link_libraries(coevol ${BASE_LIBS})
+# add_executable(coevol "src/coevol.cpp")
+# target_link_libraries(coevol ${BASE_LIBS})
 
 # coevol (multicoevol)
-add_executable(multicoevol "src/multigene_mpi_coevol.cpp")
-target_link_libraries(multicoevol ${BASE_LIBS} ${MPI_LIBRARIES})
+# add_executable(multicoevol "src/multigene_mpi_coevol.cpp")
+# target_link_libraries(multicoevol ${BASE_LIBS} ${MPI_LIBRARIES})
 
 # Single omega (globom)
 add_executable(globom "src/globom.cpp")
