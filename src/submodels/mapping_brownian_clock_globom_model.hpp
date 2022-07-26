@@ -56,7 +56,8 @@ struct brownian_clock_globom {
                 one_to_one(tau),
                 one_to_one(root_mean),
                 one_to_one(root_var));
-        draw(log_synrate, gen);
+        // draw(log_synrate, gen);
+        tree_process_methods::conditional_draw(log_synrate, gen);
 
         // branchwise sums of exp
         auto synrate = branch_map::make_branch_sums(
@@ -134,9 +135,9 @@ struct brownian_clock_globom {
                     branch_update, branch_logprob);
 
             auto pf = tree_process_methods::make_particle_filter(
-                    get<log_synrate>(model), target);
+                    get<log_synrate>(model), target, 1000);
 
-            pf.run();
+            pf.run(gen);
         }
 
     template<class Model, class Gen>
@@ -161,7 +162,7 @@ struct brownian_clock_globom {
             // move branch times and rates
             move_chrono(model, gen);
             move_ds(model, gen);
-            // pf_move_ds(model, gen);
+            pf_move_ds(model, gen);
 
             // move variance parameter of Brownian process
             // tau_suffstats_(model).gather();

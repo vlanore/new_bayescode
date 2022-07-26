@@ -110,21 +110,23 @@ struct univariate_brownian {
         }
     }
 
-    /*
-    static void backward_initialize(const T& x, CondL& condl)   {
-        get<0>(condl) = 0;
-        get<1>(condl) = 0;
-        get<2>(condl) = 0;
-    }
-    */
-
     static void backward_propagate(const CondL& young_condl, CondL& old_condl, double time, spos_real tau, real mean, spos_real variance)  {
     }
 
-    static void root_conditional_draw(T& x, const Constraint& clamp, const CondL& condl, spos_real tau, real mean, spos_real variance) {
+    template<class Gen>
+    static void root_conditional_draw(T& x, const Constraint& clamp, const CondL& condl, spos_real tau, real mean, spos_real variance, Gen& gen) {
     }
 
-    static void non_root_conditional_draw(T& x, const Constraint& clamp, const T& x_old, double time, const CondL& condl, spos_real tau, real mean, spos_real variance) {
+    template<class Gen>
+    static void non_root_conditional_draw(T& x, const Constraint& clamp, const T& x_old, double time, const CondL& condl, spos_real tau, real mean, spos_real variance, Gen& gen) {
+    }
+
+    static double root_conditional_logprob(T& x, const CondL& condl, spos_real tau, real mean, spos_real var)   {
+        return 0;
+    }
+
+    static double non_root_conditional_logprob(T& x, const T& x_old, double time, const CondL& condl, spos_real tau, real mean, spos_real var)   {
+        return 0;
     }
 };
 
