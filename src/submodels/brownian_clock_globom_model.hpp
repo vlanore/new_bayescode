@@ -19,7 +19,7 @@
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
 #include "bayes_toolbox.hpp"
-#include "tree_factory.hpp"
+#include "tree/tree_factory.hpp"
 #include "lib/UnivariateBrownianTreeProcess.hpp"
 #include "univariate_branch_map.hpp"
 

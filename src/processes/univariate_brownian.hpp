@@ -37,10 +37,17 @@ struct brownian_tau{};
 struct univariate_brownian {
 
     using T = real;
+
     using param_decl = param_decl_t<param<brownian_tau, spos_real>, param<root_mean, real>, param<root_variance, spos_real>>;
 
+    using Constraint = bool;
+
+    static Constraint make_init_constraint(const T& x)    {
+        return false;
+    }
+
     template <typename Gen>
-    static void draw(T& x, bool isroot, const T& x0, double time, spos_real tau, real mean, spos_real variance, Gen& gen) {
+    static void draw(T& x, bool isroot, const T& x0, double time, spos_real tau, real mean, spos_real variance, Gen& gen)   {
         if (isroot) {
             std::normal_distribution<double> distrib(real(mean), positive_real(variance));
             x = distrib(gen);
@@ -66,26 +73,58 @@ struct univariate_brownian {
         ss.AddSuffStat(0.5, 0.5*contrast);
     }
 
+    static auto kernel(double tuning)   {
+        return proposals::sliding(tuning);
+    }
+
     // conditional likelihoods
     // normalization constant, mean and precision
-    // (K, m, tau)
+    // (logK, m, tau)
     // L(x) = K * exp(-0.5*tau*(x-m)^2)
     using CondL = std::tuple<double, double, double>;
 
-    static void backward_propagate(CondL& down, const CondL& up, double time, spos_real tau, real mean, spos_real variance)  {
+    static CondL make_init_condl()  {
+        return std::tuple<double, double, double>(0,0,0);
+    }
+
+    static void init_condl(CondL& condl)    {
+        get<0>(condl) = 0;
+        get<1>(condl) = 0;
+        get<2>(condl) = 0;
+    }
+
+    // multiply condl into res_condl
+    static void multiply_conditional_likelihood(const CondL& condl, CondL& res_condl)   {
+    }
+
+    static void backward_initialize(const T& x, const Constraint& clamp, CondL& condl)   {
+        if (clamp)  {
+            get<0>(condl) = 0;
+            get<1>(condl) = x;
+            get<2>(condl) = std::numeric_limits<double>::infinity();
+        }
+        else    {
+            get<0>(condl) = 0;
+            get<1>(condl) = 0;
+            get<2>(condl) = 0;
+        }
     }
 
     /*
-    static void multiply_conditional_likelihoods(CondL& result, const CondL&... condl)    {
+    static void backward_initialize(const T& x, CondL& condl)   {
+        get<0>(condl) = 0;
+        get<1>(condl) = 0;
+        get<2>(condl) = 0;
     }
     */
 
-    template <typename Gen>
-    static void posterior_root_sample(T& x, const CondL& condl, spos_real tau, real mean, spos_real variance, Gen& gen)    {
+    static void backward_propagate(const CondL& young_condl, CondL& old_condl, double time, spos_real tau, real mean, spos_real variance)  {
     }
 
-    template <typename Gen>
-    static void posterior_non_root_sample(T& x, const T& x0, const CondL& condl, spos_real tau, real mean, spos_real variance, Gen& gen)   {
+    static void root_conditional_draw(T& x, const Constraint& clamp, const CondL& condl, spos_real tau, real mean, spos_real variance) {
+    }
+
+    static void non_root_conditional_draw(T& x, const Constraint& clamp, const T& x_old, double time, const CondL& condl, spos_real tau, real mean, spos_real variance) {
     }
 };
 

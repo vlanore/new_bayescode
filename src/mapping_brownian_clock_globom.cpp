@@ -1,65 +1,6 @@
 #include "submodels/mapping_brownian_clock_globom_model.hpp"
 #include "traceable_collection.hpp"
 
-auto make_mapping_dsom_suffstats(std::string filename)   {
-
-    std::ifstream tis(filename.c_str());
-
-    std::string ds_count;
-    tis >> ds_count;
-    auto ds_count_stream = std::stringstream(ds_count);
-    NHXParser ds_count_parser(ds_count_stream);
-    auto tree = make_from_parser(ds_count_parser);
-
-    size_t nb = tree->nb_nodes()-1;
-    std::vector<std::vector<double>> suffstats(4, std::vector<double>(nb, 0));
-
-    auto branch_ds_count = node_container_from_parser<std::string>(
-        ds_count_parser, [](int i, const AnnotatedTree& t) { return t.tag(i, "length"); });
-
-    for (size_t branch=0; branch<nb; branch++)  {
-        suffstats[0][branch] = std::atof(branch_ds_count[branch+1].c_str());
-    }
-
-    std::string ds_norm;
-    tis >> ds_norm;
-    auto ds_norm_stream = std::stringstream(ds_norm);
-    NHXParser ds_norm_parser(ds_norm_stream);
-
-    auto branch_ds_norm = node_container_from_parser<std::string>(
-        ds_norm_parser, [](int i, const AnnotatedTree& t) { return t.tag(i, "length"); });
-
-    for (size_t branch=0; branch<nb; branch++)  {
-        suffstats[1][branch] = std::atof(branch_ds_norm[branch+1].c_str());
-    }
-
-    std::string dn_count;
-    tis >> dn_count;
-    auto dn_count_stream = std::stringstream(dn_count);
-    NHXParser dn_count_parser(dn_count_stream);
-
-    auto branch_dn_count = node_container_from_parser<std::string>(
-        dn_count_parser, [](int i, const AnnotatedTree& t) { return t.tag(i, "length"); });
-
-    for (size_t branch=0; branch<nb; branch++)  {
-        suffstats[2][branch] = std::atof(branch_dn_count[branch+1].c_str());
-    }
-
-    std::string dn_norm;
-    tis >> dn_norm;
-    auto dn_norm_stream = std::stringstream(dn_norm);
-    NHXParser dn_norm_parser(dn_norm_stream);
-
-    auto branch_dn_norm = node_container_from_parser<std::string>(
-        dn_norm_parser, [](int i, const AnnotatedTree& t) { return t.tag(i, "length"); });
-
-    for (size_t branch=0; branch<nb; branch++)  {
-        suffstats[3][branch] = std::atof(branch_dn_norm[branch+1].c_str());
-    }
-
-    return suffstats;
-}
-
 int main(int argc, char* argv[]) {
     // parsing command-line arguments
     ChainCmdLine cmd{argc, argv, "BrownianClockSingleOmega", ' ', "0.1"};
@@ -72,7 +13,7 @@ int main(int argc, char* argv[]) {
     auto tree = make_from_parser(parser);
 
     // suff stats
-    auto suffstat = make_mapping_dsom_suffstats(args.suffstats.getValue());
+    auto suffstat = pathss_factory::make_mapping_dsom_suffstats(args.suffstats.getValue());
 
     // random generator
     auto gen = make_generator(42);
