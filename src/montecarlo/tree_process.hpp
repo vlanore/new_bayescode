@@ -7,72 +7,37 @@ struct tree_process_methods  {
     // single node moves (and auxiliary functions)
 
     template<class Process, class Params, class... Keys>
-    static double unpack_branch_logprob(Process& process, int branch, const Params& params, std::tuple<Keys...>)  {
-
-        auto& tree = get<tree_field>(process);
-        using Distrib = node_distrib_t<Process>;
-        auto timeframe = get<time_frame_field>(process);
-        auto& v = get<value>(process);
-        int younger = tree.get_younger_node(branch);
-        int older = tree.get_older_node(branch);
-        double dt = timeframe(older) - timeframe(younger);
-        return Distrib::logprob(v[younger], false, v[older], dt, get<Keys>(params)()...);
-    }
-
-    template<class Process>
-    static auto branch_logprob(Process& process) {
-        return [&process] (int branch)   {
-            return unpack_branch_logprob(process, branch, 
-                    get<params>(process), param_keys_t<node_distrib_t<Process>>());
-        };
-    }
-
-    template<class Process, class Params, class... Keys>
-    static double unpack_root_logprob(Process& process, const Params& params, std::tuple<Keys...>)   {
-
-        using Distrib = node_distrib_t<Process>;
-        auto& tree = get<tree_field>(process);
-        auto& v = get<value>(process);
-        return Distrib::logprob(v[node], true, v[node], 0, get<Keys>(params)()...);
-    }
-
-    template<class Process>
-    static auto root_logprob(Process& process) {
-        return [&process] ()   {
-            return unpack_root_logprob(process, 
-                    get<params>(process), param_keys_t<node_distrib_t<Process>>());
-        };
-    }
-
-
-    template<class Process, class Params, class... Keys>
     static double unpack_node_logprob(Process& process, int node, const Params& params, std::tuple<Keys...>)   {
 
         using Distrib = node_distrib_t<Process>;
         auto& tree = get<tree_field>(process);
         auto timeframe = get<time_frame_field>(process);
         auto& v = get<value>(process);
-        double tot = 0;
-        if (tree.is_root(node)) {
-            tot += Distrib::logprob(v[node], true, v[node], 0, get<Keys>(params)()...);
-        }
-        else    {
-            double dt = timeframe(tree.parent(node)) - timeframe(node);
-            tot += Distrib::logprob(v[node], false, v[tree.parent(node)], dt, get<Keys>(params)()...);
-        }
-        for (auto c : tree.children(node))  {
-            double dt = timeframe(node) - timeframe(c);
-            tot += Distrib::logprob(v[c], false, v[node], dt, get<Keys>(params)()...);
+        return tree.is_root(node) ?
+            Distrib::logprob(v[node], true, v[node], 0, get<Keys>(params)()...) :
+            Distrib::logprob(v[node], false, v[tree.parent(node)],
+                timeframe(tree.parent(node)) - timeframe(node),
+                get<Keys>(params)()...);
+    }
+
+    template<class Process>
+    static double node_logprob(Process& process, int node) {
+        return unpack_node_logprob(process, node, 
+                get<params>(process), param_keys_t<node_distrib_t<Process>>());
+    }
+
+    template<class Process>
+    static double around_node_logprob(Process& process, int node) {
+        double tot = node_logprob(process, node);
+        for (auto c : get<tree_field>(process).children(node))  {
+            tot += node_logprob(process, c);
         }
         return tot;
     }
 
     template<class Process>
-    static auto node_logprob(Process& process) {
-        return [&process] (int node)   {
-            return unpack_node_logprob(process, node, 
-                    get<params>(process), param_keys_t<node_distrib_t<Process>>());
-        };
+    static auto around_node_logprob(Process& process)   {
+        return [&p = process] (int node) {return around_node_logprob(p, node);};
     }
 
     template<class Tree, class Process, class Proposal, class BranchUpdate, class BranchLogProb, class Gen>
@@ -80,10 +45,10 @@ struct tree_process_methods  {
 
         auto& x = get<value>(process)[node];
         auto bk = x;
-        double logprobbefore = node_logprob(process)(node) + tree_factory::sum_around_node(tree, logprob)(node);
+        double logprobbefore = node_logprob(process,node) + tree_factory::sum_around_node(tree, logprob)(node);
         double logh = propose(x, gen);
         tree_factory::do_around_node(tree, update)(node);
-        double logprobafter = node_logprob(process)(node) + tree_factory::sum_around_node(tree, logprob)(node);
+        double logprobafter = node_logprob(process,node) + tree_factory::sum_around_node(tree, logprob)(node);
         double delta = logprobafter - logprobbefore + logh;
         bool accept = decide(delta, gen);
         if (! accept)   {
@@ -208,22 +173,18 @@ struct tree_process_methods  {
         auto& v = get<value>(process);
         auto timeframe = get<time_frame_field>(process);
 
-        double ret = 0;
+        return tree.is_root(node) ?
 
-        if (tree.is_root(node)) {
-            ret = node_distrib_t<Process>::root_conditional_logprob(
-                    v[node], 
-                    young_condls[node],
-                    get<Keys>(params)()...);
-        }
-        else    {
-            ret = node_distrib_t<Process>::non_root_conditional_logprob(
-                    v[node], v[tree.parent(node)],
-                    timeframe(tree.parent(node)) - timeframe(node),
-                    young_condls[node],
-                    get<Keys>(params)()...);
-        }
-        return ret;
+            node_distrib_t<Process>::root_conditional_logprob(
+                v[node], 
+                young_condls[node],
+                get<Keys>(params)()...):
+
+            node_distrib_t<Process>::non_root_conditional_logprob(
+                v[node], v[tree.parent(node)],
+                timeframe(tree.parent(node)) - timeframe(node),
+                young_condls[node],
+                get<Keys>(params)()...);
     }
 
     template<class Tree, class Process, class CondLArray, class Gen>
@@ -259,18 +220,14 @@ struct tree_process_methods  {
     template<class Process>
     class conditional_sampler    {
 
-        using Distrib = node_distrib_t<Process>;
-        using T = typename Distrib::T;
-
         Process& process;
-        std::vector<typename Distrib::CondL> young_condls;
+        std::vector<typename node_distrib_t<Process>::CondL> young_condls;
 
         public:
 
         conditional_sampler(Process& in_process) :
-                    process(in_process), 
-                    young_condls(get<value>(process).size(), node_distrib_t<Process>::make_init_condl())    {
-
+            process(in_process), 
+            young_condls(get<value>(process).size(), node_distrib_t<Process>::make_init_condl())    {
             gather();
         }
 
@@ -385,8 +342,7 @@ struct tree_process_methods  {
         void root_draw(typename node_distrib_t<Process>::T& val, double& log_weight, Gen& gen) {
             proposal.root_draw(val, gen);
             log_weight -= proposal.root_logprob(val);
-            log_weight += unpack_root_logprob(process, 
-                    get<params>(process), param_keys_t<node_distrib_t<Process>>());
+            log_weight += node_logprob(process, get<tree_field>(process).root());
         }
 
         template<class Gen>
@@ -394,8 +350,7 @@ struct tree_process_methods  {
             proposal.non_root_draw(node, val, parent_val, gen);
             update(get<tree_field>(process).get_branch(node));
             log_weight -= proposal.non_root_logprob(val, parent_val);
-            log_weight += unpack_branch_logprob(process, get<tree_field>(process).get_branch(node),
-                    get<params>(process), param_keys_t<node_distrib_t<Process>>());
+            log_weight += node_logprob(process, node);
             log_weight += logprob(get<tree_field>(process).get_branch(node));
         }
     };

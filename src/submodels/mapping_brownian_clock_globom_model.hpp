@@ -109,7 +109,7 @@ struct brownian_clock_globom {
                     n_to_one(get<global_omega,value>(model)),
                     dsom_suffstats_(model));
 
-            auto synrate_logprob = tree_process_methods::branch_logprob(get<log_synrate>(model));
+            auto synrate_logprob = tree_process_methods::around_node_logprob(get<log_synrate>(model));
 
             auto branch_logprob = sum_of_lambdas(suffstat_logprob, synrate_logprob);
 
