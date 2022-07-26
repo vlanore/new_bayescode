@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include "global/Random.hpp"
 
 /**
  * \brief A Poisson-like sufficient statistic

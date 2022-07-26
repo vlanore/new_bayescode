@@ -20,7 +20,7 @@
 #include "submodels/invwishart.hpp"
 #include "submodels/submodel_external_interface.hpp"
 #include "submodels/suffstat_wrappers.hpp"
-#include "tree_factory.hpp"
+#include "tree/tree_factory.hpp"
 #include "bayes_toolbox.hpp"
 #include "branch_map.hpp"
 

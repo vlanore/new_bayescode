@@ -22,7 +22,7 @@
 #include "submodels/suffstat_wrappers.hpp"
 #include "submodels/mgomega.hpp"
 #include "submodels/invwishart.hpp"
-#include "tree_factory.hpp"
+#include "tree/tree_factory.hpp"
 #include "chronogram.hpp"
 #include "submodels/invwishart.hpp"
 #include "lib/MultivariateBrownianTreeProcess.hpp"
