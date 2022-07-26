@@ -1,5 +1,5 @@
 
-#include "tree_factory.hpp"
+#include "tree/tree_factory.hpp"
 
 template<class Process, class Params, class... Keys>
 static double unpack_tree_process_branch_logprob(Process& process, int branch, const Params& params, std::tuple<Keys...>)  {
@@ -81,6 +81,13 @@ static void recursive_tree_process_mh_move(Tree& tree, int node, Process& proces
 template<class Process, class Proposal, class BranchUpdate, class BranchLogProb, class Gen>
 static void tree_process_node_by_node_mh_move(Process& process, Proposal propose, BranchUpdate update, BranchLogProb logprob, Gen& gen)  {
     auto& tree = get<tree_field>(process);
+    recursive_tree_process_mh_move(tree, tree.root(), process, propose, update, logprob, gen);
+}
+
+template<class Process, class BranchUpdate, class BranchLogProb, class Gen>
+static void tree_process_node_by_node_mh_move(Process& process, double tuning, BranchUpdate update, BranchLogProb logprob, Gen& gen)  {
+    auto& tree = get<tree_field>(process);
+    auto propose = node_distrib_t<Process>::kernel(tuning);
     recursive_tree_process_mh_move(tree, tree.root(), process, propose, update, logprob, gen);
 }
 
