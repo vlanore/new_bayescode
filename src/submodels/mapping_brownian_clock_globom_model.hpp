@@ -19,8 +19,7 @@
 #include "univariate_branch_map.hpp"
 #include "tree/newick_output.hpp"
 #include "processes/univariate_brownian.hpp"
-#include "mcmc/tree_process_move.hpp"
-#include "mcmc/tree_process.hpp"
+#include "montecarlo/tree_process.hpp"
 
 TOKEN(global_omega)
 TOKEN(chrono)
@@ -82,7 +81,7 @@ struct brownian_clock_globom {
         /*
         auto tau_ss = ss_factory::make_suffstat<PoissonSuffStat>(
                 [&process = log_synrate] (auto& ss) { 
-                    tree_process_add_branch_suffstat<brownian_tau>(process,ss);
+                tree_process_methods::add_branch_suffstat<brownian_tau>(process,ss);
                 });
         std::cerr << "preliminary gather of tau ss\n";
         (*tau_ss).gather();
@@ -109,7 +108,7 @@ struct brownian_clock_globom {
                     n_to_one(get<global_omega,value>(model)),
                     dsom_suffstats_(model));
 
-            auto synrate_logprob = tree_process_branch_logprob(get<log_synrate>(model));
+            auto synrate_logprob = tree_process_methods::branch_logprob(get<log_synrate>(model));
 
             auto branch_logprob = sum_of_lambdas(suffstat_logprob, synrate_logprob);
 
@@ -126,15 +125,16 @@ struct brownian_clock_globom {
                     n_to_one(get<global_omega,value>(model)),
                     dsom_suffstats_(model));
 
-            auto proposal = tree_process_methods::make_tree_process_conditional_sampler(
+            auto proposal = tree_process_methods::make_conditional_sampler(
                     get<log_synrate>(model));
                     
-            auto target = tree_process_methods::make_tree_prior_importance_sampler(
+            auto target = tree_process_methods::make_prior_importance_sampler(
                     get<log_synrate>(model),
                     proposal,
                     branch_update, branch_logprob);
 
-            auto pf = tree_process_methods::make_tree_pf(get<log_synrate>(model), target);
+            auto pf = tree_process_methods::make_particle_filter(
+                    get<log_synrate>(model), target);
 
             pf.run();
         }
@@ -149,18 +149,10 @@ struct brownian_clock_globom {
                     n_to_one(get<global_omega,value>(model)),
                     dsom_suffstats_(model));
 
-            /*
-            tree_process_node_by_node_mh_move(get<log_synrate>(model), 
-                    proposals::sliding(1.0), branch_update, branch_logprob, gen);
-
-            tree_process_node_by_node_mh_move(get<log_synrate>(model),
-                    proposals::sliding(0.3), branch_update, branch_logprob, gen);
-            */
-
-            tree_process_node_by_node_mh_move(get<log_synrate>(model), 1.0,
+            tree_process_methods::node_by_node_mh_move(get<log_synrate>(model), 1.0,
                     branch_update, branch_logprob, gen);
 
-            tree_process_node_by_node_mh_move(get<log_synrate>(model), 0.3,
+            tree_process_methods::node_by_node_mh_move(get<log_synrate>(model), 0.3,
                     branch_update, branch_logprob, gen);
         }
 
@@ -174,7 +166,7 @@ struct brownian_clock_globom {
             // move variance parameter of Brownian process
             // tau_suffstats_(model).gather();
             tau_suffstats_(model).get().Clear();
-            tree_process_add_branch_suffstat<brownian_tau>(get<log_synrate>(model),tau_suffstats_(model).get());
+            tree_process_methods::add_branch_suffstat<brownian_tau>(get<log_synrate>(model),tau_suffstats_(model).get());
             gibbs_resample(tau_(model), tau_suffstats_(model), gen);
 
             // move omega
