@@ -8,7 +8,7 @@ include_directories(${MPI_INCLUDE_PATH})
 # Compilation options
 option(COVERAGE_MODE "For coverage mode using g++ " OFF) #OFF by default
 option(DEBUG_MODE "Debug mode (with asserts and such) " OFF) #OFF by default
-set(ALWAYSON_CXX_FLAGS "--std=c++14 -Wall -Wextra -Wno-unused-parameter -Wfatal-errors ")
+set(ALWAYSON_CXX_FLAGS "--std=c++17 -Wall -Wextra -Wno-unused-parameter -Wfatal-errors ")
 if(COVERAGE_MODE)
     set(CMAKE_CXX_FLAGS "-O0 -fprofile-arcs -ftest-coverage ${ALWAYSON_CXX_FLAGS}") # coverage mode
     message("-- INFO: Compiling in coverage mode.\n-- INFO: flags are: " ${CMAKE_CXX_FLAGS})
@@ -56,8 +56,8 @@ set(BASE_LIBS
 )
 
 # brownian_clock_globom (brownian_clock_globom)
-add_executable(brownian_clock_globom "src/brownian_clock_globom.cpp")
-target_link_libraries(brownian_clock_globom ${BASE_LIBS})
+# add_executable(brownian_clock_globom "src/brownian_clock_globom.cpp")
+# target_link_libraries(brownian_clock_globom ${BASE_LIBS})
 
 # mapping_brownian_clock_globom (mapping_brownian_clock_globom)
 add_executable(mapping_brownian_clock_globom "src/mapping_brownian_clock_globom.cpp")
@@ -76,12 +76,12 @@ target_link_libraries(mapping_brownian_clock_globom ${BASE_LIBS})
 # target_link_libraries(multicoevol ${BASE_LIBS} ${MPI_LIBRARIES})
 
 # Single omega (globom)
-add_executable(globom "src/globom.cpp")
-target_link_libraries(globom ${BASE_LIBS})
+# add_executable(globom "src/globom.cpp")
+# target_link_libraries(globom ${BASE_LIBS})
 
 # geneom MPI
-add_executable(geneom_mpi "src/geneom_mpi.cpp")
-target_link_libraries(geneom_mpi ${BASE_LIBS} ${MPI_LIBRARIES})
+# add_executable(geneom_mpi "src/geneom_mpi.cpp")
+# target_link_libraries(geneom_mpi ${BASE_LIBS} ${MPI_LIBRARIES})
 
 # tests
 add_executable(all_tests "src/all_tests.cpp")

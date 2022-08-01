@@ -103,6 +103,12 @@ class Tracer {
         set_from_stream.emplace_back([&d](std::istream& is) { is >> d; });
     }
 
+    template<class T, class U>
+    void process_declaration(std::string name, std::pair<T,U>& d)   {
+        process_declaration(name + ".first", d.first);
+        process_declaration(name + ".second", d.second);
+    }
+
     template <class T>
     void process_declaration(
         std::string name, std::vector<std::vector<T>>& v, Partition partition = Partition(IndexSet(), 0)) {
