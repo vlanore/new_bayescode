@@ -56,8 +56,8 @@ struct normal_mean_condL    {
         get<2>(condl) = 0;
     }
 
-    static void init(L& condl, const real& x, const bool& clamp)    {
-        if (clamp)  {
+    static void init(L& condl, const real& x, const bool& clamp, bool external_clamp)    {
+        if (clamp || external_clamp)  {
             get<0>(condl) = 0;
             get<1>(condl) = x;
             get<2>(condl) = std::numeric_limits<double>::infinity();

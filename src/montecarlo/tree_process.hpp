@@ -275,14 +275,15 @@ struct tree_process_methods  {
     }
 
     template<class Tree, class Process, class CondLArray>
-    static void recursive_backward(const Tree& tree, int node, Process& process, CondLArray& old_condls, CondLArray& young_condls)  {
+    static void recursive_backward(const Tree& tree, int node, Process& process, CondLArray& old_condls, CondLArray& young_condls, const std::vector<bool> external_clamps)    {
 
         auto& v = get<node_values>(process);
         auto& clamp = get<constraint>(process);
-        node_distrib_t<Process>::CondL::init(young_condls[node], v[node], clamp[node]);
+        node_distrib_t<Process>::CondL::init(young_condls[node], v[node],
+                clamp[node], external_clamps[node]);
 
         for (auto c : tree.children(node))  {
-            recursive_backward(tree, c, process, old_condls, young_condls);
+            recursive_backward(tree, c, process, old_condls, young_condls, external_clamps);
             node_distrib_t<Process>::CondL::multiply(old_condls[c], young_condls[node]);
         }
 
@@ -307,14 +308,16 @@ struct tree_process_methods  {
     }
 
     template<class Tree, class Process, class CondLArray>
-    static void recursive_backward(const Tree& tree, int node, Process& process, CondLArray& old_condls, CondLArray& young_condls, CondLArray& branch_condls)   {
+    static void recursive_backward(const Tree& tree, int node, Process& process, CondLArray& old_condls, CondLArray& young_condls, CondLArray& branch_condls, const std::vector<bool>& external_clamps)    {
 
         auto& v = get<node_values>(process);
         auto& clamp = get<constraint>(process);
-        node_distrib_t<Process>::CondL::init(young_condls[node], v[node], clamp[node]);
+        node_distrib_t<Process>::CondL::init(young_condls[node], v[node],
+                clamp[node], external_clamps[node]);
 
         for (auto c : tree.children(node))  {
-            recursive_backward(tree, c, process, old_condls, young_condls, branch_condls);
+            recursive_backward(tree, c, process, old_condls, young_condls,
+                    branch_condls, external_clamps);
             node_distrib_t<Process>::CondL::multiply(old_condls[c], young_condls[node]);
         }
 
@@ -419,6 +422,36 @@ struct tree_process_methods  {
     }
 
     template<class Tree, class Process, class CondLArray, class Params, class... Keys, class Gen>
+    static void node_conditional_draw(const Tree& tree, int node, Process& process, CondLArray& young_condls, const Params& params, std::tuple<Keys...>, Gen& gen)   {
+
+        auto& clamp = get<constraint>(process);
+        auto timeframe = get<time_frame_field>(process);
+        auto node_vals = get<node_values>(process);
+
+        // first draw value at node, given parent node and conditional likelihood for downstream data
+        node_distrib_t<Process>::node_conditional_draw(
+                node_vals[node], clamp[node], node_vals[tree.parent(node)],
+                timeframe(node), timeframe(tree.parent(node)),
+                young_condls[node],
+                get<Keys>(params)()..., gen);
+    }
+
+    template<class Tree, class Process, class Params, class... Keys, class Gen>
+    static void bridge_conditional_draw(const Tree& tree, int node, Process& process, const Params& params, std::tuple<Keys...>, Gen& gen)   {
+
+        auto timeframe = get<time_frame_field>(process);
+        auto node_vals = get<node_values>(process);
+        auto path_vals = get<path_values>(process);
+
+        // then draw bridge along branch, conditional on values at both ends
+        node_distrib_t<Process>::bridge_conditional_draw(
+                path_vals[tree.get_branch(node)],
+                node_vals[node], node_vals[tree.parent(node)],
+                timeframe(node), timeframe(tree.parent(node)),
+                get<Keys>(params)()..., gen);
+    }
+
+    template<class Tree, class Process, class CondLArray, class Params, class... Keys, class Gen>
     static void path_conditional_draw(const Tree& tree, int node, Process& process, CondLArray& young_condls, const Params& params, std::tuple<Keys...>, Gen& gen)   {
 
         auto& clamp = get<constraint>(process);
@@ -505,9 +538,11 @@ struct tree_process_methods  {
         std::vector<typename CondL::L> old_condls(get<node_values>(process).size(), initcondl);
         std::vector<typename CondL::L> young_condls(get<node_values>(process).size(), initcondl);
 
+        std::vector<bool> external_clamps(get<node_values>(process).size(), false);
+
         auto& tree = get<tree_field>(process);
 
-        recursive_backward(tree, tree.root(), process, old_condls, young_condls);
+        recursive_backward(tree, tree.root(), process, old_condls, young_condls, external_clamps);
         recursive_forward(tree, tree.root(), process, young_condls, gen);
     }
 
@@ -524,31 +559,37 @@ struct tree_process_methods  {
 
         Process& process;
         std::vector<typename node_distrib_t<Process>::CondL::L> young_condls;
+        std::vector<typename node_distrib_t<Process>::CondL::L> old_condls;
 
         public:
 
         conditional_sampler(Process& in_process) :
             process(in_process), 
             young_condls(get<node_values>(process).size(), 
+                    node_distrib_t<Process>::CondL::make_init()),
+            old_condls(get<node_values>(process).size(), 
                     node_distrib_t<Process>::CondL::make_init())    {
-            gather();
         }
 
-        void gather()  {
+        void init(const std::vector<bool>& external_clamps)  {
+
+            for (auto& condl : young_condls)    {
+                node_distrib_t<Process>::CondL::init(condl);
+            }
+            for (auto& condl : old_condls)    {
+                node_distrib_t<Process>::CondL::init(condl);
+            }
 
             auto& tree = get<tree_field>(process);
 
-            std::vector<typename node_distrib_t<Process>::CondL::L> old_condls(
-                    get<node_values>(process).size(), 
-                    node_distrib_t<Process>::CondL::make_init());
-
             recursive_backward(tree, tree.root(),
-                process, old_condls, young_condls);
+                process, old_condls, young_condls, external_clamps);
         }
 
         template<class Gen>
         void root_draw(typename node_distrib_t<Process>::instantT& val,
-                double& log_weight, Gen& gen)  {
+                double& log_weight,
+                Gen& gen)  {
 
             auto& tree = get<tree_field>(process);
             auto& node_vals = get<node_values>(process);
@@ -559,6 +600,39 @@ struct tree_process_methods  {
             val = node_vals[tree.root()];
         }
 
+        template<class Gen>
+        void node_draw(int node, typename node_distrib_t<Process>::instantT& val, 
+                const typename node_distrib_t<Process>::instantT& parent_val, 
+                double& log_weight, Gen& gen)    {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+
+            node_vals[tree.parent(node)] = parent_val;
+
+            node_conditional_draw(tree, node, process, young_condls,
+                get<params>(process), param_keys_t<node_distrib_t<Process>>(), gen);
+
+            val = node_vals[node];
+        }
+
+        template<class Gen>
+        void bridge_draw(int node, 
+                const typename node_distrib_t<Process>::instantT& val, 
+                const typename node_distrib_t<Process>::instantT& parent_val, 
+                typename node_distrib_t<Process>::pathT& path,
+                double& log_weight, Gen& gen)    {
+
+            auto& tree = get<tree_field>(process);
+            auto& path_vals = get<path_values>(process);
+
+            bridge_conditional_draw(tree, node, process, 
+                get<params>(process), param_keys_t<node_distrib_t<Process>>(), gen);
+
+            path = path_vals[tree.get_branch(node)];
+        }
+
+        /*
         template<class Gen>
         void path_draw(int node, typename node_distrib_t<Process>::instantT& val, 
                 const typename node_distrib_t<Process>::instantT& parent_val, 
@@ -577,7 +651,9 @@ struct tree_process_methods  {
             val = node_vals[node];
             path = path_vals[tree.get_branch(node)];
         }
+        */
 
+        /*
         double root_logprob(const typename node_distrib_t<Process>::instantT& val) {
 
             auto& tree = get<tree_field>(process);
@@ -605,6 +681,7 @@ struct tree_process_methods  {
             return path_conditional_logprob(tree, node, process, young_condls,
                 get<params>(process), param_keys_t<node_distrib_t<Process>>());
         }
+        */
     };
 
     template<class Process>
@@ -619,6 +696,7 @@ struct tree_process_methods  {
 
         Process& process;
         std::vector<typename node_distrib_t<Process>::CondL::L> young_condls;
+        std::vector<typename node_distrib_t<Process>::CondL::L> old_condls;
         std::vector<typename node_distrib_t<Process>::CondL::L>& branch_condls;
 
         public:
@@ -628,20 +706,17 @@ struct tree_process_methods  {
             process(in_process), 
             young_condls(get<node_values>(process).size(), 
                     node_distrib_t<Process>::CondL::make_init()),
+            old_condls(get<node_values>(process).size(), 
+                    node_distrib_t<Process>::CondL::make_init()),
             branch_condls(in_branch_condls) {
-            gather();
         }
 
-        void gather()  {
+        void init(const std::vector<bool>& external_clamps)  {
 
             auto& tree = get<tree_field>(process);
 
-            std::vector<typename node_distrib_t<Process>::CondL::L> old_condls(
-                    get<node_values>(process).size(), 
-                    node_distrib_t<Process>::CondL::make_init());
-
             recursive_backward(tree, tree.root(),
-                process, old_condls, young_condls, branch_condls);
+                process, old_condls, young_condls, branch_condls, external_clamps);
         }
 
         template<class Gen>
@@ -676,6 +751,7 @@ struct tree_process_methods  {
             path = path_vals[tree.get_branch(node)];
         }
 
+        /*
         double root_logprob(const typename node_distrib_t<Process>::instantT& val) {
 
             auto& tree = get<tree_field>(process);
@@ -703,6 +779,7 @@ struct tree_process_methods  {
             return path_conditional_logprob(tree, node, process, young_condls,
                 get<params>(process), param_keys_t<node_distrib_t<Process>>());
         }
+        */
     };
 
     template<class Process>
@@ -728,10 +805,17 @@ struct tree_process_methods  {
 
         ~prior_importance_sampler() {}
 
+        void init(const std::vector<bool>& external_clamps)    {
+            proposal.init(external_clamps);
+        }
+
         template<class Gen>
         void root_draw(typename node_distrib_t<Process>::instantT& val, 
-                double& log_weight, Gen& gen) {
-            proposal.root_draw(val, log_weight, gen);
+                double& log_weight, bool fixed_node, Gen& gen) {
+
+            if (! fixed_node)    {
+                proposal.root_draw(val, log_weight, gen);
+            }
         }
 
         template<class Gen>
@@ -739,9 +823,14 @@ struct tree_process_methods  {
                 typename node_distrib_t<Process>::instantT& val, 
                 const typename node_distrib_t<Process>::instantT& parent_val, 
                 typename node_distrib_t<Process>::pathT& path, 
-                double& log_weight, Gen& gen) {
+                double& log_weight, bool fixed_node, bool fixed_branch, Gen& gen) {
 
-            proposal.path_draw(node, val, parent_val, path, log_weight, gen);
+            if (! fixed_node)    {
+                proposal.node_draw(node, val, parent_val, log_weight, gen);
+            }
+            if (! fixed_branch) {
+                proposal.bridge_draw(node, val, parent_val, path, log_weight, gen);
+            }
             update(get<tree_field>(process).get_branch(node));
             log_weight += logprob(get<tree_field>(process).get_branch(node));
         }
@@ -752,6 +841,7 @@ struct tree_process_methods  {
         return prior_importance_sampler<Process, Update, LogProb>(process, update, logprob);
     }
 
+    /*
     template<class Process, class Proposal, class BranchUpdate, class BranchLogProb>
     class importance_sampler  {
 
@@ -802,6 +892,7 @@ struct tree_process_methods  {
     static auto make_importance_sampler(Process& process, Proposal& proposal, Update update, LogProb logprob)   {
         return importance_sampler<Process, Proposal, Update, LogProb>(process, proposal, update, logprob);
     }
+    */
 
     // ****************************
     // particle filters
@@ -818,6 +909,7 @@ struct tree_process_methods  {
         std::vector<int> node_ordering;
         std::vector<std::vector<int>> ancestors;
         size_t counter;
+        std::vector<bool> external_clamps;
 
         public:
 
@@ -834,11 +926,42 @@ struct tree_process_methods  {
             log_weights(n, 0),
             node_ordering(tree.nb_nodes(), 0),
             ancestors(tree.nb_nodes(), std::vector<int>(n,0)),
-            counter(0) {}
+            counter(0),
+            external_clamps(tree.nb_nodes(), false) {}
 
         ~tree_pf() {}
 
-        void init() {
+        size_t size() {return log_weights.size();}
+
+        template<class Gen>
+        void init(bool conditional, double cond_frac, Gen& gen) {
+
+            if (conditional)    {
+
+                auto& node_vals = get<node_values>(process);
+                for (size_t node=0; node<tree.nb_nodes(); node++)    {
+                    node_swarm[node][0] = node_vals[node];
+                }
+
+                auto& path_vals = get<path_values>(process);
+                for (size_t branch=0; branch<tree.nb_branches(); branch++)    {
+                    path_swarm[branch][0] = path_vals[branch];
+                }
+
+                std::vector<double> w = {1-cond_frac, cond_frac};
+                std::discrete_distribution<int> distrib(w.begin(), w.end());
+                for (size_t node=0; node<tree.nb_nodes(); node++)   {
+                    external_clamps[node] = distrib(gen);
+                    if (external_clamps[node])  {
+                        for (size_t i=1; i<size(); i++) {
+                            node_swarm[node][i] = node_vals[node];
+                        }
+                    }
+                }
+            }
+
+            wdist.init(external_clamps);
+
             counter = 0;
             for (auto& l : log_weights) {
                 l = 0;
@@ -846,12 +969,21 @@ struct tree_process_methods  {
         }
 
         template<class Gen>
-        double run(Gen& gen)  {
-            init();
-            forward_pf(tree.root(), gen);
+        double run(bool conditional, double cond_frac, Gen& gen)  {
 
-            // choose random particle and pull out
-            int c = 0;
+            init(conditional, cond_frac, gen);
+
+            std::vector<int> b(size(), 0);
+            for (size_t i=0; i<size(); i++)  {
+                b[i] = i;
+            }
+
+            forward_pf(tree.root(), conditional, b, gen);
+
+            // choose random particle
+            int c = choose_particle(gen);
+
+            // pull out
             for (size_t i=tree.nb_nodes()-1; i>0; i--) {
                 int node = node_ordering[i];
                 get<node_values>(process)[node] = node_swarm[node][c];
@@ -863,43 +995,134 @@ struct tree_process_methods  {
             return log_weights[c];
         }
 
-        size_t size() {return log_weights.size();}
-
+        // returns anc[i]: index of the ancestor, at this node, of the particle i
         template<class Gen>
-        void forward_pf(int node, Gen& gen)   {
+        void forward_pf(int node, bool conditional, std::vector<int>& b, Gen& gen)   {
+
+            // when entering forward:
+            // b[i]: ancestor at tree.parent(node) of current particle i
+            // (current particle may currently extend downstream from current node
+            // according to the order over nodes induced by the depth-first recursion)
+            // if node is the first child of its parent, 
+            // then current particle extends up to tree.parent(node), so b[i] = i
 
             auto branch = tree.get_branch(node);
             node_ordering[counter] = node;
             counter++;
 
+            if (tree.is_root(node))   {
+                // silly (not used), but just for overall consistency
+                for (size_t i=0; i<size(); i++)  {
+                    ancestors[node][i] = b[i];
+                }
+            }
+            else    {
+                // possibly, do bootstrap only if effective sample size is small
+                std::vector<int> choose(size(), 0);
+                bootstrap_pf(choose, gen);
+
+                // keeping track of immediate ancestors
+                for (size_t i=0; i<size(); i++)  {
+                    ancestors[node][i] = b[choose[i]];
+                }
+
+                // updating b
+                for (size_t i=0; i<size(); i++)  {
+                    b[i] = ancestors[node][i];
+                }
+            }
+
             if (tree.is_root(node)) {
                 for (size_t i=0; i<size(); i++)  {
-                    wdist.root_draw(node_swarm[node][i], log_weights[i], gen);
+                    wdist.root_draw(
+                            node_swarm[node][i],
+                            log_weights[i],
+                            external_clamps[node] || (conditional && (!i)),  // fixed node
+                            gen);
                 }
             }
             else    {
                 for (size_t i=0; i<size(); i++)  {
                     wdist.path_draw(node, 
-                            node_swarm[node][i], node_swarm[tree.parent(node)][i], 
+                            node_swarm[node][i],
+                            node_swarm[tree.parent(node)][ancestors[node][i]], 
                             path_swarm[branch][i],
-                            log_weights[i], gen);
+                            log_weights[i],
+                            external_clamps[node] || (conditional && (!i)), // fixed node
+                            (conditional && (!i)),                          // fixed branch
+                            gen);
                 }
             }
 
-            // bootstrap
-            bootstrap_pf(gen);
-
             // send recursion
+            // entering forward(c, bb) for the first child node with bb[i] = i
+            // here bb[i] is the index of particle i at *this* node (i.e. the parent of c)
+            // upon returning, forward will have updated bb
+            // for the call to the next child node
+            std::vector<int> bb(size(), 0);
+            for (size_t i=0; i<size(); i++)  {
+                bb[i] = i;
+            }
+
             for (auto c : tree.children(node))  {
-                forward_pf(c, gen);
+                forward_pf(c, conditional, bb, gen);
+            }
+
+            // when leaving forward, b should should be updated
+            // to the index of particle i at tree.parent(node), based on the index at this node
+            for (size_t i=0; i<size(); i++)  {
+                b[i] = ancestors[node][bb[i]];
             }
         }
 
         template<class Gen>
-        void bootstrap_pf(Gen& gen)  {
-            // compute bar W
-            // normalize probability vector
-            // iid multinomial drawing: change states accordingly and set ancestors[i] to chosen index
+        size_t choose_particle(Gen& gen)    {
+            std::vector<double> w(size(), 0);
+            double max = 0;
+            for (size_t i=0; i<size(); i++) {
+                if ((!i) || (max < log_weights[i])) {
+                    max = log_weights[i];
+                }
+            }
+            double tot = 0;
+            for (size_t i=0; i<size(); i++) {
+                w[i] = exp(log_weights[i] - max);
+                tot += w[i];
+            }
+            for (size_t i=0; i<size(); i++) {
+                w[i] /= tot;
+            }
+            std::discrete_distribution<int> distrib(w.begin(), w.end());
+            return distrib(gen);
+        }
+
+        template<class Gen>
+        void bootstrap_pf(std::vector<int>& choose, Gen& gen)  {
+            std::vector<double> w(size(), 0);
+            double max = 0;
+            for (size_t i=0; i<size(); i++) {
+                if ((!i) || (max < log_weights[i])) {
+                    max = log_weights[i];
+                }
+            }
+            double tot = 0;
+            for (size_t i=0; i<size(); i++) {
+                w[i] = exp(log_weights[i] - max);
+                tot += w[i];
+            }
+            for (size_t i=0; i<size(); i++) {
+                w[i] /= tot;
+            }
+            std::discrete_distribution<int> distrib(w.begin(), w.end());
+            for (size_t i=0; i<size(); i++) {
+                choose[i] = distrib(gen);
+            }
+
+            tot /= size();
+            double log_mean_weight = log(tot) + max;
+            for (size_t i=0; i<size(); i++) {
+                log_weights[i] = log_mean_weight;
+            }
         }
     };
 

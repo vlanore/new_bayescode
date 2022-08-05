@@ -141,9 +141,12 @@ struct brownian_clock_globom {
             auto pf = tree_process_methods::make_particle_filter(
                     get<log_synrate>(model), target, 1000);
 
-            pf.run(gen);
+            pf.run(false, 0, gen);
+            pf.run(true, 0, gen);
+            pf.run(true, 0.1, gen);
         }
 
+    /*
     template<class Model, class Gen>
         static auto branch_pf_move_ds(Model& model, Gen& gen)  {
             
@@ -169,6 +172,7 @@ struct brownian_clock_globom {
 
             pf.run(gen);
         }
+    */
 
     template<class Model, class Gen>
         static auto move_ds(Model& model, Gen& gen) {
@@ -199,7 +203,7 @@ struct brownian_clock_globom {
             move_chrono(model, gen);
             move_ds(model, gen);
             pf_move_ds(model, gen);
-            branch_pf_move_ds(model, gen);
+            // branch_pf_move_ds(model, gen);
 
             // move variance parameter of Brownian process
             // tau_suffstats_(model).gather();
