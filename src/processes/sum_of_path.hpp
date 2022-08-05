@@ -30,7 +30,7 @@ struct path_integral    {
     }
 
     template<class T, class Lambda>
-    static auto path_sum(const step_rep<T>& bp, double t_old, double t_young, Lambda lambda)   {
+    static auto path_sum(const step_rep<T>& bp, double t_young, double t_old, Lambda lambda)   {
         return path_mean(bp, lambda) * (t_old - t_young);
     }
 

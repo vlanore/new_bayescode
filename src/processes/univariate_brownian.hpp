@@ -227,7 +227,7 @@ static auto get_branch_mean(const discretized_path<T>& path, Lambda lambda)    {
 }
 
 template<class T, class Lambda>
-static auto get_branch_sum(const discretized_path<T>& path, double t_old, double t_young, Lambda lambda)  {
+static auto get_branch_sum(const discretized_path<T>& path, double t_young, double t_old, Lambda lambda)  {
     auto mean = lambda(path.at(0));
     mean *= (path.get_breakpoint_time(1) - path.get_breakpoint_time(0));
     for (size_t i=1; i<path.size(); i++)  {
@@ -263,9 +263,11 @@ struct univariate_normal    {
     static void conditional_draw(T& x, const Constraint& clamp, const CondL::L& condl, real mean, spos_real variance, Gen& gen) {
     }
 
+    /*
     static double conditional_logprob(T& x, const Constraint& clamp, const CondL::L& condl, real mean, spos_real var)   {
         return 0;
     }
+    */
 };
 
 struct univariate_brownian {
