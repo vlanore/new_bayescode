@@ -346,6 +346,13 @@ struct univariate_brownian {
         get<2>(condl_old) = tau2;
     }
 
+    static double pseudo_branch_logprob(const instantT& x_young, const instantT& x_old, const CondL::L& branch_condl)  {
+        instantT x = 0.5*(x_old + x_young);
+        double d = x - get<1>(branch_condl);
+        return get<0>(branch_condl) + 0.5*log(get<2>(branch_condl)/2/constants::pi)
+            -0.5*get<2>(branch_condl)*d*d;
+    }
+
     template<typename Gen>
     static void node_conditional_draw(instantT& x_young, const Constraint& clamp, const instantT& x_old, double t_young, double t_old, const CondL::L& condl, spos_real tau, Gen& gen) {
     }
@@ -356,6 +363,7 @@ struct univariate_brownian {
         path[1] = x_young;
     }
 
+    /*
     static double node_conditional_logprob(const instantT& x_young, const Constraint& clamp, const instantT& x_old, double t_young, double t_old, const CondL::L& condl, spos_real tau) {
         return 0;
     }
@@ -363,6 +371,7 @@ struct univariate_brownian {
     static double bridge_conditional_logprob(const pathT& path, const instantT& x_young, const instantT& x_old, double t_young, double t_old, spos_real tau)   {
         return 0;
     }
+    */
 
     // add a brownian path to current path
     template<typename Gen>

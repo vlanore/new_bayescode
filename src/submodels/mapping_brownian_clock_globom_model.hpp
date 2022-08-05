@@ -146,7 +146,6 @@ struct brownian_clock_globom {
             pf.run(true, 0.1, gen);
         }
 
-    /*
     template<class Model, class Gen>
         static auto branch_pf_move_ds(Model& model, Gen& gen)  {
             
@@ -159,20 +158,15 @@ struct brownian_clock_globom {
                     n_to_one(get<global_omega,value>(model)),
                     dsom_suffstats_(model));
 
-            auto proposal = tree_process_methods::make_branch_conditional_sampler(
+            auto target = tree_process_methods::make_pseudo_branch_prior_importance_sampler(
                     get<log_synrate>(model),
-                    get<logsynrate_branchsuffstats,value>(model));
-                
-            auto target = tree_process_methods::make_importance_sampler(
-                    get<log_synrate>(model),
-                    proposal, branch_update, branch_logprob);
+                    branch_update, branch_logprob);
 
             auto pf = tree_process_methods::make_particle_filter(
                     get<log_synrate>(model), target, 1000);
 
-            pf.run(gen);
+            pf.run(false, 0, gen);
         }
-    */
 
     template<class Model, class Gen>
         static auto move_ds(Model& model, Gen& gen) {

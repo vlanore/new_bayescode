@@ -694,7 +694,7 @@ struct tree_process_methods  {
     // a conditional sampler with externally given branch conditional likelihoods
 
     template<class Process>
-    class branch_conditional_sampler    {
+    class pseudo_branch_conditional_sampler    {
 
         Process& process;
         std::vector<typename node_distrib_t<Process>::CondL::L> young_condls;
@@ -703,7 +703,7 @@ struct tree_process_methods  {
 
         public:
 
-        branch_conditional_sampler(Process& in_process,
+        pseudo_branch_conditional_sampler(Process& in_process,
                 const std::vector<typename node_distrib_t<Process>::CondL::L>& in_branch_condls) :
             process(in_process), 
             young_condls(get<node_values>(process).size(), 
@@ -760,6 +760,14 @@ struct tree_process_methods  {
             path = path_vals[tree.get_branch(node)];
         }
 
+        double pseudo_branch_logprob(int branch, 
+                typename node_distrib_t<Process>::instantT& val, 
+                const typename node_distrib_t<Process>::instantT& parent_val)   {
+
+            return node_distrib_t<Process>::pseudo_branch_logprob(val, parent_val, 
+                    branch_condls[branch]);
+        }
+
         /*
         double root_logprob(const typename node_distrib_t<Process>::instantT& val) {
 
@@ -792,9 +800,9 @@ struct tree_process_methods  {
     };
 
     template<class Process>
-    static auto make_branch_conditional_sampler(Process& process,
+    static auto make_pseudo_branch_conditional_sampler(Process& process,
             const std::vector<typename node_distrib_t<Process>::CondL::L>& branch_condls) {
-        return branch_conditional_sampler<Process>(process, branch_condls);
+        return pseudo_branch_conditional_sampler<Process>(process, branch_condls);
     }
 
     template<class Process, class BranchUpdate, class BranchLogProb>
@@ -848,6 +856,63 @@ struct tree_process_methods  {
     template<class Process, class Update, class LogProb>
     static auto make_prior_importance_sampler(Process& process, Update update, LogProb logprob)   {
         return prior_importance_sampler<Process, Update, LogProb>(process, update, logprob);
+    }
+
+    template<class Process, class BranchUpdate, class BranchLogProb>
+    class pseudo_branch_prior_importance_sampler  {
+
+        Process& process;
+        pseudo_branch_conditional_sampler<Process> proposal;
+        BranchUpdate update;
+        BranchLogProb logprob;
+
+        public:
+
+        pseudo_branch_prior_importance_sampler(Process& in_process, 
+            BranchUpdate in_update, BranchLogProb in_logprob) :
+                process(in_process), proposal(process),
+                update(in_update), logprob(in_logprob) {}
+
+        ~pseudo_branch_prior_importance_sampler() {}
+
+        void init(const std::vector<bool>& external_clamps)    {
+            proposal.init(external_clamps);
+        }
+
+        template<class Gen>
+        void root_draw(typename node_distrib_t<Process>::instantT& val, 
+                double& log_weight, bool fixed_node, Gen& gen) {
+
+            if (! fixed_node)    {
+                proposal.root_draw(val, log_weight, gen);
+            }
+        }
+
+        template<class Gen>
+        void path_draw(int node, 
+                typename node_distrib_t<Process>::instantT& val, 
+                const typename node_distrib_t<Process>::instantT& parent_val, 
+                typename node_distrib_t<Process>::pathT& path, 
+                double& log_weight, bool fixed_node, bool fixed_branch, Gen& gen) {
+
+            auto& tree = get<tree_field>(process);
+            int branch = tree.get_branch(node);
+            if (! fixed_node)    {
+                proposal.node_draw(node, val, parent_val, log_weight, gen);
+            }
+            if (! fixed_branch) {
+                proposal.bridge_draw(node, val, parent_val, path, log_weight, gen);
+            }
+            update(branch);
+            log_weight -= proposal.pseudo_branch_logprob(branch, val, parent_val);
+            log_weight += logprob(branch);
+        }
+    };
+
+    template<class Process, class Update, class LogProb>
+    static auto make_pseudo_branch_prior_importance_sampler(Process& process, Update update, LogProb logprob)   {
+        return pseudo_branch_prior_importance_sampler<Process, Update, LogProb>(
+                process, update, logprob);
     }
 
     /*
