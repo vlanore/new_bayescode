@@ -9,8 +9,15 @@ struct tree_process_methods  {
     template<class Process, class Params, class... Keys, class Gen>
     static void root_draw(Process& process, const Params& params, std::tuple<Keys...>, Gen& gen)   {
 
-        assert(! node_root_distrib_t<Process>::active_constraint(
-                    get<constraint>(process)[get<tree_field>(process).root()]));
+        // assert(! node_root_distrib_t<Process>::active_constraint(
+        //             get<constraint>(process)[get<tree_field>(process).root()]));
+
+        if (node_root_distrib_t<Process>::active_constraint(
+                    get<constraint>(process)[get<tree_field>(process).root()])) {
+            std::cerr << "error: active constraint in a free forward draw (on root)\n";
+            exit(1);
+        }
+
 
         auto& v = get<node_values>(process)[get<tree_field>(process).root()];
         node_root_distrib_t<Process>::draw(v, get<Keys>(params)()..., gen);
@@ -19,7 +26,12 @@ struct tree_process_methods  {
     template<class Process, class Params, class... Keys, class Gen>
     static void path_draw(Process& process, int node, const Params& params, std::tuple<Keys...>, Gen& gen)   {
 
-        assert(! node_distrib_t<Process>::active_constraint(get<constraint>(process)[node]));
+        // assert(! node_distrib_t<Process>::active_constraint(get<constraint>(process)[node]));
+
+        if (node_distrib_t<Process>::active_constraint(get<constraint>(process)[node])) {
+            std::cerr << "error: active contraint in a free-forward draw (non root)\n";
+            exit(1);
+        }
 
         auto& tree = get<tree_field>(process);
         auto& timeframe = get<time_frame_field>(process);

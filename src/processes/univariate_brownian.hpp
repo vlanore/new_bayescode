@@ -89,7 +89,11 @@ struct normal_mean_condL    {
 
         if (std::isinf(tau2))   {
             if (std::isinf(tau2)) {
-                assert(m1 == m2);
+                // assert(m1 == m2);
+                if (m1 != m2)   {
+                    std::cerr << "error: multiplying singular condls with different means\n";
+                    exit(1);
+                }
             }
             double logK = logK1 + logK2;
             get<0>(res_condl) = logK;
@@ -263,7 +267,7 @@ struct univariate_normal    {
         return false;
     }
 
-    static bool is_active(const Constraint& clamp)  {
+    static bool active_constraint(const Constraint& clamp)  {
         return clamp;
     }
 
@@ -280,9 +284,26 @@ struct univariate_normal    {
 
     template<typename Gen>
     static void conditional_draw(T& x, const Constraint& clamp, const CondL::L& condl, real mean, spos_real variance, Gen& gen) {
+
         // check that if clamped, conditional likelihood is singular at the current value
-        if (! clamp)    {
-            // TODO
+        if (clamp)  {
+            if (! std::isinf(get<2>(condl)))    {
+                std::cerr << "error: clamped node but likelihood not singular\n";
+                exit(1);
+            }
+            if (x != get<1>(condl))   {
+                std::cerr << "error: clamped node value differs from likelihood mean: " << x << '\t' << get<1>(condl) << '\n';
+                exit(1);
+            }
+        }
+        else    {
+            double om0 = 1.0/variance;
+            double om1 = get<2>(condl);
+            double om = om0 + om1;
+            double m = (om0*mean + om1*get<1>(condl))/om;
+            double v = 1.0/om;
+            std::normal_distribution<double> distrib(real(m), positive_real(v));
+            x = distrib(gen);
         }
     }
 
@@ -382,9 +403,32 @@ struct univariate_brownian {
 
     template<typename Gen>
     static void node_conditional_draw(instantT& x_young, const Constraint& clamp, const instantT& x_old, double t_young, double t_old, const CondL::L& condl, spos_real tau, Gen& gen) {
+
         // check that if clamped, conditional likelihood is singular at the current value
-        if (! clamp)    {
-            // TODO
+        if (clamp)  {
+            if (! std::isinf(get<2>(condl)))    {
+                std::cerr << "error: clamped node but likelihood not singular\n";
+                exit(1);
+            }
+            if (x_young != get<1>(condl))   {
+                std::cerr << "error: clamped node value differs from likelihood mean: " << x_young << '\t' << get<1>(condl) << '\n';
+                exit(1);
+            }
+        }
+
+        // prior : mean m0 = x_old, precision om0 = tau/(t_old-t_young)
+        // condl : mean m1 = get<1>(condl), precision om1 = get<2>(condl)
+        // post  : om = om0 + om1; m 
+        //       : m = (om0*m0 + om1*m1)/om
+        
+        else    {
+            double om0 = tau/(t_old-t_young);
+            double om1 = get<2>(condl);
+            double om = om0 + om1;
+            double m = (om0*x_old + om1*get<1>(condl))/om;
+            double v = 1.0/om;
+            std::normal_distribution<double> distrib(real(m), positive_real(v));
+            x_young = distrib(gen);
         }
     }
 
