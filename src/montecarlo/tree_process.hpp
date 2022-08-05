@@ -262,20 +262,20 @@ struct tree_process_methods  {
     // ****************************
     // backward routines
 
-    template<class Tree, class Process, class CondLArray, class Params, class... Keys>
-    static void backward_branch_propagate(const Tree& tree, int node, Process& process, CondLArray& old_condls, CondLArray& young_condls, const Params& params, std::tuple<Keys...>)   {
+    template<class Tree, class Process, class CondL, class Params, class... Keys>
+    static void backward_branch_propagate(const Tree& tree, int node, Process& process, CondL& old_condl, CondL& young_condl, const Params& params, std::tuple<Keys...>)   {
 
         auto timeframe = get<time_frame_field>(process);
 
         node_distrib_t<Process>::backward_propagate(
-                young_condls[node], old_condls[node],
+                young_condl, old_condl,
                 timeframe(node), timeframe(tree.parent(node)),
                 get<Keys>(params)()...);
 
     }
 
     template<class Tree, class Process, class CondLArray>
-    static void recursive_backward(const Tree& tree, int node, Process& process, CondLArray& old_condls, CondLArray& young_condls)    {
+    static void recursive_backward(const Tree& tree, int node, Process& process, CondLArray& old_condls, CondLArray& young_condls)  {
 
         auto& v = get<node_values>(process);
         auto& clamp = get<constraint>(process);
@@ -287,7 +287,7 @@ struct tree_process_methods  {
         }
 
         if (! tree.is_root(node))   {
-            backward_branch_propagate(tree, node, process, old_condls, young_condls,
+            backward_branch_propagate(tree, node, process, old_condls[node], young_condls[node],
                         get<params>(process), param_keys_t<node_distrib_t<Process>>());
         }
     }
@@ -295,19 +295,19 @@ struct tree_process_methods  {
     // ****************************
     // backward routines with branch conditional likelihoods
 
-    template<class Tree, class Process, class CondLArray, class Params, class... Keys>
-    static void backward_branch_propagate(const Tree& tree, int node, Process& process, CondLArray& old_condls, CondLArray& young_condls, CondLArray& branch_condls, const Params& params, std::tuple<Keys...>)   {
+    template<class Tree, class Process, class CondL, class Params, class... Keys>
+    static void backward_branch_propagate(const Tree& tree, int node, Process& process, CondL& old_condl, CondL& young_condl, CondL& branch_condl, const Params& params, std::tuple<Keys...>)   {
 
         auto timeframe = get<time_frame_field>(process);
         node_distrib_t<Process>::backward_propagate(
-                young_condls[node], old_condls[node], branch_condls[tree.get_branch(node)], 
+                young_condl, old_condl, branch_condl, 
                 timeframe(node), timeframe(tree.parent(node)),
                 get<Keys>(params)()...);
 
     }
 
     template<class Tree, class Process, class CondLArray>
-    static void recursive_backward(const Tree& tree, int node, Process& process, CondLArray& old_condls, CondLArray& young_condls, CondLArray& branch_condls)    {
+    static void recursive_backward(const Tree& tree, int node, Process& process, CondLArray& old_condls, CondLArray& young_condls, CondLArray& branch_condls)   {
 
         auto& v = get<node_values>(process);
         auto& clamp = get<constraint>(process);
@@ -319,8 +319,88 @@ struct tree_process_methods  {
         }
 
         if (! tree.is_root(node))   {
-            backward_branch_propagate(tree, node, process, old_condls, young_condls, branch_condls,
-                        get<params>(process), param_keys_t<node_distrib_t<Process>>());
+            backward_branch_propagate(tree, node, process, 
+                    old_condls[node], young_condls[node], branch_condls[tree.get_branch(node)],
+                    get<params>(process), param_keys_t<node_distrib_t<Process>>());
+        }
+    }
+
+    // ****************************
+    // double backward routines
+
+    // for a given node:
+    // young_condls[node][j], j=0..n-1: young condL given that node is at time t_j
+    // for leaves : only young_condls[node][0] is used (at fixed time)
+    // backward propagate -> 
+    // old_condls[node][i]: old condl, given that immediate ancestor is at time t_i
+    // but if immediate ancestor is root..
+
+    template<class Tree, class Process, class CondLs, class Params, class... Keys>
+    static void double_backward_branch_propagate(const Tree& tree, int node, int parent_node, Process& process, const std::vector<double>& times, double root_time, double leaf_time, CondLs& old_condls, CondLs& young_condls, const Params& params, std::tuple<Keys...>)   {
+
+        if (tree.is_leaf(node)) {
+            for (size_t i=0; i<times.size(); i++)   {
+                node_distrib_t<Process>::backward_propagate(
+                        young_condls[0], old_condls[i],
+                        times[i], leaf_time,
+                        get<Keys>(params)()...);
+            }
+        }
+
+        else if (tree.is_root(parent_node)) {
+            for (size_t j=0; j<times.size(); j++)   {
+                node_distrib_t<Process>::backward_propagate(
+                        young_condls[j], old_condls[0],
+                        root_time, times[j],
+                        get<Keys>(params)()...);
+            }
+        }
+
+        else    {
+
+            auto tmp = std::vector<typename node_distrib_t<Process>::condL::L>(
+                    times.size(),
+                    node_distrib_t<Process>::CondL::make_censored_init());
+
+            for (size_t i=0; i<times.size(); i++)   {
+                for (size_t j=0; j<=i; j++) {
+                    node_distrib_t<Process>::backward_propagate(
+                            young_condls[j], tmp[j],
+                            times[i], times[j],
+                            get<Keys>(params)()...);
+                }
+                node_distrib_t<Process>::condL::mix(old_condls[i], tmp);
+            }
+        }
+    }
+
+    template<class Tree, class Process, class CondLsArray>
+    static void recursive_double_backward(const Tree& tree, int node, Process& process, const std::vector<double>& times, double root_time, double leaf_time, CondLsArray& old_condls, CondLsArray& young_condls)   {
+
+        auto& v = get<node_values>(process);
+        auto& clamp = get<constraint>(process);
+
+        node_distrib_t<Process>::CondL::init(young_condls[node]);
+
+        if (tree.is_leaf(node)) {
+            node_distrib_t<Process>::CondL::init(young_condls[node][0], v[node], clamp[node]);
+        }
+
+        for (auto c : tree.children(node))  {
+
+            recursive_double_backward(tree, c, process, 
+                    times, root_time, leaf_time, old_condls, young_condls);
+
+            double_backward_branch_propagate(tree, process, c, node,
+                    times, root_time, leaf_time, old_condls, young_condls, 
+                    get<params>(process), param_keys_t<node_distrib_t<Process>>());
+
+            if (tree.is_root(node)) {
+                node_distrib_t<Process>::CondL::multiply(old_condls[c][0], young_condls[node][0]);
+            }
+            else    {
+                node_distrib_t<Process>::CondL::multiply(old_condls[c], young_condls[node]);
+            }
         }
     }
 
@@ -824,9 +904,8 @@ struct tree_process_methods  {
     };
 
     template<class Process, class WDist>
-        static auto make_particle_filter(Process& process, WDist& wdist, size_t n)    {
-            return tree_pf<Process, WDist>(process, wdist, n);
-        }
+    static auto make_particle_filter(Process& process, WDist& wdist, size_t n)    {
+        return tree_pf<Process, WDist>(process, wdist, n);
+    }
 };
-
 
