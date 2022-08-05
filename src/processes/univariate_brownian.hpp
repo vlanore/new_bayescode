@@ -69,6 +69,12 @@ struct normal_mean_condL    {
         }
     }
 
+    static double logprob(T& x, const L& condl) {
+        double d = x - get<1>(condl);
+        return get<0>(condl) + 0.5*log(get<2>(condl)/2/constants::pi)
+            - 0.5*get<2>(condl)*d*d;
+    }
+
     // multiply condl into res_condl
     static void multiply(const L& condl, L& res_condl)   {
 
@@ -81,16 +87,25 @@ struct normal_mean_condL    {
         double tau1 = get<2>(condl);
         double tau2 = get<2>(res_condl);
 
-        double tau = tau1 + tau2;
-        double m = (tau1*m1 + tau2*m2)/tau;
-        double taup = tau1*tau2/(tau1 + tau2);
-        double dm = m1-m2;
+        if (std::isinf(tau2))   {
+            if (std::isinf(tau2)) {
+                assert(m1 == m2);
+            }
+            double logK = logK1 + logK2;
+            get<0>(res_condl) = logK;
+        }
+        else    {
+            double tau = tau1 + tau2;
+            double m = (tau1*m1 + tau2*m2)/tau;
+            double taup = tau1*tau2/(tau1 + tau2);
+            double dm = m1-m2;
 
-        double logK = logK1 + logK2 + 0.5*log(taup/2/constants::pi) - 0.5*taup*dm*dm;
+            double logK = logK1 + logK2 + 0.5*log(taup/2/constants::pi) - 0.5*taup*dm*dm;
 
-        get<0>(res_condl) = logK;
-        get<1>(res_condl) = m;
-        get<2>(res_condl) = tau;
+            get<0>(res_condl) = logK;
+            get<1>(res_condl) = m;
+            get<2>(res_condl) = tau;
+        }
     }
 
     // vector versions
@@ -248,6 +263,10 @@ struct univariate_normal    {
         return false;
     }
 
+    static bool is_active(const Constraint& clamp)  {
+        return clamp;
+    }
+
     template <typename Gen>
     static void draw(T& x, real mean, spos_real variance, Gen& gen)   {
         std::normal_distribution<double> distrib(real(mean), positive_real(variance));
@@ -261,6 +280,10 @@ struct univariate_normal    {
 
     template<typename Gen>
     static void conditional_draw(T& x, const Constraint& clamp, const CondL::L& condl, real mean, spos_real variance, Gen& gen) {
+        // check that if clamped, conditional likelihood is singular at the current value
+        if (! clamp)    {
+            // TODO
+        }
     }
 
     /*
@@ -282,6 +305,10 @@ struct univariate_brownian {
 
     static Constraint make_init_constraint(const instantT& x)    {
         return false;
+    }
+
+    static bool active_constraint(const Constraint& clamp)  {
+        return clamp;
     }
 
     template <typename Gen>
@@ -350,13 +377,15 @@ struct univariate_brownian {
 
     static double pseudo_branch_logprob(const instantT& x_young, const instantT& x_old, const CondL::L& branch_condl)  {
         instantT x = 0.5*(x_old + x_young);
-        double d = x - get<1>(branch_condl);
-        return get<0>(branch_condl) + 0.5*log(get<2>(branch_condl)/2/constants::pi)
-            -0.5*get<2>(branch_condl)*d*d;
+        return CondL::logprob(x, branch_condl);
     }
 
     template<typename Gen>
     static void node_conditional_draw(instantT& x_young, const Constraint& clamp, const instantT& x_old, double t_young, double t_old, const CondL::L& condl, spos_real tau, Gen& gen) {
+        // check that if clamped, conditional likelihood is singular at the current value
+        if (! clamp)    {
+            // TODO
+        }
     }
 
     template <typename Gen>
@@ -415,6 +444,5 @@ struct univariate_brownian {
         double contrast = (x_young-x_old)*(x_young-x_old)/(t_old-t_young);
         ss.AddSuffStat(0.5, 0.5*contrast);
     }
-
 };
 
