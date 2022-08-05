@@ -297,7 +297,7 @@ struct tree_process_methods  {
     // backward routines with branch conditional likelihoods
 
     template<class Tree, class Process, class CondL, class Params, class... Keys>
-    static void backward_branch_propagate(const Tree& tree, int node, Process& process, CondL& old_condl, CondL& young_condl, CondL& branch_condl, const Params& params, std::tuple<Keys...>)   {
+    static void backward_branch_propagate(const Tree& tree, int node, Process& process, CondL& old_condl, CondL& young_condl, const CondL& branch_condl, const Params& params, std::tuple<Keys...>)   {
 
         auto timeframe = get<time_frame_field>(process);
         node_distrib_t<Process>::backward_propagate(
@@ -308,7 +308,7 @@ struct tree_process_methods  {
     }
 
     template<class Tree, class Process, class CondLArray>
-    static void recursive_backward(const Tree& tree, int node, Process& process, CondLArray& old_condls, CondLArray& young_condls, CondLArray& branch_condls, const std::vector<bool>& external_clamps)    {
+    static void recursive_backward(const Tree& tree, int node, Process& process, CondLArray& old_condls, CondLArray& young_condls, const CondLArray& branch_condls, const std::vector<bool>& external_clamps)    {
 
         auto& v = get<node_values>(process);
         auto& clamp = get<constraint>(process);
@@ -474,6 +474,7 @@ struct tree_process_methods  {
                 get<Keys>(params)()..., gen);
     }
 
+    /*
     template<class Tree, class Process, class CondLArray, class Params, class... Keys>
     static double root_conditional_logprob(const Tree& tree, Process& process, CondLArray& young_condls, const Params& params, std::tuple<Keys...>)   {
 
@@ -509,6 +510,7 @@ struct tree_process_methods  {
 
         return ret;
     }
+    */
 
     template<class Tree, class Process, class CondLArray, class Gen>
     static void recursive_forward(const Tree& tree, int node, Process& process, CondLArray& young_condls, Gen& gen)    {
@@ -697,12 +699,12 @@ struct tree_process_methods  {
         Process& process;
         std::vector<typename node_distrib_t<Process>::CondL::L> young_condls;
         std::vector<typename node_distrib_t<Process>::CondL::L> old_condls;
-        std::vector<typename node_distrib_t<Process>::CondL::L>& branch_condls;
+        const std::vector<typename node_distrib_t<Process>::CondL::L>& branch_condls;
 
         public:
 
         branch_conditional_sampler(Process& in_process,
-                std::vector<typename node_distrib_t<Process>::CondL::L>& in_branch_condls) :
+                const std::vector<typename node_distrib_t<Process>::CondL::L>& in_branch_condls) :
             process(in_process), 
             young_condls(get<node_values>(process).size(), 
                     node_distrib_t<Process>::CondL::make_init()),
@@ -712,6 +714,13 @@ struct tree_process_methods  {
         }
 
         void init(const std::vector<bool>& external_clamps)  {
+
+            for (auto& condl : young_condls)    {
+                node_distrib_t<Process>::CondL::init(condl);
+            }
+            for (auto& condl : old_condls)    {
+                node_distrib_t<Process>::CondL::init(condl);
+            }
 
             auto& tree = get<tree_field>(process);
 
@@ -784,7 +793,7 @@ struct tree_process_methods  {
 
     template<class Process>
     static auto make_branch_conditional_sampler(Process& process,
-            std::vector<typename node_distrib_t<Process>::CondL::L>& branch_condls) {
+            const std::vector<typename node_distrib_t<Process>::CondL::L>& branch_condls) {
         return branch_conditional_sampler<Process>(process, branch_condls);
     }
 
