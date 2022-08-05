@@ -209,7 +209,7 @@ struct tree_process_methods  {
     }
 
     template<class Process, class Path, class Params, class... Keys, class Gen>
-    static double unpack_bridge_kernel(Process& process, double tuning, Path& path, double t_young, double t_old, const Params& params, std::tuple<Keys...>, Gen& gen)   {
+    static double bridge_kernel(Process& process, double tuning, Path& path, double t_young, double t_old, const Params& params, std::tuple<Keys...>, Gen& gen)   {
         return node_distrib_t<Process>::bridge_kernel(tuning, path, t_young, t_old,
                 get<Keys>(params)()..., gen);
     }
@@ -218,7 +218,7 @@ struct tree_process_methods  {
     static void branch_by_branch_mh_move(Process& process, double tuning, BranchUpdate update, BranchLogProb logprob, Gen& gen)  {
         auto& tree = get<tree_field>(process);
         auto kernel = [&process, tuning] (auto& path, double t_young, double t_old, Gen& gen) {
-            return unpack_bridge_kernel(process, tuning, path, t_young, t_old,
+            return bridge_kernel(process, tuning, path, t_young, t_old,
                     get<params>(process), param_keys_t<node_distrib_t<Process>>(), gen);
         };
         recursive_branch_mh_move(tree, tree.root(), process, kernel, update, logprob, gen);
@@ -226,38 +226,6 @@ struct tree_process_methods  {
 
     // ****************************
     // add suffstat
-
-    /*
-    template<class ParamKey, class Tree, class Process, class SS, class Params, class... Keys>
-    static void local_add_branch_suffstat(ParamKey key, Tree& tree, int node, Process& process, SS& ss, const Params& params, std::tuple<Keys...>)  {
-
-        auto& v = get<value>(process);
-        auto timeframe = get<time_frame_field>(process);
-
-        node_distrib_t<Process>::add_branch_suffstat(
-                key, ss, v[node], v[tree.parent(node)],
-                timeframe(tree.parent(node)) - timeframe(node),
-                get<Keys>(params)()...);
-    }
-
-    template<class ParamKey, class Tree, class Process, class SS>
-    static void recursive_add_branch_suffstat(ParamKey key, Tree& tree, int node, Process& process, SS& ss) {
-        if (! tree.is_root(node)) {
-            local_add_branch_suffstat(key, tree, node, process, ss, 
-                    get<params>(process), param_keys_t<node_distrib_t<Process>>());
-        }
-        for (auto c : tree.children(node)) {
-            recursive_add_branch_suffstat(key, tree, c, process, ss);
-        }
-    }
-
-    template<class ParamKey, class Process, class SS>
-    static void add_branch_suffstat(Process& process, SS& ss)    {
-        auto& tree = get<tree_field>(process);
-        ParamKey key;
-        recursive_add_branch_suffstat(key, tree, tree.root(), process, ss);
-    }
-    */
 
     // ****************************
     // backward routines
@@ -338,6 +306,7 @@ struct tree_process_methods  {
     // old_condls[node][i]: old condl, given that immediate ancestor is at time t_i
     // but if immediate ancestor is root..
 
+    /*
     template<class Tree, class Process, class CondLs, class Params, class... Keys>
     static void double_backward_branch_propagate(const Tree& tree, int node, int parent_node, Process& process, const std::vector<double>& times, double root_time, double leaf_time, CondLs& old_condls, CondLs& young_condls, const Params& params, std::tuple<Keys...>)   {
 
@@ -406,6 +375,7 @@ struct tree_process_methods  {
             }
         }
     }
+    */
 
     // ****************************
     // conditional draw 
@@ -473,44 +443,6 @@ struct tree_process_methods  {
                 timeframe(node), timeframe(tree.parent(node)),
                 get<Keys>(params)()..., gen);
     }
-
-    /*
-    template<class Tree, class Process, class CondLArray, class Params, class... Keys>
-    static double root_conditional_logprob(const Tree& tree, Process& process, CondLArray& young_condls, const Params& params, std::tuple<Keys...>)   {
-
-        auto& clamp = get<constraint>(process);
-        auto node_vals = get<node_values>(process);
-        return node_root_distrib_t<Process>::conditional_logprob(
-                node_vals[tree.root()], clamp[tree.root()],
-                young_condls[tree.root()],
-                get<Keys>(params)()...);
-    }
-
-    template<class Tree, class Process, class CondLArray, class Params, class... Keys>
-    static double path_conditional_logprob(const Tree& tree, int node, Process& process, CondLArray& young_condls, const Params& params, std::tuple<Keys...>)   {
-
-        auto& clamp = get<constraint>(process);
-        auto timeframe = get<time_frame_field>(process);
-        auto node_vals = get<node_values>(process);
-        auto path_vals = get<path_values>(process);
-
-        // first value at node, given parent node and conditional likelihood for downstream data
-        double ret = node_distrib_t<Process>::node_conditional_logprob(
-                node_vals[node], clamp[node], node_vals[tree.parent(node)],
-                timeframe(node), timeframe(tree.parent(node)),
-                young_condls[node],
-                get<Keys>(params)()...);
-
-        // then bridge along branch, conditional on values at both ends
-        ret += node_distrib_t<Process>::bridge_conditional_logprob(
-                path_vals[tree.get_branch(node)],
-                node_vals[node], node_vals[tree.parent(node)],
-                timeframe(node), timeframe(tree.parent(node)),
-                get<Keys>(params)()...);
-
-        return ret;
-    }
-    */
 
     template<class Tree, class Process, class CondLArray, class Gen>
     static void recursive_forward(const Tree& tree, int node, Process& process, CondLArray& young_condls, Gen& gen)    {
@@ -634,56 +566,6 @@ struct tree_process_methods  {
             path = path_vals[tree.get_branch(node)];
         }
 
-        /*
-        template<class Gen>
-        void path_draw(int node, typename node_distrib_t<Process>::instantT& val, 
-                const typename node_distrib_t<Process>::instantT& parent_val, 
-                typename node_distrib_t<Process>::pathT& path,
-                double& log_weight, Gen& gen)    {
-
-            auto& tree = get<tree_field>(process);
-            auto& node_vals = get<node_values>(process);
-            auto& path_vals = get<path_values>(process);
-
-            node_vals[tree.parent(node)] = parent_val;
-
-            path_conditional_draw(tree, node, process, young_condls,
-                get<params>(process), param_keys_t<node_distrib_t<Process>>(), gen);
-
-            val = node_vals[node];
-            path = path_vals[tree.get_branch(node)];
-        }
-        */
-
-        /*
-        double root_logprob(const typename node_distrib_t<Process>::instantT& val) {
-
-            auto& tree = get<tree_field>(process);
-            auto& node_vals = get<node_values>(process);
-
-            node_vals[tree.root()] = val;
-
-            return root_conditional_logprob(tree, process, young_condls,
-                get<struct root_params>(process), param_keys_t<node_root_distrib_t<Process>>());
-        }
-
-        double path_logprob(int node, 
-                const typename node_distrib_t<Process>::instantT& val,
-                const typename node_distrib_t<Process>::instantT& parent_val,
-                const typename node_distrib_t<Process>::pathT& path)   {
-
-            auto& tree = get<tree_field>(process);
-            auto& node_vals = get<node_values>(process);
-            auto& path_vals = get<path_values>(process);
-
-            node_vals[node] = val;
-            node_vals[tree.parent(node)] = parent_val;
-            path_vals[tree.get_branch(node)] = path;
-
-            return path_conditional_logprob(tree, node, process, young_condls,
-                get<params>(process), param_keys_t<node_distrib_t<Process>>());
-        }
-        */
     };
 
     template<class Process>
@@ -768,35 +650,6 @@ struct tree_process_methods  {
                     branch_condls[branch]);
         }
 
-        /*
-        double root_logprob(const typename node_distrib_t<Process>::instantT& val) {
-
-            auto& tree = get<tree_field>(process);
-            auto& node_vals = get<node_values>(process);
-
-            node_vals[tree.root()] = val;
-
-            return root_conditional_logprob(tree, process, young_condls,
-                get<struct root_params>(process), param_keys_t<node_root_distrib_t<Process>>());
-        }
-
-        double path_logprob(int node, 
-                const typename node_distrib_t<Process>::instantT& val,
-                const typename node_distrib_t<Process>::instantT& parent_val,
-                const typename node_distrib_t<Process>::pathT& path)   {
-
-            auto& tree = get<tree_field>(process);
-            auto& node_vals = get<node_values>(process);
-            auto& path_vals = get<path_values>(process);
-
-            node_vals[node] = val;
-            node_vals[tree.parent(node)] = parent_val;
-            path_vals[tree.get_branch(node)] = path;
-
-            return path_conditional_logprob(tree, node, process, young_condls,
-                get<params>(process), param_keys_t<node_distrib_t<Process>>());
-        }
-        */
     };
 
     template<class Process>
@@ -914,59 +767,6 @@ struct tree_process_methods  {
         return pseudo_branch_prior_importance_sampler<Process, Update, LogProb>(
                 process, update, logprob);
     }
-
-    /*
-    template<class Process, class Proposal, class BranchUpdate, class BranchLogProb>
-    class importance_sampler  {
-
-        Process& process;
-        Proposal& proposal;
-        BranchUpdate update;
-        BranchLogProb logprob;
-
-        public: 
-
-        importance_sampler(Process& in_process, Proposal& in_proposal,
-            BranchUpdate in_update, BranchLogProb in_logprob) :
-                process(in_process), proposal(in_proposal),
-                update(in_update), logprob(in_logprob) {}
-
-        ~importance_sampler() {}
-
-        template<class Gen>
-        void root_draw(typename node_distrib_t<Process>::instantT& val, 
-                double& log_weight, Gen& gen) {
-
-            proposal.root_draw(val, log_weight, gen);
-
-            log_weight -= proposal.root_logprob(val);
-            log_weight += root_logprob(process,
-                get<struct root_params>(process), param_keys_t<node_root_distrib_t<Process>>());
-        }
-
-        template<class Gen>
-        void path_draw(int node, 
-                typename node_distrib_t<Process>::instantT& val, 
-                const typename node_distrib_t<Process>::instantT& parent_val, 
-                typename node_distrib_t<Process>::pathT& path, 
-                double& log_weight, Gen& gen) {
-
-            proposal.path_draw(node, val, parent_val, path, log_weight, gen);
-
-            log_weight -= proposal.path_logprob(node, val, parent_val, path);
-            log_weight += path_logprob(process, node,
-                get<params>(process), param_keys_t<node_distrib_t<Process>>());
-
-            update(get<tree_field>(process).get_branch(node));
-            log_weight += logprob(get<tree_field>(process).get_branch(node));
-        }
-    };
-
-    template<class Process, class Proposal, class Update, class LogProb>
-    static auto make_importance_sampler(Process& process, Proposal& proposal, Update update, LogProb logprob)   {
-        return importance_sampler<Process, Proposal, Update, LogProb>(process, proposal, update, logprob);
-    }
-    */
 
     // ****************************
     // particle filters
