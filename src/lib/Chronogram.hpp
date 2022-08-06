@@ -56,6 +56,49 @@ class Chronogram : public custom_tracer {
         Rescale(1.0 / maxage);
     }
 
+    void to_stream_header(std::string name, std::ostream& os) const override {
+        bool cont = false;
+        for (size_t node=0; node<tree->nb_nodes(); node++)  {
+            if ((!tree->is_root(node)) && (!tree->is_leaf(node)))   {
+                if (cont)   {
+                    os << "\t";
+                }
+                else    {
+                    cont = true;
+                }
+                os << "date_" << node;
+            }
+        }
+    }
+    void to_stream(std::ostream& os) const override {
+        bool cont = false;
+        for (size_t node=0; node<tree->nb_nodes(); node++)  {
+            if ((!tree->is_root(node)) && (!tree->is_leaf(node)))   {
+                if (cont)   {
+                    os << '\t';
+                }
+                else    {
+                    cont = true;
+                }
+                os << node_ages[node];
+            }
+        }
+    }
+
+    void from_stream(std::istream& is) override {
+        for (size_t node=0; node<tree->nb_nodes(); node++)  {
+            if (tree->is_root(node))    {
+                node_ages[node] = 1.0;
+            }
+            else if (tree->is_leaf(node))   {
+                node_ages[node] = 0;
+            }
+            else    {
+                is >> node_ages[node];
+            }
+        }
+    }
+
     private:
 
     double recursive_get_ages_from_lengths(Tree::NodeIndex from, const std::vector<double>& bl)   {
@@ -156,9 +199,19 @@ class Chronogram : public custom_tracer {
     }
 
     template<class Update, class LogProb> double LocalMoveTime(double tuning, Tree::NodeIndex from, Update update, LogProb logprob) {
+
         double logprob1 = logprob(tree->get_branch(from));
+        if (std::isnan(logprob1))  {
+            std::cerr << "nan up\n";
+            std::cerr << from << '\t' << tree->get_branch(from) << '\n';
+            exit(1);
+        }
         for (auto c : tree->children(from)) {
             logprob1 += logprob(tree->get_branch(c));
+            if (std::isnan(logprob1))  {
+                std::cerr << "nan down\n";
+                exit(1);
+            }
         }
         double bk = node_ages[from];
         double loghastings = LocalProposeMove(from, tuning);
@@ -172,6 +225,22 @@ class Chronogram : public custom_tracer {
         }
 
         double deltalogprob = logprob2 - logprob1 + loghastings;
+        if (std::isnan(deltalogprob))   {
+            std::cerr << "nan log prob in move time\n";
+            std::cerr << loghastings << '\t' << logprob1 << '\t' << logprob2 << '\n';
+            std::cerr << from << '\t' << tree->parent(from) << '\n';
+            std::cerr << bk << "  ->  " << node_ages[from] << '\n';
+            std::cerr << node_ages[tree->parent(from)];
+            for (auto c : tree->children(from)) {
+                std::cerr << '\t' << node_ages[c];
+            }
+            std::cerr << '\n';
+            exit(1);
+        }
+        if (std::isinf(deltalogprob))   {
+            std::cerr << "inf log prob in move time\n";
+            exit(1);
+        }
         int accepted = (log(Random::Uniform()) < deltalogprob);
         if (!accepted)   {
             node_ages[from] = bk;
