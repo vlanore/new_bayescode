@@ -167,6 +167,7 @@ struct discretized_path : public std::vector<T>, public custom_tracer {
 
     discretized_path(size_t n) : std::vector<T>(n+2,T()) {}
     discretized_path(size_t n, const T& initT) : std::vector<T>(n+2, initT) {}
+
     ~discretized_path() {}
 
     double get_width() const   {

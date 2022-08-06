@@ -34,9 +34,9 @@ struct tree_process_methods  {
         }
 
         auto& tree = get<tree_field>(process);
-        auto& timeframe = get<time_frame_field>(process);
-        auto node_vals = get<node_values>(process);
-        auto path_vals = get<path_values>(process);
+        auto timeframe = get<time_frame_field>(process);
+        auto& node_vals = get<node_values>(process);
+        auto& path_vals = get<path_values>(process);
 
         node_distrib_t<Process>::path_draw(path_vals[tree.get_branch(node)], 
             node_vals[node], node_vals[tree.parent(node)],
@@ -83,8 +83,8 @@ struct tree_process_methods  {
 
         auto& tree = get<tree_field>(process);
         auto timeframe = get<time_frame_field>(process);
-        auto node_vals = get<node_values>(process);
-        auto path_vals = get<path_values>(process);
+        auto& node_vals = get<node_values>(process);
+        auto& path_vals = get<path_values>(process);
 
         return node_distrib_t<Process>::path_logprob(path_vals[tree.get_branch(node)], 
             node_vals[node], node_vals[tree.parent(node)],
@@ -113,10 +113,17 @@ struct tree_process_methods  {
         }
         else    {
             tot = path_logprob(process, node);
-
         }
         for (auto c : get<tree_field>(process).children(node))  {
             tot += path_logprob(process, c);
+        }
+        if (std::isnan(tot))    {
+            std::cerr << "in tree process : around_node_logprob: nan\n";
+            exit(1);
+        }
+        if (std::isinf(tot))    {
+            std::cerr << "in tree process : around_node_logprob: inf\n";
+            exit(1);
         }
         return tot;
     }
@@ -138,11 +145,12 @@ struct tree_process_methods  {
         auto bk = x;
         double logprobbefore = around_node_logprob(process,node) + tree_factory::sum_around_node(tree, logprob)(node);
         double logh = kernel(x, gen);
+        // auto dx = x-bk;
         if (! tree.is_root(node))   {
-            logh += paths[node].adapt_to_younger_end(bk, x);
+            logh += paths[tree.get_branch(node)].adapt_to_younger_end(bk, x);
         }
         for (auto c : tree.children(node))  {
-            logh += paths[c].adapt_to_older_end(bk, x);
+            logh += paths[tree.get_branch(c)].adapt_to_older_end(bk, x);
         }
         tree_factory::do_around_node(tree, update)(node);
         double logprobafter = around_node_logprob(process,node) + tree_factory::sum_around_node(tree, logprob)(node);
@@ -150,13 +158,16 @@ struct tree_process_methods  {
         bool accept = decide(delta, gen);
         if (! accept)   {
             if (! tree.is_root(node))   {
-                paths[node].adapt_to_younger_end(x, bk);
+                paths[tree.get_branch(node)].adapt_to_younger_end(x, bk);
             }
             for (auto c : tree.children(node))  {
-                paths[c].adapt_to_older_end(x, bk);
+                paths[tree.get_branch(c)].adapt_to_older_end(x, bk);
             }
             x = bk;
+            // x -= dx;
             tree_factory::do_around_node(tree, update)(node);
+        }
+        else    {
         }
     }
 
@@ -246,6 +257,38 @@ struct tree_process_methods  {
 
     // ****************************
     // add suffstat
+
+    template<class ParamKey, class Tree, class Process, class SS, class Params, class... Keys>
+    static void local_add_branch_suffstat(ParamKey key, Tree& tree, int node, Process& process, SS& ss, const Params& params, std::tuple<Keys...>)  {
+
+        auto& node_vals = get<node_values>(process);
+        auto& path_vals = get<path_values>(process);
+        auto timeframe = get<time_frame_field>(process);
+
+        node_distrib_t<Process>::add_branch_suffstat(
+                key, ss, path_vals[tree.get_branch(node)], 
+                node_vals[node], node_vals[tree.parent(node)],
+                timeframe(node), timeframe(tree.parent(node)),
+                get<Keys>(params)()...);
+    }
+
+    template<class ParamKey, class Tree, class Process, class SS>
+    static void recursive_add_branch_suffstat(ParamKey key, Tree& tree, int node, Process& process, SS& ss) {
+        if (! tree.is_root(node)) {
+            local_add_branch_suffstat(key, tree, node, process, ss, 
+                    get<params>(process), param_keys_t<node_distrib_t<Process>>());
+        }
+        for (auto c : tree.children(node)) {
+            recursive_add_branch_suffstat(key, tree, c, process, ss);
+        }
+    }
+
+    template<class ParamKey, class Process, class SS>
+    static void add_branch_suffstat(Process& process, SS& ss)    {
+        auto& tree = get<tree_field>(process);
+        ParamKey key;
+        recursive_add_branch_suffstat(key, tree, tree.root(), process, ss);
+    }
 
     // ****************************
     // backward routines
@@ -404,7 +447,7 @@ struct tree_process_methods  {
     static void root_conditional_draw(const Tree& tree, Process& process, CondLArray& young_condls, const Params& params, std::tuple<Keys...>, Gen& gen)   {
 
         auto& clamps = get<constraint>(process);
-        auto node_vals = get<node_values>(process);
+        auto& node_vals = get<node_values>(process);
         node_root_distrib_t<Process>::conditional_draw(
                 node_vals[tree.root()], clamps[tree.root()],
                 young_condls[tree.root()],
@@ -417,7 +460,7 @@ struct tree_process_methods  {
 
         auto& clamps = get<constraint>(process);
         auto timeframe = get<time_frame_field>(process);
-        auto node_vals = get<node_values>(process);
+        auto& node_vals = get<node_values>(process);
 
         node_distrib_t<Process>::node_conditional_draw(
                 node_vals[node], clamps[node], node_vals[tree.parent(node)],
@@ -431,8 +474,8 @@ struct tree_process_methods  {
     static void bridge_conditional_draw(const Tree& tree, int node, Process& process, const Params& params, std::tuple<Keys...>, Gen& gen)   {
 
         auto timeframe = get<time_frame_field>(process);
-        auto node_vals = get<node_values>(process);
-        auto path_vals = get<path_values>(process);
+        auto& node_vals = get<node_values>(process);
+        auto& path_vals = get<path_values>(process);
 
         node_distrib_t<Process>::bridge_conditional_draw(
                 path_vals[tree.get_branch(node)],
@@ -447,8 +490,8 @@ struct tree_process_methods  {
 
         auto& clamps = get<constraint>(process);
         auto timeframe = get<time_frame_field>(process);
-        auto node_vals = get<node_values>(process);
-        auto path_vals = get<path_values>(process);
+        auto& node_vals = get<node_values>(process);
+        auto& path_vals = get<path_values>(process);
 
         // first draw value at node, given parent node and conditional likelihood for downstream data
         node_distrib_t<Process>::node_conditional_draw(
