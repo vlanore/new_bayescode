@@ -51,7 +51,30 @@ class Chronogram : public custom_tracer {
         return tot;
     }
 
+    void get_ages_from_lengths(const std::vector<double>& bl) {
+        double maxage = recursive_get_ages_from_lengths(GetRoot(), bl);
+        Rescale(1.0 / maxage);
+    }
+
     private:
+
+    double recursive_get_ages_from_lengths(Tree::NodeIndex from, const std::vector<double>& bl)   {
+        double max = 0;
+        std::map<int,double> submax;
+
+        for (auto c : tree->children(from)) {
+            double tmp = recursive_get_ages_from_lengths(c, bl) + bl.at(c);
+            if (max < tmp)  {
+                max = tmp;
+            }
+            submax[c] = tmp;
+        }
+        for (auto c : tree->children(from)) {
+            recursive_rescale(c, max/submax[c]);
+        }
+        node_ages[from] = max;
+        return max;
+    }
 
     double RecursiveSample(Tree::NodeIndex from)  {
         double max = 0;
@@ -73,6 +96,13 @@ class Chronogram : public custom_tracer {
         for (auto& a : node_ages)    {
             a *= f;
         }
+    }
+
+    void recursive_rescale(Tree::NodeIndex from, double f)    {
+        for (auto c : tree->children(from)) {
+            recursive_rescale(c,f);
+        }
+        node_ages[from] *= f;
     }
 
     double GetDeltaTime(Tree::NodeIndex from) const {
