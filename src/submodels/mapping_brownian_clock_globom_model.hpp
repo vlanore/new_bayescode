@@ -35,12 +35,39 @@ TOKEN(tau_suffstats)
 struct brownian_clock_globom {
 
     template <class Gen>
-    static auto make(const Tree* tree, std::vector<std::vector<double>>& suffstat, Gen& gen)  {
+    static auto make(std::string treefile, std::vector<std::vector<double>>& suffstat, Gen& gen)  {
+    // static auto make(const Tree* tree, std::vector<std::vector<double>>& suffstat, Gen& gen)  {
+
+        std::ifstream is(treefile);
+        NHXParser parser(is);
+        auto my_tree = make_from_parser(parser);
+        auto tree = my_tree.get();
+
+        std::ifstream tis(treefile.c_str());
+        std::string bls;
+        tis >> bls;
+        auto bl_stream = std::stringstream(bls);
+        NHXParser bl_parser(bl_stream);
+        auto node_lengths = node_container_from_parser<double>(
+            bl_parser, [](int i, const AnnotatedTree& t) { return atof(t.tag(i, "length").c_str()); });
 
         // uniform prior over divergence times
         // relative dates (root has age 1, i.e. tree has depth 1)
         auto chrono = make_node_with_init<chronogram>({tree});
-        draw(chrono, gen);
+        get<value>(chrono).get_ages_from_lengths(node_lengths);
+        // draw(chrono, gen);
+
+        // check
+        std::stringstream s;
+        auto branchlength = [&ch = get<value>(chrono), &t=tree] (int branch) {
+            return ch[t->get_older_node(branch)] - ch[t->get_younger_node(branch)];
+        };
+        newick_output::print(s, tree, 
+                [] (int) {return "";}, 
+                branchlength);
+                // [&bl=branch_lengths] (int branch) {return bl[branch+1];});
+        std::cout << s.str() << '\n';
+        std::cout.flush();
 
         // precision (inverse variance) per time unit
         auto tau = make_node<gamma_mi>(1.0, 1.0);
@@ -184,26 +211,28 @@ struct brownian_clock_globom {
             tree_process_methods::node_by_node_mh_move(get<log_synrate>(model), 0.3,
                     branch_update, branch_logprob, gen);
 
+            /*
             tree_process_methods::branch_by_branch_mh_move(get<log_synrate>(model), 1.0,
                     branch_update, branch_logprob, gen);
 
             tree_process_methods::branch_by_branch_mh_move(get<log_synrate>(model), 0.3,
                     branch_update, branch_logprob, gen);
+            */
         }
 
     template<class Model, class Gen>
         static auto move_params(Model& model, Gen& gen) {
             // move branch times and rates
-            move_chrono(model, gen);
+            // move_chrono(model, gen);
             move_ds(model, gen);
-            pf_move_ds(model, gen);
+            // pf_move_ds(model, gen);
             // branch_pf_move_ds(model, gen);
 
             // move variance parameter of Brownian process
             // tau_suffstats_(model).gather();
-            tau_suffstats_(model).get().Clear();
+            // tau_suffstats_(model).get().Clear();
             // tree_process_methods::add_branch_suffstat<brownian_tau>(get<log_synrate>(model),tau_suffstats_(model).get());
-            gibbs_resample(tau_(model), tau_suffstats_(model), gen);
+            // gibbs_resample(tau_(model), tau_suffstats_(model), gen);
 
             // move omega
             omegapath_suffstats_(model).gather();

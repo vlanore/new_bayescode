@@ -8,9 +8,11 @@ int main(int argc, char* argv[]) {
     cmd.parse();
 
     // input tree
+    /*
     std::ifstream is(args.treefile.getValue());
     NHXParser parser(is);
     auto tree = make_from_parser(parser);
+    */
 
     // suff stats
     auto suffstat = pathss_factory::make_mapping_dsom_suffstats(args.suffstats.getValue());
@@ -19,7 +21,8 @@ int main(int argc, char* argv[]) {
     auto gen = make_generator(42);
 
     // model
-    auto model = brownian_clock_globom::make(tree.get(), suffstat, gen);
+    auto model = brownian_clock_globom::make(args.treefile.getValue(), suffstat, gen);
+    // auto model = brownian_clock_globom::make(tree.get(), suffstat, gen);
 
     // move success stats
     MoveStatsRegistry ms;
