@@ -34,5 +34,35 @@ struct newick_output    {
         os << ";\n";
     }
 
+    template<class BranchLength>
+    static void recursive_print(std::ostream& os, const Tree* tree, int node, BranchLength branchlength)  {
+        if (tree->is_leaf(node))    {
+            os << tree->node_name(node);
+        }
+        else    {
+            os << "(";
+            auto n = tree->children(node).size();
+            size_t i = 0;
+            for (auto c : tree->children(node)) {
+                recursive_print(os, tree, c, branchlength);
+                i++;
+                if (i != n) {
+                    os << ",";
+                }
+            }
+            os << ")";
+        }
+        if (! tree->is_root(node))  {
+            os << ":";
+            os << branchlength(tree->get_branch(node));
+        }
+    }
+
+    template<class BranchLength>
+    static void print(std::ostream& os, const Tree* tree, BranchLength branchlength)  {
+        recursive_print(os, tree, tree->root(), branchlength);
+        os << ";\n";
+    }
+
 };
 
