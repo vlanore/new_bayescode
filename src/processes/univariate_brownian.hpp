@@ -179,12 +179,14 @@ struct discretized_path : public std::vector<T>, public custom_tracer {
         return double(i)/(this->size()-1);
     }
 
+    /*
     // for all points: interior + boundaries
     double get_breakpoint_time(size_t i) const {
         if (i == 0) return 0;
         if (i == this->size()) return 1.0;
         return double(i)/(this->size()-1) - 0.5*get_width();
     }
+    */
 
     double adapt_to_older_end(const T& x_old1, const T& x_old2) {
         for (size_t i=0; i<this->size(); i++) {
@@ -237,14 +239,6 @@ std::istream& operator>>(std::istream& is, discretized_path<T>& p) {
 
 template<class T, class Lambda>
 static auto get_branch_mean(const discretized_path<T>& path, Lambda lambda)    {
-
-    /*
-    auto mean = lambda(path.at(0));
-    mean *= (path.get_breakpoint_time(1) - path.get_breakpoint_time(0));
-    for (size_t i=1; i<path.size(); i++)  {
-        mean += (path.get_breakpoint_time(i+1) - path.get_breakpoint_time(i)) * lambda(path.at(i));
-    }
-    */
     auto mean = 0.5*(lambda(path.at(0)) + lambda(path.at(path.size()-1)));
     for (size_t i=1; i<path.size()-1; i++)  {
         mean += lambda(path.at(i));
@@ -255,14 +249,6 @@ static auto get_branch_mean(const discretized_path<T>& path, Lambda lambda)    {
 
 template<class T, class Lambda>
 static auto get_branch_sum(const discretized_path<T>& path, double t_young, double t_old, Lambda lambda)  {
-
-    /*
-    auto mean = lambda(path.at(0));
-    mean *= (path.get_breakpoint_time(1) - path.get_breakpoint_time(0));
-    for (size_t i=1; i<path.size(); i++)  {
-        mean += (path.get_breakpoint_time(i+1) - path.get_breakpoint_time(i)) * lambda(path.at(i));
-    }
-    */
     auto mean = 0.5*(lambda(path.at(0)) + lambda(path.at(path.size()-1)));
     for (size_t i=1; i<path.size()-1; i++)  {
         mean += lambda(path.at(i));
@@ -485,35 +471,41 @@ struct univariate_brownian {
     static double bridge_kernel(double tuning, pathT& path, 
             double t_young, double t_old, spos_real tau, Gen& gen)  {
 
-        const instantT& val1 = path[path.size()-1];
+        // brownian bridge with discrete steps delta_t = (t_old-t_young)/(path.size()-1)
+        // at step i
+        // variance on left is delta_t/tau
+        // variance on right is (n-i-1)*delta_t/tau
+        // precision on left is  tau / delta_t
+        // precision on right is tau / delta_t / (n-i-1)
+        // total precision: tau / delta_t * (1 + 1/(n-i-1)) = tau * tau0 / delta_t
+        // total variance : delta_t / tau / tau_0 = (t_old - t_young) / (n-1) / tau / tau0
 
-        for (size_t i=1; i<path.size()-1; i++)    {
+        auto n = path.size();
+        if (n==2)   {
+            return 0;
+        }
+
+        pathT dpath = path;
+        dpath[0] = dpath[n-1] = 0;
+
+        for (size_t i=1; i<n-1; i++)    {
 
             double tau1 = 1.0;
-            double tau2 = 1.0 / (path.size()-i-1);
+            double tau2 = 1.0 / (n-i-1);
             double tau0 = tau1 + tau2;
-            double mean = (tau1*path[i-1] + tau2*val1)/tau0;
-            double var = tuning * path.get_width() / tau0 / tau;
-
-            /*
-            // check this
-            double mean = (path[i-1] + (path.size()-i-1)*val1) / (path.size()-i);
-            double var = tuning * path.get_width()  / (1.0 + 1.0/(path.size()-i-1));
-            */
+            double mean = (tau1*dpath[i-1])/tau0;
+            double var = tuning * (t_old-t_young) / (n-1) / tau0 / tau;
 
             std::normal_distribution<double> distrib(real(mean), positive_real(var));
-            path[i] += distrib(gen);
+            dpath[i] = distrib(gen);
+        }
+        for (size_t i=1; i<n-1; i++)    {
+            path[i] += dpath[i];
         }
         return 0;
     }
 
     static void add_branch_suffstat(brownian_tau, PoissonSuffStat& ss, const pathT& path, const instantT& x_young, const instantT& x_old, double t_young, double t_old, spos_real tau)  {
-        // version when no internal dfs
-        /*
-        double contrast = (x_young-x_old)*(x_young-x_old)/(t_old-t_young);
-        ss.AddSuffStat(0.5, 0.5*contrast);
-        */
-        // general version
         double delta = path.get_width()*(t_old-t_young);
         for (size_t i=1; i<path.size(); i++)    {
             double contrast = (path[i] - path[i-1])*(path[i] - path[i-1])/delta;

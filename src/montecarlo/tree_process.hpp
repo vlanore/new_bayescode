@@ -145,7 +145,6 @@ struct tree_process_methods  {
         auto bk = x;
         double logprobbefore = around_node_logprob(process,node) + tree_factory::sum_around_node(tree, logprob)(node);
         double logh = kernel(x, gen);
-        // auto dx = x-bk;
         if (! tree.is_root(node))   {
             logh += paths[tree.get_branch(node)].adapt_to_younger_end(bk, x);
         }
@@ -164,7 +163,6 @@ struct tree_process_methods  {
                 paths[tree.get_branch(c)].adapt_to_older_end(x, bk);
             }
             x = bk;
-            // x -= dx;
             tree_factory::do_around_node(tree, update)(node);
         }
         else    {

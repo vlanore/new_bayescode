@@ -71,7 +71,7 @@ struct brownian_clock_globom {
         auto log_synrate = make_node_tree_process_with_inits<univariate_brownian, univariate_normal>(
                 *tree, 
                 time_frame(get<value>(chrono)), 
-                0, {0},
+                0, {5},
                 process_params(one_to_one(tau)),
                 root_params(one_to_const(root_mean),one_to_const(root_var)));
 
@@ -99,6 +99,7 @@ struct brownian_clock_globom {
         // global dN/dS uniform across sites and branches
         auto global_omega = make_node<gamma_mi>(1.0, 1.0);
         draw(global_omega, gen);
+        get<value>(global_omega) = 0.265;
 
         std::cerr << "get suffstats from file\n";
         // mapping suffstats for dS and dN
@@ -260,7 +261,6 @@ struct brownian_clock_globom {
 
     template<class Model, class Gen>
         static auto move_omega(Model& model, Gen& gen)  {
-            // gibbs version
             omegapath_suffstats_(model).gather();
             gibbs_resample(global_omega_(model), omegapath_suffstats_(model), gen);
         }
