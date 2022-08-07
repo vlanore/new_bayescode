@@ -107,7 +107,16 @@ class dSOmegaPathSuffStat {
     }
 
     double GetLogProb(double l, double omega) const { 
-        return (nsyn + nnonsyn)*log(l) + nnonsyn*log(omega) - l*(bsyn + bnonsyn*omega);
+        double ret = (nsyn + nnonsyn)*log(l) + nnonsyn*log(omega) - l*(bsyn + bnonsyn*omega);
+        if (std::isnan(ret))    {
+            std::cerr << "nan dsom suffstat log prob\n";
+            exit(1);
+        }
+        if (std::isinf(ret))    {
+            std::cerr << "inf dsom suffstat log prob\n";
+            exit(1);
+        }
+        return ret;
     }
 
     double GetLogProbdSIntegrated(double l, double omega, double dt, double nu) const   {
