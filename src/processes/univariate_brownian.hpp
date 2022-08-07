@@ -75,8 +75,50 @@ struct normal_mean_condL    {
             - 0.5*get<2>(condl)*d*d;
     }
 
+    // precision can be infinite, but not logK nor mean
+    static bool isinf(const L& condl)   {
+        return std::isinf(get<0>(condl)) || std::isinf(get<1>(condl));
+    }
+
+    static bool isnan(const L& condl)   {
+        return std::isnan(get<0>(condl)) || std::isnan(get<1>(condl)) || std::isnan(get<2>(condl));
+    }
+
+    // return true if problem
+    static bool ill_defined(const L& condl)    {
+        bool ret = false;
+        if (isinf(condl))   {
+            std::cerr << "condl is inf\n";
+            ret = true;
+        }
+        if (isnan(condl))   {
+            std::cerr << "condl is nan\n";
+            ret = true;
+        }
+        if (!get<2>(condl)) {
+            if (get<1>(condl) || get<0>(condl)) {
+                std::cerr << "condl is ill-defined\n";
+                ret = true;
+            }
+        }
+        if (ret)    {
+            printerr(condl);
+            std::cerr << '\n';
+        }
+        return ret;
+    }
+
+    static void printerr(const L& condl)    {
+        std::cerr << get<0>(condl) << '\t' << get<1>(condl) << '\t' << get<2>(condl);
+    }
+
     // multiply condl into res_condl
     static void multiply(const L& condl, L& res_condl)   {
+
+        if (ill_defined(condl) || ill_defined(res_condl))   {
+            std::cerr << "ill defined in multiply\n";
+            exit(1);
+        }
 
         double logK1 = get<0>(condl);
         double logK2 = get<0>(res_condl);
@@ -88,15 +130,26 @@ struct normal_mean_condL    {
         double tau2 = get<2>(res_condl);
 
         if (std::isinf(tau2))   {
-            if (std::isinf(tau2)) {
+            if (std::isinf(tau1)) {
                 // assert(m1 == m2);
                 if (m1 != m2)   {
                     std::cerr << "error: multiplying singular condls with different means\n";
+                    printerr(condl);
+                    std::cerr << '\n';
+                    printerr(res_condl);
+                    std::cerr << '\n';
                     exit(1);
                 }
             }
             double logK = logK1 + logK2;
             get<0>(res_condl) = logK;
+        }
+        else if (tau1 == 0) {
+        }
+        else if (tau2 == 0) {
+            get<0>(res_condl) = get<0>(condl);
+            get<1>(res_condl) = get<1>(condl);
+            get<2>(res_condl) = get<2>(condl);
         }
         else    {
             double tau = tau1 + tau2;
@@ -105,10 +158,25 @@ struct normal_mean_condL    {
             double dm = m1-m2;
 
             double logK = logK1 + logK2 + 0.5*log(taup/2/constants::pi) - 0.5*taup*dm*dm;
+            if (std::isinf(logK))   {
+                std::cerr << "logK is inf\n";
+                std::cerr << tau << '\t' << m << '\t' << taup << '\n';
+            }
 
             get<0>(res_condl) = logK;
             get<1>(res_condl) = m;
             get<2>(res_condl) = tau;
+        }
+
+        if (ill_defined(res_condl))   {
+            std::cerr << "error in condl multiply\n";
+            printerr(condl);
+            std::cerr << '\n';
+            std::cerr << logK2 << '\t' << m2 << '\t' << tau2 << '\n';
+            std::cerr << "---------------\n";
+            printerr(res_condl);
+            std::cerr << '\n';
+            exit(1);
         }
     }
 
@@ -280,8 +348,8 @@ struct univariate_normal    {
     }
 
     static real logprob(T& x, real mean, spos_real variance)   {
-        double y = (x - mean) / variance;
-        return -0.5*log(2.0*constants::pi*variance) - 0.5*y*y;
+        double y = (x - mean);
+        return -0.5*log(2.0*constants::pi*variance) - 0.5*y*y/variance;
     }
 
     template<typename Gen>
@@ -335,39 +403,62 @@ struct univariate_brownian {
     }
 
     template <typename Gen>
+    static void node_draw(instantT& x_young, const instantT& x_old, double t_young, double t_old, spos_real tau, Gen& gen)   {
+
+        double v = (t_old-t_young)/tau;
+        std::normal_distribution<double> distrib(real(x_old), positive_real(v));
+        x_young = distrib(gen);
+    }
+
+    template <typename Gen>
     static void path_draw(pathT& path, instantT& x_young, const instantT& x_old, double t_young, double t_old, spos_real tau, Gen& gen)   {
 
-        double dt = (t_old - t_young)*path.get_width();
+        size_t n = path.size();
+        double dt = (t_old - t_young)/(n-1);
         double vstep = dt/tau;
 
         path[0] = x_old;
-        for (size_t i=1; i<path.size(); i++) {
+        for (size_t i=1; i<n; i++) {
             std::normal_distribution<double> distrib(real(path[i-1]), positive_real(vstep));
             path[i] = distrib(gen);
         }
-        x_young = path[path.size()-1];
+        x_young = path[n-1];
     }
 
     // why x_young and x_old ? don't seem to be necessary
     static real path_logprob(pathT& path, const instantT& x_young, const instantT& x_old, double t_young, double t_old, spos_real tau)   {
 
-        double s2 = 0;
-        for (size_t i=1; i<path.size(); i++) {
-            double d = path[i] - path[i-1];
-            s2 += d*d;
+        auto n = path.size();
+        if ((fabs(path[0]-x_old) > 1e-6) || (fabs(path[n-1]-x_young) > 1e-6))   {
+            std::cerr << "error in univ brownian process: path does not match end values\n";
+            exit(1);
         }
-
-        double dt = (t_old - t_young)*path.get_width();
-        double vstep = dt/tau;
-        return -0.5*(path.size()-1)*log(2.0*constants::pi*vstep) - 0.5*s2/vstep;
+        double s = 0;
+        for (size_t i=1; i<n; i++) {
+            double d = path[i] - path[i-1];
+            s += d*d;
+        }
+        double v = (t_old - t_young)/(n-1)/tau;
+        return -0.5*(n-1)*log(2.0*constants::pi*v) - 0.5*s/v;
     }
 
     static void backward_propagate(const CondL::L& condl_young, CondL::L& condl_old, double t_young, double t_old, spos_real tau)  {
 
         get<0>(condl_old) = get<0>(condl_young);
         get<1>(condl_old) = get<1>(condl_young);
-        double v = 1.0/get<2>(condl_old) + (t_old-t_young)/tau;
+        double v = 1.0/get<2>(condl_young) + (t_old-t_young)/tau;
         get<2>(condl_old) = 1.0/v;
+
+        if (normal_mean_condL::ill_defined(condl_old))   {
+            std::cerr << "problem in result of propagate\n";
+            normal_mean_condL::printerr(condl_young);
+            std::cerr << '\n';
+            normal_mean_condL::printerr(condl_old);
+            std::cerr << '\n';
+            std::cerr << t_young - t_old << '\t' << tau << '\n';
+            std::cerr << v << '\t' << get<2>(condl_young) << '\t' << 1.0/get<2>(condl_young) << '\t' <<  (t_old-t_young)/tau << '\n';
+            exit(1);
+        }
     }
 
     static void backward_propagate(const CondL::L& condl_young, const CondL::L& condl_branch, CondL::L& condl_old, double t_young, double t_old, spos_real tau)  {
@@ -435,9 +526,15 @@ struct univariate_brownian {
     }
 
     template <typename Gen>
-    static void bridge_conditional_draw(pathT& path, const instantT& x_young, const instantT& x_old, double t_young, double t_old, spos_real tau, Gen& gen)   {
-        path[0] = x_old;
-        path[1] = x_young;
+    static void bridge_draw(pathT& path, const instantT& x_young, const instantT& x_old, double t_young, double t_old, spos_real tau, Gen& gen)   {
+        if (path.size() == 2)   {
+            path[0] = x_old;
+            path[1] = x_young;
+        }
+        else    {
+            std::cerr << "implement bridge draw for n>2\n";
+            exit(1);
+        }
     }
 
     /*
@@ -455,14 +552,19 @@ struct univariate_brownian {
     static double path_kernel(double tuning, instantT& x_young, pathT& path, 
             double t_young, double t_old, spos_real tau, Gen& gen)  {
 
+        size_t n = path.size();
         double mean = 0;
-        double var = tuning*path.get_width()/tau;
-
-        for (size_t i=1; i<path.size(); i++)    {
-            std::normal_distribution<double> distrib(real(mean), positive_real(var));
-            path[i] += distrib(gen);
+        double var = tuning/(n-1)/tau;
+        pathT dpath = path;
+        std::normal_distribution<double> distrib(real(mean), positive_real(var));
+        dpath[0] = 0;
+        for (size_t i=1; i<n; i++)  {
+            dpath[i] = dpath[i-1] + distrib(gen);
         }
-        x_young = path[path.size()-1];
+        for (size_t i=0; i<n; i++)  {
+            path[i] += dpath[i];
+        }
+        x_young = path[n-1];
         return 0;
     }
 
@@ -480,7 +582,7 @@ struct univariate_brownian {
         // total precision: tau / delta_t * (1 + 1/(n-i-1)) = tau * tau0 / delta_t
         // total variance : delta_t / tau / tau_0 = (t_old - t_young) / (n-1) / tau / tau0
 
-        auto n = path.size();
+        size_t n = path.size();
         if (n==2)   {
             return 0;
         }

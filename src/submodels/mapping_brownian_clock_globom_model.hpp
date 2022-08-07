@@ -103,7 +103,7 @@ struct brownian_clock_globom {
 
         std::cerr << "get suffstats from file\n";
         // mapping suffstats for dS and dN
-        auto dsom_ss = pathss_factory::make_dsom_suffstat_from_mappings(suffstat);
+        auto dsom_ss = pathss_factory::make_dsom_suffstat_from_mappings(suffstat, 0.1);
 
         // collapse dS dN mapping branch suffstats into one single suffstat for global omega
         auto omega_ss = pathss_factory::make_omega_suffstat(
@@ -170,14 +170,17 @@ struct brownian_clock_globom {
                     n_to_one(get<global_omega,value>(model)),
                     dsom_suffstats_(model));
 
-            auto target = tree_process_methods::make_prior_importance_sampler(
+            // auto target = tree_process_methods::make_prior_importance_sampler(
+            auto target = tree_process_methods::make_free_forward_prior_importance_sampler(
                     get<log_synrate>(model),
                     branch_update, branch_logprob);
 
             auto pf = tree_process_methods::make_particle_filter(
-                    get<log_synrate>(model), target, 1000);
+                    get<log_synrate>(model), target, 10000);
 
             pf.run(true, 0, gen);
+
+            gather(get<synrate>(model));
             // pf.run(true, 0.1, gen);
         }
 
@@ -240,9 +243,7 @@ struct brownian_clock_globom {
 
             // move branch times and rates
             // move_ds(model, gen);
-            std::cerr << "pf move\n";
             pf_move_ds(model, gen);
-            std::cerr << "pf move ok\n";
             // branch_pf_move_ds(model, gen);
 
             // move variance parameter of Brownian process
@@ -278,6 +279,17 @@ struct brownian_clock_globom {
             for (size_t b=0; b<bl.size(); b++)   {
                 tot += bl[b];
             }
+            double bk = tot;
+            gather(get<synrate>(model));
+            tot = 0;
+            for (size_t b=0; b<bl.size(); b++)   {
+                tot += bl[b];
+            }
+            if (fabs(tot-bk) > 1e-6)    {
+                std::cerr << "in total ds\n";
+                std::cerr << bk << '\t' << tot << '\n';
+                exit(1);
+            }
             return tot;
         }
 
@@ -289,6 +301,15 @@ struct brownian_clock_globom {
                 tot += x[i];
             }
             return tot / x.size();
+        }
+
+    template<class Model>
+        static double get_log_likelihood(Model& model) {
+            auto logprob = suffstat_logprob(
+                    n_to_n(get<synrate,value>(model)),
+                    n_to_one(get<global_omega,value>(model)),
+                    dsom_suffstats_(model));
+            return logprob();
         }
 
     template<class Model>

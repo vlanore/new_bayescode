@@ -40,6 +40,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "make traces\n";
     // trace
     auto trace = make_custom_tracer(cmd.chain_name() + ".trace",
+        trace_entry("lnL", [& model] () {return brownian_clock_globom::get_log_likelihood(model);}),
         trace_entry("tl", [& model] () {return brownian_clock_globom::get_total_ds(model);}),
         trace_entry("logds", [& model] () {return brownian_clock_globom::get_mean_log_ds(model);}),
         trace_entry("chrono", [& model] () {return brownian_clock_globom::get_total_time(model);}),
