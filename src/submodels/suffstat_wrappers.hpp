@@ -204,12 +204,12 @@ struct pathss_factory {
         return suffstats;
     }
 
-    static auto make_dsom_suffstat_from_mappings(std::vector<std::vector<double>>& suffstat)    {
+    static auto make_dsom_suffstat_from_mappings(std::vector<std::vector<double>>& suffstat, double f)    {
         auto dsom_ss = ss_factory::make_suffstat_array<dSOmegaPathSuffStat>(
             suffstat[0].size(),
-            [&suffstat] (auto& omss)    {
+            [&suffstat, f] (auto& omss)    {
                 for (size_t branch=0; branch<suffstat[0].size(); branch++) {
-                    omss[branch].Add(suffstat[0][branch], suffstat[1][branch], suffstat[2][branch], suffstat[3][branch]);
+                    omss[branch].Add(f*suffstat[0][branch], f*suffstat[1][branch], f*suffstat[2][branch], f*suffstat[3][branch]);
                 }
             });
         (*dsom_ss).gather();
