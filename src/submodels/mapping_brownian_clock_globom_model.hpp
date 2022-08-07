@@ -71,7 +71,7 @@ struct brownian_clock_globom {
         auto log_synrate = make_node_tree_process_with_inits<univariate_brownian, univariate_normal>(
                 *tree, 
                 time_frame(get<value>(chrono)), 
-                0, {5},
+                0, {0},
                 process_params(one_to_one(tau)),
                 root_params(one_to_const(root_mean),one_to_const(root_var)));
 
@@ -177,9 +177,8 @@ struct brownian_clock_globom {
             auto pf = tree_process_methods::make_particle_filter(
                     get<log_synrate>(model), target, 1000);
 
-            pf.run(false, 0, gen);
             pf.run(true, 0, gen);
-            pf.run(true, 0.1, gen);
+            // pf.run(true, 0.1, gen);
         }
 
     template<class Model, class Gen>
@@ -240,8 +239,10 @@ struct brownian_clock_globom {
             move_chrono(model, gen);
 
             // move branch times and rates
-            move_ds(model, gen);
-            // pf_move_ds(model, gen);
+            // move_ds(model, gen);
+            std::cerr << "pf move\n";
+            pf_move_ds(model, gen);
+            std::cerr << "pf move ok\n";
             // branch_pf_move_ds(model, gen);
 
             // move variance parameter of Brownian process
