@@ -37,7 +37,7 @@ const double Random::INFPROB = -250;
 // function to be called before entering main()
 class random_init {
   public:
-    random_init() { Random::InitRandom(); }
+    random_init() { Random::InitRandom(1001); }
 };
 static random_init init;
 
