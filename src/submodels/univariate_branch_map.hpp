@@ -28,17 +28,17 @@ struct branch_map   {
     static auto make_branch_sums(Chrono& chrono, Process& process, Lambda lambda)  {
         auto ret = make_dnode_array<custom_dnode<typename node_distrib_t<Process>::instantT>>(
                 chrono.get_tree().nb_branches(),
-                [&ch=chrono, &nodes=get<node_values>(process), lambda] (int branch) { return
-                // [&ch=chrono, &paths=get<path_values>(process), lambda] (int branch) { return
+                // [&ch=chrono, &nodes=get<node_values>(process), lambda] (int branch) { return
+                [&ch=chrono, &paths=get<path_values>(process), lambda] (int branch) { return
                     [&old_age = ch[ch.get_tree().get_older_node(branch)], 
                      &young_age = ch[ch.get_tree().get_younger_node(branch)],
-                     // &path = paths[branch],
-                     &young_x = nodes[ch.get_tree().get_younger_node(branch)],
-                     &old_x = nodes[ch.get_tree().get_older_node(branch)],
+                     &path = paths[branch],
+                     // &young_x = nodes[ch.get_tree().get_younger_node(branch)],
+                     // &old_x = nodes[ch.get_tree().get_older_node(branch)],
                      lambda]
                         (typename node_distrib_t<Process>::instantT& sum)   {
-                            sum = (old_age - young_age) * (lambda(young_x) + lambda(old_x)) / 2;
-                            // sum = get_branch_sum(path, young_age, old_age, lambda);
+                            // sum = (old_age - young_age) * (lambda(young_x) + lambda(old_x)) / 2;
+                            sum = get_branch_sum(path, young_age, old_age, lambda);
                     };
                 });
         gather(ret);

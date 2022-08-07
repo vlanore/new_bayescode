@@ -57,23 +57,10 @@ struct brownian_clock_globom {
         get<value>(chrono).get_ages_from_lengths(node_lengths);
         // draw(chrono, gen);
 
-        /*
-        std::stringstream s;
-        auto branchlength = [&ch = get<value>(chrono), &t=tree] (int branch) {
-            return ch[t->get_older_node(branch)] - ch[t->get_younger_node(branch)];
-        };
-        newick_output::print(s, tree, 
-                [] (int) {return "";}, 
-                branchlength);
-                // [&bl=branch_lengths] (int branch) {return bl[branch+1];});
-        std::cout << s.str() << '\n';
-        std::cout.flush();
-        */
-
         // precision (inverse variance) per time unit
         auto tau = make_node<gamma_mi>(1.0, 1.0);
         draw(tau, gen);
-        get<value>(tau) = 5.0;
+        get<value>(tau) = 1.5;
 
         // normal dist for root value
         auto root_mean = 0;
@@ -216,6 +203,11 @@ struct brownian_clock_globom {
             pf.run(false, 0, gen);
         }
 
+    template<class Model>
+        static int get_path_dim(Model& model)   {
+            return get<log_synrate,path_values>(model)[0].size();
+        }
+
     template<class Model, class Gen>
         static auto move_ds(Model& model, Gen& gen) {
 
@@ -232,13 +224,13 @@ struct brownian_clock_globom {
             tree_process_methods::node_by_node_mh_move(get<log_synrate>(model), 0.3,
                     branch_update, branch_logprob, gen);
 
-            /*
-            tree_process_methods::branch_by_branch_mh_move(get<log_synrate>(model), 1.0,
-                    branch_update, branch_logprob, gen);
+            if (get_path_dim(model) > 2)    {
+                tree_process_methods::branch_by_branch_mh_move(get<log_synrate>(model), 1.0,
+                        branch_update, branch_logprob, gen);
 
-            tree_process_methods::branch_by_branch_mh_move(get<log_synrate>(model), 0.3,
-                    branch_update, branch_logprob, gen);
-            */
+                tree_process_methods::branch_by_branch_mh_move(get<log_synrate>(model), 0.3,
+                        branch_update, branch_logprob, gen);
+            }
         }
 
     template<class Model, class Gen>
@@ -252,13 +244,18 @@ struct brownian_clock_globom {
             // branch_pf_move_ds(model, gen);
 
             // move variance parameter of Brownian process
+            move_tau(model, gen);
+
+            // move omega
+            move_omega(model, gen);
+        }
+
+    template<class Model, class Gen>
+        static auto move_tau(Model& model, Gen& gen)  {
             // tau_suffstats_(model).gather();
             tau_suffstats_(model).get().Clear();
             tree_process_methods::add_branch_suffstat<brownian_tau>(get<log_synrate>(model),tau_suffstats_(model).get());
             gibbs_resample(tau_(model), tau_suffstats_(model), gen);
-
-            // move omega
-            move_omega(model, gen);
         }
 
     template<class Model, class Gen>

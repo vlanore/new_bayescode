@@ -238,21 +238,36 @@ std::istream& operator>>(std::istream& is, discretized_path<T>& p) {
 template<class T, class Lambda>
 static auto get_branch_mean(const discretized_path<T>& path, Lambda lambda)    {
 
+    /*
     auto mean = lambda(path.at(0));
     mean *= (path.get_breakpoint_time(1) - path.get_breakpoint_time(0));
     for (size_t i=1; i<path.size(); i++)  {
         mean += (path.get_breakpoint_time(i+1) - path.get_breakpoint_time(i)) * lambda(path.at(i));
     }
+    */
+    auto mean = 0.5*(lambda(path.at(0)) + lambda(path.at(path.size()-1)));
+    for (size_t i=1; i<path.size()-1; i++)  {
+        mean += lambda(path.at(i));
+    }
+    mean /= path.size()-1;
     return mean;
 }
 
 template<class T, class Lambda>
 static auto get_branch_sum(const discretized_path<T>& path, double t_young, double t_old, Lambda lambda)  {
+
+    /*
     auto mean = lambda(path.at(0));
     mean *= (path.get_breakpoint_time(1) - path.get_breakpoint_time(0));
     for (size_t i=1; i<path.size(); i++)  {
         mean += (path.get_breakpoint_time(i+1) - path.get_breakpoint_time(i)) * lambda(path.at(i));
     }
+    */
+    auto mean = 0.5*(lambda(path.at(0)) + lambda(path.at(path.size()-1)));
+    for (size_t i=1; i<path.size()-1; i++)  {
+        mean += lambda(path.at(i));
+    }
+    mean /= path.size()-1;
     return mean * (t_old-t_young);
 } 
 
@@ -474,10 +489,17 @@ struct univariate_brownian {
 
         for (size_t i=1; i<path.size()-1; i++)    {
 
-            double mean = (path[i-1] + (path.size()-i-1)*val1) / (path.size()-i);
+            double tau1 = 1.0;
+            double tau2 = 1.0 / (path.size()-i-1);
+            double tau0 = tau1 + tau2;
+            double mean = (tau1*path[i-1] + tau2*val1)/tau0;
+            double var = tuning * path.get_width() / tau0 / tau;
 
+            /*
             // check this
+            double mean = (path[i-1] + (path.size()-i-1)*val1) / (path.size()-i);
             double var = tuning * path.get_width()  / (1.0 + 1.0/(path.size()-i-1));
+            */
 
             std::normal_distribution<double> distrib(real(mean), positive_real(var));
             path[i] += distrib(gen);
@@ -486,8 +508,17 @@ struct univariate_brownian {
     }
 
     static void add_branch_suffstat(brownian_tau, PoissonSuffStat& ss, const pathT& path, const instantT& x_young, const instantT& x_old, double t_young, double t_old, spos_real tau)  {
+        // version when no internal dfs
+        /*
         double contrast = (x_young-x_old)*(x_young-x_old)/(t_old-t_young);
         ss.AddSuffStat(0.5, 0.5*contrast);
+        */
+        // general version
+        double delta = path.get_width()*(t_old-t_young);
+        for (size_t i=1; i<path.size(); i++)    {
+            double contrast = (path[i] - path[i-1])*(path[i] - path[i-1])/delta;
+            ss.AddSuffStat(0.5, 0.5*contrast);
+        }
     }
 };
 

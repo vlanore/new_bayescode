@@ -201,8 +201,7 @@ struct tree_process_methods  {
 
         auto branch = tree.get_branch(node);
 
-        auto& path_vals = get<path_values>(process);
-        auto& path = path_vals[branch];
+        auto& path = get<path_values>(process)[branch];
         auto bk = path;
 
         auto timeframe = get<time_frame_field>(process);
@@ -226,11 +225,15 @@ struct tree_process_methods  {
 
     template<class Tree, class Process, class Kernel, class BranchUpdate, class BranchLogProb, class Gen>
     static void recursive_branch_mh_move(Tree& tree, int node, Process& process, Kernel kernel, BranchUpdate update, BranchLogProb logprob, Gen& gen)    {
-        single_branch_mh_move(tree, node, process, kernel, update, logprob, gen);
+        if (! tree.is_root(node))   {
+            single_branch_mh_move(tree, node, process, kernel, update, logprob, gen);
+        }
         for (auto c : tree.children(node)) {
             recursive_branch_mh_move(tree, c, process, kernel, update, logprob, gen);
         }
-        single_branch_mh_move(tree, node, process, kernel, update, logprob, gen);
+        if (! tree.is_root(node))   {
+            single_branch_mh_move(tree, node, process, kernel, update, logprob, gen);
+        }
     }
 
     template<class Process, class Kernel, class BranchUpdate, class BranchLogProb, class Gen>
