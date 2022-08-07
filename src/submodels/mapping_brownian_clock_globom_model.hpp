@@ -22,7 +22,7 @@
 #include "montecarlo/tree_process.hpp"
 #include "processes/path2norm.hpp"
 
-// TOKEN(tree)
+TOKEN(tree)
 TOKEN(global_omega)
 TOKEN(chrono)
 TOKEN(tau)
@@ -36,15 +36,12 @@ TOKEN(tau_suffstats)
 struct brownian_clock_globom {
 
     template <class Gen>
-    static auto make(const Tree* tree, std::string treefile, std::vector<std::vector<double>>& suffstat, Gen& gen)  {
-    // static auto make(const Tree* tree, std::vector<std::vector<double>>& suffstat, Gen& gen)  {
+    static auto make(std::string treefile, std::vector<std::vector<double>>& suffstat, Gen& gen)  {
 
-        /*
         std::ifstream is(treefile);
         NHXParser parser(is);
         auto my_tree = make_from_parser(parser);
         auto tree = my_tree.get();
-        */
 
         std::ifstream tis(treefile.c_str());
         std::string bls;
@@ -147,7 +144,7 @@ struct brownian_clock_globom {
 
         std::cerr << "return model\n";
         return make_model(
-            // tree_ = move(my_tree),
+            tree_ = move(my_tree),
             global_omega_ = move(global_omega),
             chrono_ = move(chrono),
             tau_ = move(tau),
@@ -298,19 +295,19 @@ struct brownian_clock_globom {
 
     template<class Model>
         static std::string get_chronogram(Model& model) {
-            const Tree& tree = get<chrono,value>(model).get_tree();
-            auto branchlength = [&ch = get<chrono,value>(model), &t=tree] (int branch) {
+            auto& t = get<tree>(model);
+            auto branchlength = [&ch = get<chrono,value>(model), &t] (int branch) {
                 return ch[t.get_older_node(branch)] - ch[t.get_younger_node(branch)];
             };
             std::stringstream s;
-            newick_output::print(s, &tree, branchlength);
+            newick_output::print(s, &t, branchlength);
             return s.str();
         }
 
     template<class Model>
         static std::string get_annotated_tree(Model& model) {
-            const Tree& tree = get<chrono,value>(model).get_tree();
-            auto branchlength = [&ch = get<chrono,value>(model), &t=tree] (int branch) {
+            auto& t = get<tree>(model);
+            auto branchlength = [&ch = get<chrono,value>(model), &t] (int branch) {
                 return ch[t.get_older_node(branch)] - ch[t.get_younger_node(branch)];
             };
             auto nodeval = [&br = get<log_synrate,node_values>(model)] (int node) {
@@ -318,7 +315,7 @@ struct brownian_clock_globom {
                 return exp(br[node]);
             };
             std::stringstream s;
-            newick_output::print(s, &tree, nodeval, branchlength);
+            newick_output::print(s, &t, nodeval, branchlength);
             return s.str();
         }
 };
