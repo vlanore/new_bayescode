@@ -176,12 +176,50 @@ struct brownian_clock_globom {
                     branch_update, branch_logprob);
 
             auto pf = tree_process_methods::make_particle_filter(
-                    get<log_synrate>(model), target, 10000);
+                    get<log_synrate>(model), target, 1000);
 
-            pf.run(true, 0, gen);
+            pf.run(true, 0, 100, gen);
+            // int ret = pf.run(true, 0, 0.1, gen);
+            gather(get<synrate>(model));
+
+            /*
+            double logl = pf.run(true, 0, gen);
 
             gather(get<synrate>(model));
+            if (fabs(logl - get_log_likelihood(model)) > 1e-6)  {
+                std::cerr << "error when running pf: non matching log likelihood\n";
+                std::cerr << logl << '\t' << get_log_likelihood(model) << '\n';
+                exit(1);
+            }
+            */
             // pf.run(true, 0.1, gen);
+        }
+
+    template<class Model, class Gen>
+        static auto is_move_ds(Model& model, Gen& gen)  {
+
+            auto update = [&model] () {gather(synrate_(model));};
+
+            auto logprob = suffstat_logprob(
+                    n_to_n(get<synrate,value>(model)),
+                    n_to_one(get<global_omega,value>(model)),
+                    dsom_suffstats_(model));
+
+            auto is = tree_process_methods::make_independence_sampler(
+                    get<log_synrate>(model),
+                    update, logprob, 1000);
+
+            is.run(gen);
+
+            /*
+            double logl = is.run(gen);
+            gather(get<synrate>(model));
+            if (fabs(logl - get_log_likelihood(model)) > 1e-6)  {
+                std::cerr << "error when running pf: non matching log likelihood\n";
+                std::cerr << logl << '\t' << get_log_likelihood(model) << '\n';
+                exit(1);
+            }
+            */
         }
 
     template<class Model, class Gen>
@@ -239,18 +277,19 @@ struct brownian_clock_globom {
     template<class Model, class Gen>
         static auto move_params(Model& model, Gen& gen) {
 
-            move_chrono(model, gen);
+            // move_chrono(model, gen);
 
             // move branch times and rates
             // move_ds(model, gen);
+            // is_move_ds(model, gen);
             pf_move_ds(model, gen);
             // branch_pf_move_ds(model, gen);
 
             // move variance parameter of Brownian process
-            move_tau(model, gen);
+            // move_tau(model, gen);
 
             // move omega
-            move_omega(model, gen);
+            // move_omega(model, gen);
         }
 
     template<class Model, class Gen>
@@ -265,6 +304,11 @@ struct brownian_clock_globom {
         static auto move_omega(Model& model, Gen& gen)  {
             omegapath_suffstats_(model).gather();
             gibbs_resample(global_omega_(model), omegapath_suffstats_(model), gen);
+        }
+
+    template<class Model>
+        static auto get_root_val(Model& model)  {
+            return get<log_synrate,node_values>(model)[0];
         }
 
     template<class Model>

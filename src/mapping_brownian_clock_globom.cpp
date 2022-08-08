@@ -45,7 +45,9 @@ int main(int argc, char* argv[]) {
         trace_entry("logds", [& model] () {return brownian_clock_globom::get_mean_log_ds(model);}),
         trace_entry("chrono", [& model] () {return brownian_clock_globom::get_total_time(model);}),
         trace_entry("om", get<global_omega>(model)), 
-        trace_entry("tau", get<tau>(model)));
+        trace_entry("tau", get<tau>(model)),
+        trace_entry("root", [& model] () {return brownian_clock_globom::get_root_val(model);})
+        );
 
     auto timetrace = make_custom_tracer(cmd.chain_name() + ".dates",
         trace_entry("om", get<chrono>(model)));
