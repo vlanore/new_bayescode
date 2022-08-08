@@ -343,7 +343,7 @@ struct univariate_normal    {
 
     template <typename Gen>
     static void draw(T& x, real mean, spos_real variance, Gen& gen)   {
-        std::normal_distribution<double> distrib(real(mean), positive_real(variance));
+        std::normal_distribution<double> distrib(real(mean), positive_real(sqrt(variance)));
         x = distrib(gen);
     }
 
@@ -372,7 +372,7 @@ struct univariate_normal    {
             double om = om0 + om1;
             double m = (om0*mean + om1*get<1>(condl))/om;
             double v = 1.0/om;
-            std::normal_distribution<double> distrib(real(m), positive_real(v));
+            std::normal_distribution<double> distrib(real(m), positive_real(sqrt(v)));
             x = distrib(gen);
         }
     }
@@ -406,7 +406,7 @@ struct univariate_brownian {
     static void node_draw(instantT& x_young, const instantT& x_old, double t_young, double t_old, spos_real tau, Gen& gen)   {
 
         double v = (t_old-t_young)/tau;
-        std::normal_distribution<double> distrib(real(x_old), positive_real(v));
+        std::normal_distribution<double> distrib(real(x_old), positive_real(sqrt(v)));
         x_young = distrib(gen);
     }
 
@@ -419,7 +419,7 @@ struct univariate_brownian {
 
         path[0] = x_old;
         for (size_t i=1; i<n; i++) {
-            std::normal_distribution<double> distrib(real(path[i-1]), positive_real(vstep));
+            std::normal_distribution<double> distrib(real(path[i-1]), positive_real(sqrt(vstep)));
             path[i] = distrib(gen);
         }
         x_young = path[n-1];
@@ -520,7 +520,7 @@ struct univariate_brownian {
             double om = om0 + om1;
             double m = (om0*x_old + om1*get<1>(condl))/om;
             double v = 1.0/om;
-            std::normal_distribution<double> distrib(real(m), positive_real(v));
+            std::normal_distribution<double> distrib(real(m), positive_real(sqrt(v)));
             x_young = distrib(gen);
         }
     }
@@ -556,7 +556,7 @@ struct univariate_brownian {
         double mean = 0;
         double var = tuning/(n-1)/tau;
         pathT dpath = path;
-        std::normal_distribution<double> distrib(real(mean), positive_real(var));
+        std::normal_distribution<double> distrib(real(mean), positive_real(sqrt(var)));
         dpath[0] = 0;
         for (size_t i=1; i<n; i++)  {
             dpath[i] = dpath[i-1] + distrib(gen);
@@ -598,7 +598,7 @@ struct univariate_brownian {
             double mean = (tau1*dpath[i-1])/tau0;
             double var = tuning * (t_old-t_young) / (n-1) / tau0 / tau;
 
-            std::normal_distribution<double> distrib(real(mean), positive_real(var));
+            std::normal_distribution<double> distrib(real(mean), positive_real(sqrt(var)));
             dpath[i] = distrib(gen);
         }
         for (size_t i=1; i<n-1; i++)    {
