@@ -170,29 +170,16 @@ struct brownian_clock_globom {
                     n_to_one(get<global_omega,value>(model)),
                     dsom_suffstats_(model));
 
-            // auto target = tree_process_methods::make_prior_importance_sampler(
-            auto target = tree_process_methods::make_free_forward_prior_importance_sampler(
+            auto target = tree_process_methods::make_prior_importance_sampler(
+            // auto target = tree_process_methods::make_free_forward_prior_importance_sampler(
                     get<log_synrate>(model),
                     branch_update, branch_logprob);
 
             auto pf = tree_process_methods::make_particle_filter(
                     get<log_synrate>(model), target, 1000);
 
-            pf.run(true, 0, 100, gen);
-            // int ret = pf.run(true, 0, 0.1, gen);
+            pf.run(true, 0.4, 100, gen);
             gather(get<synrate>(model));
-
-            /*
-            double logl = pf.run(true, 0, gen);
-
-            gather(get<synrate>(model));
-            if (fabs(logl - get_log_likelihood(model)) > 1e-6)  {
-                std::cerr << "error when running pf: non matching log likelihood\n";
-                std::cerr << logl << '\t' << get_log_likelihood(model) << '\n';
-                exit(1);
-            }
-            */
-            // pf.run(true, 0.1, gen);
         }
 
     template<class Model, class Gen>
@@ -210,16 +197,6 @@ struct brownian_clock_globom {
                     update, logprob, 1000);
 
             is.run(gen);
-
-            /*
-            double logl = is.run(gen);
-            gather(get<synrate>(model));
-            if (fabs(logl - get_log_likelihood(model)) > 1e-6)  {
-                std::cerr << "error when running pf: non matching log likelihood\n";
-                std::cerr << logl << '\t' << get_log_likelihood(model) << '\n';
-                exit(1);
-            }
-            */
         }
 
     template<class Model, class Gen>
@@ -277,7 +254,7 @@ struct brownian_clock_globom {
     template<class Model, class Gen>
         static auto move_params(Model& model, Gen& gen) {
 
-            // move_chrono(model, gen);
+            move_chrono(model, gen);
 
             // move branch times and rates
             // move_ds(model, gen);
@@ -286,10 +263,10 @@ struct brownian_clock_globom {
             // branch_pf_move_ds(model, gen);
 
             // move variance parameter of Brownian process
-            // move_tau(model, gen);
+            move_tau(model, gen);
 
             // move omega
-            // move_omega(model, gen);
+            move_omega(model, gen);
         }
 
     template<class Model, class Gen>

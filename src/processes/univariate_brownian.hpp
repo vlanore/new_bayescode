@@ -431,6 +431,7 @@ struct univariate_brownian {
         auto n = path.size();
         if ((fabs(path[0]-x_old) > 1e-6) || (fabs(path[n-1]-x_young) > 1e-6))   {
             std::cerr << "error in univ brownian process: path does not match end values\n";
+            std::cerr << x_old << '\t' << path[0] << " --- " << path[n-1] << '\t' << x_young << '\n';
             exit(1);
         }
         double s = 0;

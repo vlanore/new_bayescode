@@ -571,9 +571,12 @@ struct tree_process_methods  {
     // ****************************
     // proposals, importance sampling
 
-    // 
+    // ****************************
+    // free-forward prior importance sampling
+
     // a class that implements single node/branch free-forward sampling on demand
-    // used as a proposal for free forward prior importance sampling
+    // importance sampling assuming the process is not conditioned longitudinally 
+    // (e.g. at the tips, or more generally at some nodes)
 
     template<class Process>
     class free_forward_sampler    {
@@ -607,6 +610,7 @@ struct tree_process_methods  {
             val = node_vals[tree.root()];
         }
 
+        /*
         template<class Gen>
         void node_draw(int node, typename node_distrib_t<Process>::instantT& val, 
                 const typename node_distrib_t<Process>::instantT& parent_val, 
@@ -642,6 +646,7 @@ struct tree_process_methods  {
             auto& path_vals = get<path_values>(process);
             path = path_vals[tree.get_branch(node)];
         }
+        */
 
         template<class Gen>
         void path_draw(int node, typename node_distrib_t<Process>::instantT& val, 
@@ -660,8 +665,6 @@ struct tree_process_methods  {
             val = node_vals[node];
             path = path_vals[tree.get_branch(node)];
         }
-
-
     };
 
     template<class Process>
@@ -669,6 +672,75 @@ struct tree_process_methods  {
         return free_forward_sampler<Process>(process);
     }
 
+    template<class Process, class BranchUpdate, class BranchLogProb>
+    class free_forward_prior_importance_sampler  {
+
+        Process& process;
+        free_forward_sampler<Process> proposal;
+        BranchUpdate update;
+        BranchLogProb logprob;
+
+        public:
+
+        free_forward_prior_importance_sampler(Process& in_process, 
+            BranchUpdate in_update, BranchLogProb in_logprob) :
+                process(in_process), proposal(process),
+                update(in_update), logprob(in_logprob) {}
+
+        ~free_forward_prior_importance_sampler() {}
+
+        void init(const std::vector<bool>& external_clamps)    {
+            proposal.init(external_clamps);
+        }
+
+        template<class Gen>
+        void root_draw(typename node_distrib_t<Process>::instantT& val, 
+                double& log_weight, bool fixed_node, Gen& gen) {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+
+            if (! fixed_node)    {
+                proposal.root_draw(val, log_weight, gen);
+            }
+            else    {
+                node_vals[tree.root()] = val;
+            }
+        }
+
+        template<class Gen>
+        void path_draw(int node, 
+                typename node_distrib_t<Process>::instantT& val, 
+                const typename node_distrib_t<Process>::instantT& parent_val, 
+                typename node_distrib_t<Process>::pathT& path, 
+                double& log_weight, bool fixed_node, bool fixed_branch, Gen& gen) {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+            auto& path_vals = get<path_values>(process);
+            int branch = tree.get_branch(node);
+
+            if (! fixed_node)   {
+                proposal.path_draw(node, val, parent_val, path, log_weight, gen);
+            }
+            else    {
+                node_vals[tree.parent(node)] = parent_val;
+                node_vals[node] = val;
+                path_vals[branch] = path;
+            }
+            update(branch);
+            log_weight += logprob(branch);
+        }
+    };
+
+    template<class Process, class Update, class LogProb>
+    static auto make_free_forward_prior_importance_sampler(Process& process, Update update, LogProb logprob)   {
+        return free_forward_prior_importance_sampler<Process, Update, LogProb>(process, update, logprob);
+    }
+
+    // ****************************
+    // prior importance sampling (conditional on longitudinal constraints)
+    //
     // a class that implements single node/branch conditional sampling on demand
     // (longitudinal conditions, i.e. process is observed at some nodes) 
     // stores and computes conditional likelihoods upon creation
@@ -757,12 +829,11 @@ struct tree_process_methods  {
                 double& log_weight, Gen& gen)    {
 
             auto& tree = get<tree_field>(process);
-
             auto& node_vals = get<node_values>(process);
+            auto& path_vals = get<path_values>(process);
+
             node_vals[node] = val;
             node_vals[tree.parent(node)] = parent_val;
-
-            auto& path_vals = get<path_values>(process);
 
             tree_process_methods::bridge_draw(process, node, 
                 get<params>(process), param_keys_t<node_distrib_t<Process>>(), gen);
@@ -776,6 +847,79 @@ struct tree_process_methods  {
         return conditional_sampler<Process>(process);
     }
 
+
+    template<class Process, class BranchUpdate, class BranchLogProb>
+    class prior_importance_sampler  {
+
+        Process& process;
+        conditional_sampler<Process> proposal;
+        BranchUpdate update;
+        BranchLogProb logprob;
+
+        public:
+
+        prior_importance_sampler(Process& in_process, 
+            BranchUpdate in_update, BranchLogProb in_logprob) :
+                process(in_process), proposal(process),
+                update(in_update), logprob(in_logprob) {}
+
+        ~prior_importance_sampler() {}
+
+        void init(const std::vector<bool>& external_clamps)    {
+            proposal.init(external_clamps);
+        }
+
+        template<class Gen>
+        void root_draw(typename node_distrib_t<Process>::instantT& val, 
+                double& log_weight, bool fixed_node, Gen& gen) {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+
+            if (! fixed_node)    {
+                proposal.root_draw(val, log_weight, gen);
+            }
+            else    {
+                node_vals[tree.root()] = val;
+            }
+        }
+
+        template<class Gen>
+        void path_draw(int node, 
+                typename node_distrib_t<Process>::instantT& val, 
+                const typename node_distrib_t<Process>::instantT& parent_val, 
+                typename node_distrib_t<Process>::pathT& path, 
+                double& log_weight, bool fixed_node, bool fixed_branch, Gen& gen) {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+            auto& path_vals = get<path_values>(process);
+            int branch = tree.get_branch(node);
+
+            if (! fixed_node)    {
+                proposal.node_draw(node, val, parent_val, log_weight, gen);
+            }
+            else    {
+                // node_vals[tree.parent(node)] = parent_val;
+                node_vals[node] = val;
+            }
+            if (! fixed_branch) {
+                proposal.bridge_draw(node, val, parent_val, path, log_weight, gen);
+            }
+            else    {
+                path_vals[branch] = path;
+            }
+            update(branch);
+            log_weight += logprob(branch);
+        }
+    };
+
+    template<class Process, class Update, class LogProb>
+    static auto make_prior_importance_sampler(Process& process, Update update, LogProb logprob)   {
+        return prior_importance_sampler<Process, Update, LogProb>(process, update, logprob);
+    }
+
+    // ****************************
     // a conditional sampler with externally given branch conditional likelihoods
 
     template<class Process>
@@ -863,160 +1007,6 @@ struct tree_process_methods  {
         return pseudo_branch_conditional_sampler<Process>(process, branch_condls);
     }
 
-    // importance sampling assuming the process is not conditioned longitudinally 
-    // (e.g. at the tips, or more generally at some nodes)
-
-    template<class Process, class BranchUpdate, class BranchLogProb>
-    class free_forward_prior_importance_sampler  {
-
-        Process& process;
-        free_forward_sampler<Process> proposal;
-        BranchUpdate update;
-        BranchLogProb logprob;
-
-        public:
-
-        free_forward_prior_importance_sampler(Process& in_process, 
-            BranchUpdate in_update, BranchLogProb in_logprob) :
-                process(in_process), proposal(process),
-                update(in_update), logprob(in_logprob) {}
-
-        ~free_forward_prior_importance_sampler() {}
-
-        void init(const std::vector<bool>& external_clamps)    {
-            proposal.init(external_clamps);
-        }
-
-        template<class Gen>
-        void root_draw(typename node_distrib_t<Process>::instantT& val, 
-                double& log_weight, bool fixed_node, Gen& gen) {
-
-            auto& tree = get<tree_field>(process);
-            auto& node_vals = get<node_values>(process);
-
-            if (! fixed_node)    {
-                proposal.root_draw(val, log_weight, gen);
-                if (node_vals[tree.root()] != val) {
-                    std::cerr << "non matching node value\n";
-                    exit(1);
-                }
-            }
-            else    {
-                node_vals[tree.root()] = val;
-            }
-        }
-
-        template<class Gen>
-        void path_draw(int node, 
-                typename node_distrib_t<Process>::instantT& val, 
-                const typename node_distrib_t<Process>::instantT& parent_val, 
-                typename node_distrib_t<Process>::pathT& path, 
-                double& log_weight, bool fixed_node, bool fixed_branch, Gen& gen) {
-
-            auto& tree = get<tree_field>(process);
-            auto& node_vals = get<node_values>(process);
-
-            node_vals[tree.parent(node)] = parent_val;
-
-            if (fixed_node != fixed_branch) {
-                std::cerr << "error in free forward sampler: inconsistant constraints\n";
-                exit(1);
-            }
-            if (! fixed_node)   {
-                proposal.path_draw(node, val, parent_val, path, log_weight, gen);
-            }
-            else    {
-                node_vals[node] = val;
-                auto& path_vals = get<path_values>(process);
-                path_vals[tree.get_branch(node)] = path;
-            }
-
-            /*
-            if (! fixed_node)    {
-                proposal.node_draw(node, val, parent_val, log_weight, gen);
-                if (node_vals[node] != val) {
-                    std::cerr << "non matching node value\n";
-                    exit(1);
-                }
-            }
-            else    {
-                node_vals[node] = val;
-            }
-            if (! fixed_branch) {
-                proposal.bridge_draw(node, val, parent_val, path, log_weight, gen);
-            }
-            else    {
-                auto& path_vals = get<path_values>(process);
-                path_vals[tree.get_branch(node)] = path;
-            }
-            */
-
-            update(get<tree_field>(process).get_branch(node));
-            log_weight += logprob(tree.get_branch(node));
-        }
-    };
-
-    template<class Process, class Update, class LogProb>
-    static auto make_free_forward_prior_importance_sampler(Process& process, Update update, LogProb logprob)   {
-        return free_forward_prior_importance_sampler<Process, Update, LogProb>(process, update, logprob);
-    }
-
-    template<class Process, class BranchUpdate, class BranchLogProb>
-    class prior_importance_sampler  {
-
-        Process& process;
-        conditional_sampler<Process> proposal;
-        BranchUpdate update;
-        BranchLogProb logprob;
-
-        public:
-
-        prior_importance_sampler(Process& in_process, 
-            BranchUpdate in_update, BranchLogProb in_logprob) :
-                process(in_process), proposal(process),
-                update(in_update), logprob(in_logprob) {}
-
-        ~prior_importance_sampler() {}
-
-        void init(const std::vector<bool>& external_clamps)    {
-            proposal.init(external_clamps);
-        }
-
-        template<class Gen>
-        void root_draw(typename node_distrib_t<Process>::instantT& val, 
-                double& log_weight, bool fixed_node, Gen& gen) {
-
-            if (! fixed_node)    {
-                proposal.root_draw(val, log_weight, gen);
-            }
-        }
-
-        template<class Gen>
-        void path_draw(int node, 
-                typename node_distrib_t<Process>::instantT& val, 
-                const typename node_distrib_t<Process>::instantT& parent_val, 
-                typename node_distrib_t<Process>::pathT& path, 
-                double& log_weight, bool fixed_node, bool fixed_branch, Gen& gen) {
-
-            /*
-            if (! fixed_node)    {
-                proposal.node_draw(node, val, parent_val, log_weight, gen);
-            }
-            if (! fixed_branch) {
-                proposal.bridge_draw(node, val, parent_val, path, log_weight, gen);
-            }
-            */
-            proposal.bridge_draw(node, val, parent_val, path, log_weight, gen);
-            update(get<tree_field>(process).get_branch(node));
-            log_weight += logprob(get<tree_field>(process).get_branch(node));
-        }
-    };
-
-    template<class Process, class Update, class LogProb>
-    static auto make_prior_importance_sampler(Process& process, Update update, LogProb logprob)   {
-        return prior_importance_sampler<Process, Update, LogProb>(process, update, logprob);
-    }
-
     template<class Process, class BranchUpdate, class BranchLogProb>
     class pseudo_branch_prior_importance_sampler  {
 
@@ -1042,8 +1032,14 @@ struct tree_process_methods  {
         void root_draw(typename node_distrib_t<Process>::instantT& val, 
                 double& log_weight, bool fixed_node, Gen& gen) {
 
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+
             if (! fixed_node)    {
                 proposal.root_draw(val, log_weight, gen);
+            }
+            else    {
+                node_vals[tree.root()] = val;
             }
         }
 
@@ -1055,12 +1051,23 @@ struct tree_process_methods  {
                 double& log_weight, bool fixed_node, bool fixed_branch, Gen& gen) {
 
             auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+            auto& path_vals = get<path_values>(process);
             int branch = tree.get_branch(node);
+
+            node_vals[tree.parent(node)] = parent_val;
+
             if (! fixed_node)    {
                 proposal.node_draw(node, val, parent_val, log_weight, gen);
             }
+            else    {
+                node_vals[node] = val;
+            }
             if (! fixed_branch) {
                 proposal.bridge_draw(node, val, parent_val, path, log_weight, gen);
+            }
+            else    {
+                path_vals[branch] = path;
             }
             update(branch);
             log_weight -= proposal.pseudo_branch_logprob(branch, val, parent_val);
@@ -1170,11 +1177,26 @@ struct tree_process_methods  {
                     }
                 }
             }
+            /*
+            for (size_t node=0; node<tree.nb_nodes(); node++)   {
+                std::cerr << node << '\t' << tree.is_leaf(node) << '\t' << external_clamps[node] << '\t' << node_vals[node] << '\t';
+                if (tree.is_root(node)) {
+                    std::cerr << "-" << '\t' << "-" << '\t' << "-" << '\n';
+                }
+                else    {
+                    std::cerr << node_vals[tree.parent(node)];
+                    int branch = tree.get_branch(node);
+                    std::cerr << '\t' << path_vals[branch][0] << '\t' << path_vals[branch][1] << '\n';
+                }
+            }
+            */
             return ret;
         }
 
         template<class Gen>
         int sub_run(int node, bool conditional, double cutoff, Gen& gen)    {
+
+            // std::cerr << "run node : " << node << '\n';
 
             counter = 0;
             for (auto& l : log_weights) {
@@ -1198,6 +1220,7 @@ struct tree_process_methods  {
             std::cerr << ancmap[0] << '\t';
             */
 
+            // std::cerr << "choose \n";
             // choose random particle
             int c = choose_particle(gen);
 
@@ -1263,16 +1286,18 @@ struct tree_process_methods  {
                 }
             }
             else    {
-                auto branch = tree.get_branch(node);
-                for (size_t i=0; i<size(); i++)  {
-                    wdist.path_draw(node, 
-                            node_swarm[node][i],
-                            node_swarm[tree.parent(node)][node_ancestors[node][i]], 
-                            path_swarm[branch][i],
-                            log_weights[i],
-                            external_clamps[node] || (conditional && (!i)), // fixed node
-                            (conditional && (!i)),                          // fixed branch
-                            gen);
+                if (counter > 1)    {
+                    auto branch = tree.get_branch(node);
+                    for (size_t i=0; i<size(); i++)  {
+                        wdist.path_draw(node, 
+                                node_swarm[node][i],
+                                node_swarm[tree.parent(node)][node_ancestors[node][i]], 
+                                path_swarm[branch][i],
+                                log_weights[i],
+                                external_clamps[node] || (conditional && (!i)), // fixed node
+                                (conditional && (!i)),                          // fixed branch
+                                gen);
+                    }
                 }
             }
 
