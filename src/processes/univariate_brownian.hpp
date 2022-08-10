@@ -376,12 +376,6 @@ struct univariate_normal    {
             x = distrib(gen);
         }
     }
-
-    /*
-    static double conditional_logprob(T& x, const Constraint& clamp, const CondL::L& condl, real mean, spos_real var)   {
-        return 0;
-    }
-    */
 };
 
 struct univariate_brownian {
@@ -462,39 +456,6 @@ struct univariate_brownian {
         }
     }
 
-    static void backward_propagate(const CondL::L& condl_young, const CondL::L& condl_branch, CondL::L& condl_old, double t_young, double t_old, spos_real tau)  {
-
-        double u = 1.0/(t_old - t_young);
-        double tau0 = get<2>(condl_young);
-        double taub = get<2>(condl_branch);
-
-        double m0 = get<1>(condl_young);
-        double mb = get<1>(condl_branch);
-
-        double tau1 = tau0 + u*tau + taub/4;
-        double z = tau0*u*tau + tau0*taub/4 + u*tau*taub;
-        double tau2 = z/tau1;
-        double tau3 = tau0*u*tau*taub/z;
-
-        double m2 = (tau0*u*tau*m0 + tau0*taub/4*(2*mb-m0) + u*tau*taub*mb)/z;
-
-        double v2 = (tau0*u*tau*m0*m0 + tau0*taub/4*(2*mb-m0)*(2*mb-m0) + u*tau*taub*mb*mb)/z 
-            - m2*m2;
-
-        get<0>(condl_old) = get<0>(condl_young) + get<0>(condl_branch) 
-            + 0.5*log(tau3/2/constants::pi) 
-            - 0.5*tau2*v2;
-
-        get<1>(condl_old) = m2;
-
-        get<2>(condl_old) = tau2;
-    }
-
-    static double pseudo_branch_logprob(const instantT& x_young, const instantT& x_old, const CondL::L& branch_condl)  {
-        instantT x = 0.5*(x_old + x_young);
-        return CondL::logprob(x, branch_condl);
-    }
-
     template<typename Gen>
     static void node_conditional_draw(instantT& x_young, const Constraint& clamp, const instantT& x_old, double t_young, double t_old, const CondL::L& condl, spos_real tau, Gen& gen) {
 
@@ -533,40 +494,20 @@ struct univariate_brownian {
             path[1] = x_young;
         }
         else    {
-            std::cerr << "implement bridge draw for n>2\n";
-            exit(1);
+            size_t n = path.size();
+            path[0] = x_old;
+            path[n-1] = x_young;
+
+            for (size_t i=1; i<n-1; i++)    {
+                double om0 = tau/(t_old-t_young)*(n-1);
+                double om1 = om0/(n-1-i);
+                double om = om0 + om1;
+                double m = (om0*path[i-1] + om1*x_young)/om;
+                double sigma = 1.0/sqrt(om);
+                std::normal_distribution<double> distrib(real(m), positive_real(sigma));
+                path[i] = distrib(gen);
+            }
         }
-    }
-
-    /*
-    static double node_conditional_logprob(const instantT& x_young, const Constraint& clamp, const instantT& x_old, double t_young, double t_old, const CondL::L& condl, spos_real tau) {
-        return 0;
-    }
-
-    static double bridge_conditional_logprob(const pathT& path, const instantT& x_young, const instantT& x_old, double t_young, double t_old, spos_real tau)   {
-        return 0;
-    }
-    */
-
-    // add a brownian path to current path
-    template<typename Gen>
-    static double path_kernel(double tuning, instantT& x_young, pathT& path, 
-            double t_young, double t_old, spos_real tau, Gen& gen)  {
-
-        size_t n = path.size();
-        double mean = 0;
-        double var = tuning/(n-1)/tau;
-        pathT dpath = path;
-        std::normal_distribution<double> distrib(real(mean), positive_real(sqrt(var)));
-        dpath[0] = 0;
-        for (size_t i=1; i<n; i++)  {
-            dpath[i] = dpath[i-1] + distrib(gen);
-        }
-        for (size_t i=0; i<n; i++)  {
-            path[i] += dpath[i];
-        }
-        x_young = path[n-1];
-        return 0;
     }
 
     // add a brownian bridge to current bridge
