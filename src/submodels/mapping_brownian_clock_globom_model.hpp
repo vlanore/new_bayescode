@@ -93,7 +93,7 @@ struct brownian_clock_globom {
 
         std::cerr << "get suffstats from file\n";
         // mapping suffstats for dS and dN
-        auto dsom_ss = pathss_factory::make_dsom_suffstat_from_mappings(suffstat, 0.1);
+        auto dsom_ss = pathss_factory::make_dsom_suffstat_from_mappings(suffstat, 1.0);
 
         // collapse dS dN mapping branch suffstats into one single suffstat for global omega
         auto omega_ss = pathss_factory::make_omega_suffstat(
@@ -132,8 +132,13 @@ struct brownian_clock_globom {
             move_chrono(model, gen);
 
             // move branch times and rates
-            // move_ds(model, gen);
-            pf_move_ds(model, gen);
+            /*
+            for (int rep=0; rep<10; rep++)  {
+                move_ds(model, gen);
+            }
+            */
+            // pf_move_ds(model, gen);
+            ais_pf_move_ds(model, gen);
 
             // move variance parameter of Brownian process
             move_tau(model, gen);
@@ -199,7 +204,6 @@ struct brownian_clock_globom {
                     dsom_suffstats_(model));
 
             auto target = tree_process_methods::make_prior_importance_sampler(
-            // auto target = tree_process_methods::make_free_forward_prior_importance_sampler(
                     get<log_synrate>(model),
                     branch_update, branch_logprob);
 
@@ -207,6 +211,27 @@ struct brownian_clock_globom {
                     get<log_synrate>(model), target, 300);
 
             pf.run(true, 10, 30, gen);
+            gather(get<synrate>(model));
+        }
+
+    template<class Model, class Gen>
+        static auto ais_pf_move_ds(Model& model, Gen& gen)  {
+            
+            auto branch_update = array_element_gather(synrate_(model));
+
+            auto branch_logprob = suffstat_array_element_logprob(
+                    n_to_n(get<synrate,value>(model)),
+                    n_to_one(get<global_omega,value>(model)),
+                    dsom_suffstats_(model));
+
+            auto target = tree_process_methods::make_annealed_prior_importance_sampler(
+                    get<log_synrate>(model),
+                    branch_update, branch_logprob, 100, 1.0);
+
+            auto pf = tree_process_methods::make_particle_filter(
+                    get<log_synrate>(model), target, 1000);
+
+            pf.run(true, 10, 100, gen);
             gather(get<synrate>(model));
         }
 

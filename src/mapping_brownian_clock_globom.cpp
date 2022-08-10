@@ -30,7 +30,8 @@ int main(int argc, char* argv[]) {
 
     // move schedule
     auto scheduler = make_move_scheduler([&gen, &model, name=cmd.chain_name()]() {
-        for (int rep = 0; rep < 300; rep++) {
+        for (int rep = 0; rep < 10; rep++) {
+        // for (int rep = 0; rep < 300; rep++) {
             brownian_clock_globom::move_params(model, gen);
         }
         std::ofstream os((name + ".chrono").c_str());

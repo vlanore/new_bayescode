@@ -867,6 +867,127 @@ struct tree_process_methods  {
         return prior_importance_sampler<Process, Update, LogProb>(process, update, logprob);
     }
 
+
+    template<class Process, class BranchUpdate, class BranchLogProb>
+    class annealed_prior_importance_sampler  {
+
+        Process& process;
+        conditional_sampler<Process> proposal;
+        BranchUpdate update;
+        BranchLogProb logprob;
+        size_t m;
+        double tuning;
+
+        public:
+
+        annealed_prior_importance_sampler(Process& in_process, 
+            BranchUpdate in_update, BranchLogProb in_logprob, size_t in_m, double in_tuning) :
+                process(in_process), proposal(process),
+                update(in_update), logprob(in_logprob), m(in_m), tuning(in_tuning) {}
+
+        ~annealed_prior_importance_sampler() {}
+
+        void init(const std::vector<bool>& external_clamps)    {
+            proposal.init(external_clamps);
+        }
+
+        template<class Gen>
+        void root_draw(typename node_distrib_t<Process>::instantT& val, 
+                double& log_weight, bool fixed_node, Gen& gen) {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+
+            if (! fixed_node)    {
+                proposal.root_draw(val, log_weight, gen);
+            }
+            else    {
+                node_vals[tree.root()] = val;
+            }
+        }
+
+        template<class Gen>
+        void path_draw(int node, 
+                typename node_distrib_t<Process>::instantT& val, 
+                const typename node_distrib_t<Process>::instantT& parent_val, 
+                typename node_distrib_t<Process>::pathT& path, 
+                double& log_weight, bool fixed_node, bool fixed_branch, Gen& gen) {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+            auto& path_vals = get<path_values>(process);
+            int branch = tree.get_branch(node);
+
+            if (! fixed_node)    {
+                proposal.node_draw(node, val, parent_val, log_weight, gen);
+            }
+            else    {
+                node_vals[tree.parent(node)] = parent_val;
+                node_vals[node] = val;
+            }
+
+            // note: path logprob already included in acceptance ratio of single_branch_mh_move
+            auto ais_logprob = [lp=logprob, mm=m] (int i)    {
+                double f = double(i)/mm;
+                return [f, lp] (int branch) {
+                    return f*lp(branch);};
+            };
+
+            auto ais_kernel = [&proc=process, mm=m, t=tuning] (int i) {
+                double f = double(i)/mm;
+                double tt = t/sqrt(f);
+                return [&proc, tt] (auto& path, double t_young, double t_old, Gen& gen) {
+                    return bridge_kernel(proc, tt, path, t_young, t_old,
+                            get<params>(proc), param_keys_t<node_distrib_t<Process>>(), gen);
+                };
+            };
+
+            if (! fixed_branch) {
+
+                double logw = 0;
+
+                proposal.bridge_draw(node, val, parent_val, path, log_weight, gen);
+                update(branch);
+                logw += logprob(branch);
+
+                for (size_t i=1; i<m; i++)  {
+                    single_branch_mh_move(tree, node, process,
+                            ais_kernel(i), update, ais_logprob(i), gen);
+                    logw += logprob(branch);
+                }
+
+                log_weight += logw/m;
+                path = path_vals[branch];
+            }
+            else    {
+
+                double logw = 0;
+
+                path_vals[branch] = path;
+                update(branch);
+                logw += logprob(branch);
+
+                for (size_t i=m-1; i>0; i--)  {
+                    single_branch_mh_move(tree, node, process,
+                            ais_kernel(i), update, ais_logprob(i), gen);
+                    logw += logprob(branch);
+                }
+
+                log_weight += logw/m;
+
+                path_vals[branch] = path;
+                update(branch);
+            }
+        }
+    };
+
+    template<class Process, class Update, class LogProb>
+    static auto make_annealed_prior_importance_sampler(
+            Process& process, Update update, LogProb logprob, size_t m, double tuning)   {
+        return annealed_prior_importance_sampler<Process, Update, LogProb>(
+                process, update, logprob, m, tuning);
+    }
+
     // ****************************
     // particle filters
 
