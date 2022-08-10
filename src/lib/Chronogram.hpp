@@ -24,6 +24,10 @@ class Chronogram : public custom_tracer {
         return node_ages[node];
     }
 
+    double& operator[](Tree::NodeIndex node) {
+        return node_ages[node];
+    }
+
     size_t nb_nodes() const {return node_ages.size();}
     size_t size() const {return node_ages.size();}
 

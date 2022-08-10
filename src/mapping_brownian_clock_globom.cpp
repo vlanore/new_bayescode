@@ -7,13 +7,6 @@ int main(int argc, char* argv[]) {
     MappingInferenceAppArgParse args(cmd);
     cmd.parse();
 
-    // input tree
-    /*
-    std::ifstream is(args.treefile.getValue());
-    NHXParser parser(is);
-    auto tree = make_from_parser(parser);
-    */
-
     // suff stats
     auto suffstat = pathss_factory::make_mapping_dsom_suffstats(args.suffstats.getValue());
 

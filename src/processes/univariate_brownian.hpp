@@ -180,21 +180,47 @@ struct normal_mean_condL    {
         }
     }
 
-    // vector versions
-
-    static void init(std::vector<L>& condls)  {
-        for(auto& condl : condls)   {
-            get<0>(condl) = 0;
-            get<1>(condl) = 0;
-            get<2>(condl) = 0;
+    /*
+    static void init(std::vector<L>& condls, const real& x, const bool& clamp, bool external_clamp)    {
+        if (external_clamp) {
+            init(condls[0], x, clamp, true);
+        }
+        else    {
+            for(auto& condl : condls)   {
+                init(condl, x, clamp, false);
+            }
         }
     }
+    */
 
-    static void multiply(const std::vector<L>& from_condls, std::vector<L>& to_condls)   {
-        for (size_t i=0; i<from_condls.size(); i++)  {
-            multiply(from_condls.at(i), to_condls[i]);
+    /*
+    static void multiply(const std::vector<L>& from_condls, std::vector<L>& to_condls,
+            bool from_clamp, bool to_clamp)   {
+
+        if (from_clamp) {
+            if (to_clamp)   {
+                multiply(from_condls.at(0), to_condls[0]);
+            }
+            else    {
+                for (size_t i=0; i<from_condls.size(); i++)  {
+                    multiply(from_condls.at(0), to_condls[i]);
+                }
+            }
+        }
+        else    {
+            if (to_clamp)   {
+                for (size_t i=0; i<from_condls.size(); i++)  {
+                    multiply(from_condls.at(i), to_condls[0]);
+                }
+            }
+            else    {
+                for (size_t i=0; i<from_condls.size(); i++)  {
+                    multiply(from_condls.at(i), to_condls[i]);
+                }
+            }
         }
     }
+    */
 
     static void mix(L& condl, const std::vector<L>& condls)   {
         init(condl);
@@ -225,6 +251,36 @@ struct normal_mean_condL    {
         get<0>(condl) = logK;
         get<1>(condl) = mu;
         get<2>(condl) = tau;
+    }
+
+    template<class Gen>
+    static size_t draw_component(const std::vector<L>& condls, std::vector<bool> select, Gen& gen)   {
+        double max = 0;
+        bool first_comp = true;
+        for (size_t i=0; i<condls.size(); i++)  {
+            if (select[i])  {
+                if (first_comp || (max < get<0>(condls.at(i)))) {
+                    max = get<0>(condls.at(i));
+                    first_comp = false;
+                }
+            }
+        }
+        std::vector<double> w(condls.size(), 0);
+        double tot = 0;
+        for (size_t i=0; i<condls.size(); i++)  {
+            if (select[i])  {
+                w[i] = exp(get<0>(condls.at(i)) - max);
+            }
+            else    {
+                w[i] = 0;
+            }
+            tot += w[i];
+        }
+        for (size_t i=0; i<condls.size(); i++)  {
+            w[i] /= tot;
+        }
+        std::discrete_distribution<int> distrib(w.begin(), w.end());
+        return distrib(gen);
     }
 };
 

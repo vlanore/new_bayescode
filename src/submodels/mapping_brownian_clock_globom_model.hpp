@@ -132,13 +132,12 @@ struct brownian_clock_globom {
             move_chrono(model, gen);
 
             // move branch times and rates
-            /*
             for (int rep=0; rep<10; rep++)  {
                 move_ds(model, gen);
             }
-            */
-            // pf_move_ds(model, gen);
+            pf_move_ds(model, gen);
             ais_pf_move_ds(model, gen);
+            pf_move_chrono_ds(model, gen);
 
             // move variance parameter of Brownian process
             move_tau(model, gen);
@@ -232,6 +231,28 @@ struct brownian_clock_globom {
                     get<log_synrate>(model), target, 1000);
 
             pf.run(true, 10, 100, gen);
+            gather(get<synrate>(model));
+        }
+
+    template<class Model, class Gen>
+        static auto pf_move_chrono_ds(Model& model, Gen& gen)  {
+            
+            auto branch_update = array_element_gather(synrate_(model));
+
+            auto branch_logprob = suffstat_array_element_logprob(
+                    n_to_n(get<synrate,value>(model)),
+                    n_to_one(get<global_omega,value>(model)),
+                    dsom_suffstats_(model));
+
+            auto target = tree_process_methods::make_chrono_process_prior_importance_sampler(
+                    get<chrono,value>(model),
+                    get<log_synrate>(model),
+                    branch_update, branch_logprob, 100);
+
+            auto pf = tree_process_methods::make_joint_chrono_process_particle_filter(
+                    get<chrono,value>(model), get<log_synrate>(model), target, 300);
+
+            pf.run(true, 10, 30, gen);
             gather(get<synrate>(model));
         }
 
