@@ -900,7 +900,7 @@ struct tree_process_methods  {
 
             auto ais_kernel = [&proc=process, mm=m, t=tuning] (int i) {
                 double f = double(i)/mm;
-                double tt = t/sqrt(f);
+                double tt = t/(0.1 + sqrt(f));
                 return [&proc, tt] (auto& path, double t_young, double t_old, Gen& gen) {
                     return bridge_kernel(proc, tt, path, t_young, t_old,
                             get<params>(proc), param_keys_t<node_distrib_t<Process>>(), gen);
