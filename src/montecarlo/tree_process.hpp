@@ -1123,7 +1123,7 @@ struct tree_process_methods  {
         size_t size() {return log_weights.size();}
 
         template<class Gen>
-        void init(bool conditional, double cond_frac, Gen& gen) {
+        void init(bool conditional, int min, int max, Gen& gen) {
 
             if (conditional)    {
 
@@ -1137,7 +1137,13 @@ struct tree_process_methods  {
                     path_swarm[branch][0] = path_vals[branch];
                 }
 
-                if (cond_frac)  {
+                for (size_t node=0; node<tree.nb_nodes(); node++)   {
+                    external_clamps[node] = false;
+                }
+                if (max < int(tree.nb_nodes()))  {
+                    // choose_components(min, max, gen);
+
+                    double cond_frac = ((double) max)/tree.nb_nodes();
                     std::vector<double> w = {1-cond_frac, cond_frac};
                     std::discrete_distribution<int> distrib(w.begin(), w.end());
                     for (size_t node=0; node<tree.nb_nodes(); node++)   {
@@ -1147,6 +1153,9 @@ struct tree_process_methods  {
                         else    {
                             external_clamps[node] = distrib(gen);
                         }
+                    }
+
+                    for (size_t node=0; node<tree.nb_nodes(); node++)   {
                         if (external_clamps[node])  {
                             for (size_t i=1; i<size(); i++) {
                                 node_swarm[node][i] = node_vals[node];
@@ -1154,49 +1163,115 @@ struct tree_process_methods  {
                         }
                     }
                 }
-                else    {
-                    for (size_t node=0; node<tree.nb_nodes(); node++)   {
-                        external_clamps[node] = false;
-                    }
-                }
             }
             wdist.init(external_clamps);
         }
 
         template<class Gen>
-        int run(bool conditional, double cond_frac, double cutoff, Gen& gen)  {
+        void choose_components(int min, int max, Gen& gen)  {
+            recursive_choose_components(tree.root(), tree.nb_nodes(), min, max, gen);
+        }
 
-            init(conditional, cond_frac, gen);
+        template<class Gen>
+        void recursive_choose_components(int node, int size, int min, int max, Gen& gen)    {
+            // std::cerr << node << '\t' << size << '\n';
+            if (! tree.is_root(node))   {
+                external_clamps[node] = false;
+            }
+            std::pair<int,int> p = split(node, min, gen);
+            if (! tree.is_root(node))   {
+                external_clamps[node] = true;
+            }
+            // std::cerr << p.first << '\t' << p.second << '\t' << size-p.second+1 << '\n';
+            // std::cerr << "---\n";
+            if (p.second > max)  {
+                recursive_choose_components(p.first, p.second, min, max, gen);
+            }
+            if (size - p.second > max)  {
+                recursive_choose_components(node, size-p.second+1, min, max, gen);
+            }
+        }
+        
+        template<class Gen>
+        std::pair<int,int> split(size_t node, int min, Gen& gen)    {
+            if (external_clamps[node])  {
+                std::cerr << "error in split: node already clamped\n";
+                exit(1);
+            }
+            std::vector<int> node_sizes(tree.nb_nodes(),0);
+            get_subtree_sizes(node, node_sizes);
+            int count = 0;
+            for (size_t c=0; c<tree.nb_nodes(); c++)    {
+                // std::cerr << node_sizes[c] << '\t';
+                if ((c != node) && (node_sizes[c] > min))   {
+                    count++;
+                }
+            }
+            // std::cerr << '\n';
+            if (! count)    {
+                std::cerr << "error in split: no eligible node was found\n";
+                exit(1);
+            }
+            int choose = 1 + int(draw_uniform(gen) * count);
+            // std::cerr << "choose : " << choose << '\t' << count << '\n';
+            size_t c=0;
+            while (choose)  {
+                c++;
+                if (c == tree.nb_nodes())   {
+                    std::cerr << "in split: overflow\n";
+                    exit(1);
+                }
+                if ((c != node) && (node_sizes[c] > min))   {
+                    choose--;
+                }
+            }
+            // std::cerr << "chosen node : " << c << '\t' << node_sizes[c] << '\t' << node_sizes[node]-node_sizes[c]+1 << '\n';
+            if (external_clamps[c]) {
+                std::cerr << "error in split: already clamped\n";
+                exit(1);
+            }
+            if (node_sizes[c] <= min)   {
+                std::cerr << "error in split: size too small\n";
+                exit(1);
+            }
+            external_clamps[c] = true;
+            return std::make_pair(c,node_sizes[c]);
+        }
 
-            int ret = sub_run(tree.root(), conditional, cutoff, gen);
+        int get_subtree_sizes(int node, std::vector<int>& node_sizes)    {
+            if (external_clamps[node])  {
+                node_sizes[node] = 1;
+            }
+            else    {
+                int s = 0;
+                for (auto c : tree.children(node))  {
+                    s += get_subtree_sizes(c, node_sizes);
+                }
+                s++;
+                node_sizes[node] = s;
+            }
+            return node_sizes[node];
+        }
 
-            if (cond_frac)  {
+        template<class Gen>
+        int run(bool conditional, int max_size, double min_effsize, Gen& gen)  {
+
+            init(conditional, 1, max_size, gen);
+
+            int ret = sub_run(tree.root(), conditional, min_effsize, gen);
+
+            if (max_size < int(tree.nb_nodes())) {
                 for (size_t node=0; node<tree.nb_nodes(); node++)   {
                     if (external_clamps[node])  {
-                        sub_run(node, conditional, cutoff, gen);
+                        sub_run(node, conditional, min_effsize, gen);
                     }
                 }
             }
-            /*
-            for (size_t node=0; node<tree.nb_nodes(); node++)   {
-                std::cerr << node << '\t' << tree.is_leaf(node) << '\t' << external_clamps[node] << '\t' << node_vals[node] << '\t';
-                if (tree.is_root(node)) {
-                    std::cerr << "-" << '\t' << "-" << '\t' << "-" << '\n';
-                }
-                else    {
-                    std::cerr << node_vals[tree.parent(node)];
-                    int branch = tree.get_branch(node);
-                    std::cerr << '\t' << path_vals[branch][0] << '\t' << path_vals[branch][1] << '\n';
-                }
-            }
-            */
             return ret;
         }
 
         template<class Gen>
-        int sub_run(int node, bool conditional, double cutoff, Gen& gen)    {
-
-            // std::cerr << "run node : " << node << '\n';
+        int sub_run(int node, bool conditional, double min_effsize, Gen& gen)    {
 
             counter = 0;
             for (auto& l : log_weights) {
@@ -1210,7 +1285,7 @@ struct tree_process_methods  {
 
             // run forward particle filter
             // will stop at the nodes that are externally clamped
-            forward_pf(node, conditional, cutoff, b, gen);
+            forward_pf(node, conditional, min_effsize, b, gen);
 
             /*
             std::map<int,int> ancmap;
@@ -1220,14 +1295,12 @@ struct tree_process_methods  {
             std::cerr << ancmap[0] << '\t';
             */
 
-            // std::cerr << "choose \n";
             // choose random particle
             int c = choose_particle(gen);
 
             // pull out
             for (int i=counter-1; i>=0; i--) {
                 int node = node_ordering[i];
-                // std::cerr << i << '\t' << node << '\t' << c << '\n';
                 get<node_values>(process)[node] = node_swarm[node][c];
                 if (i)  {
                     get<path_values>(process)[tree.get_branch(node)] = 
@@ -1237,8 +1310,6 @@ struct tree_process_methods  {
             }
 
             // return particle weight
-            // std::cerr << "leaving " << c << '\t' << log_weights[c] << '\n';
-            // std::cerr << '\n';
             // return log_weights[c];
             // return whether root is different from current state
             return b[c];
@@ -1246,7 +1317,7 @@ struct tree_process_methods  {
 
         // returns anc[i]: index of the ancestor, at this node, of the particle i
         template<class Gen>
-        void forward_pf(int node, bool conditional, double cutoff, std::vector<int>& b, Gen& gen)   {
+        void forward_pf(int node, bool conditional, double min_effsize, std::vector<int>& b, Gen& gen)   {
 
             // when entering forward,
             // b[i] gives the ancestor at tree.parent(node) of current particle i
@@ -1269,7 +1340,7 @@ struct tree_process_methods  {
                 }
             }
             else    {
-                bootstrap_pf(conditional, choose, cutoff, gen);
+                bootstrap_pf(conditional, choose, min_effsize, gen);
 
                 for (size_t i=0; i<size(); i++)  {
                     node_ancestors[node][i] = b[choose[i]];
@@ -1314,7 +1385,7 @@ struct tree_process_methods  {
 
             if (! external_clamps[node])    {
                 for (auto c : tree.children(node))  {
-                    forward_pf(c, conditional, cutoff, bb, gen);
+                    forward_pf(c, conditional, min_effsize, bb, gen);
                 }
             }
 
@@ -1350,7 +1421,7 @@ struct tree_process_methods  {
         }
 
         template<class Gen>
-        void bootstrap_pf(bool conditional, std::vector<int>& choose, double cutoff, Gen& gen)  {
+        void bootstrap_pf(bool conditional, std::vector<int>& choose, double min_effsize, Gen& gen)  {
             std::vector<double> w(size(), 0);
             double max = 0;
             for (size_t i=0; i<size(); i++) {
@@ -1369,7 +1440,7 @@ struct tree_process_methods  {
                 s2 += w[i]*w[i];
             }
             double effsize = 1.0/s2;
-            if (effsize < cutoff)   {
+            if (effsize < min_effsize)   {
                 std::discrete_distribution<int> distrib(w.begin(), w.end());
                 if (conditional)    {
                     choose[0] = 0;

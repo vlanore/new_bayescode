@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
     auto suffstat = pathss_factory::make_mapping_dsom_suffstats(args.suffstats.getValue());
 
     // random generator
-    auto gen = make_generator(42);
+    auto gen = make_generator(52);
 
     // model
     auto model = brownian_clock_globom::make(args.treefile.getValue(), suffstat, gen);

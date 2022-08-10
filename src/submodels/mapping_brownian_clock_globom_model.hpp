@@ -178,7 +178,7 @@ struct brownian_clock_globom {
             auto pf = tree_process_methods::make_particle_filter(
                     get<log_synrate>(model), target, 1000);
 
-            pf.run(true, 0.4, 100, gen);
+            pf.run(true, 10, 100, gen);
             gather(get<synrate>(model));
         }
 
