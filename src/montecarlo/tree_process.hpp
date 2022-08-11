@@ -1295,6 +1295,77 @@ struct tree_process_methods  {
     // ****************************
     // particle filters
 
+    template<class Gen>
+    static size_t choose_particle(const std::vector<double>& log_weights, Gen& gen)    {
+
+        std::vector<double> w(log_weights.size(), 0);
+        double max = 0;
+        for (size_t i=0; i<log_weights.size(); i++) {
+            if ((!i) || (max < log_weights[i])) {
+                max = log_weights[i];
+            }
+        }
+        double tot = 0;
+        for (size_t i=0; i<log_weights.size(); i++) {
+            w[i] = exp(log_weights[i] - max);
+            tot += w[i];
+        }
+        for (size_t i=0; i<log_weights.size(); i++) {
+            w[i] /= tot;
+        }
+        std::discrete_distribution<int> distrib(w.begin(), w.end());
+        return distrib(gen);
+    }
+
+    template<class Gen>
+    static void bootstrap_pf(bool conditional, 
+            std::vector<double> log_weights,
+            std::vector<int>& choose, 
+            double min_effsize, Gen& gen)  {
+
+        std::vector<double> w(log_weights.size(), 0);
+        double max = 0;
+        for (size_t i=0; i<log_weights.size(); i++) {
+            if ((!i) || (max < log_weights[i])) {
+                max = log_weights[i];
+            }
+        }
+        double tot = 0;
+        for (size_t i=0; i<log_weights.size(); i++) {
+            w[i] = exp(log_weights[i] - max);
+            tot += w[i];
+        }
+        double s2 = 0;
+        for (size_t i=0; i<log_weights.size(); i++) {
+            w[i] /= tot;
+            s2 += w[i]*w[i];
+        }
+        double effsize = 1.0/s2;
+        if (effsize < min_effsize)   {
+            std::discrete_distribution<int> distrib(w.begin(), w.end());
+            if (conditional)    {
+                choose[0] = 0;
+            }
+            else    {
+                choose[0] = distrib(gen);
+            }
+            for (size_t i=1; i<log_weights.size(); i++) {
+                choose[i] = distrib(gen);
+            }
+
+            double mean = tot / log_weights.size();
+            double log_mean_weight = log(mean) + max;
+            for (size_t i=0; i<log_weights.size(); i++) {
+                log_weights[i] = log_mean_weight;
+            }
+        }
+        else    {
+            for (size_t i=0; i<log_weights.size(); i++) {
+                choose[i] = i;
+            }
+        }
+    }
+
     template<class Process, class WDist>
     class tree_pf   {
         
@@ -1422,7 +1493,7 @@ struct tree_process_methods  {
             */
 
             // choose random particle
-            int c = choose_particle(gen);
+            int c = choose_particle(log_weights, gen);
 
             // pull out
             for (int i=counter-1; i>=0; i--) {
@@ -1466,7 +1537,7 @@ struct tree_process_methods  {
                 }
             }
             else    {
-                bootstrap_pf(conditional, choose, min_effsize, gen);
+                bootstrap_pf(conditional, log_weights, choose, min_effsize, gen);
 
                 for (size_t i=0; i<size(); i++)  {
                     node_ancestors[node][i] = b[choose[i]];
@@ -1522,74 +1593,6 @@ struct tree_process_methods  {
 
             for (size_t i=0; i<size(); i++)  {
                 b[i] = node_ancestors[node][bb[i]];
-            }
-        }
-
-        template<class Gen>
-        size_t choose_particle(Gen& gen)    {
-            std::vector<double> w(size(), 0);
-            double max = 0;
-            for (size_t i=0; i<size(); i++) {
-                if ((!i) || (max < log_weights[i])) {
-                    max = log_weights[i];
-                }
-            }
-            double tot = 0;
-            for (size_t i=0; i<size(); i++) {
-                w[i] = exp(log_weights[i] - max);
-                tot += w[i];
-            }
-            for (size_t i=0; i<size(); i++) {
-                w[i] /= tot;
-            }
-            std::discrete_distribution<int> distrib(w.begin(), w.end());
-            return distrib(gen);
-        }
-
-        template<class Gen>
-        void bootstrap_pf(bool conditional, std::vector<int>& choose, double min_effsize, Gen& gen)  {
-            std::vector<double> w(size(), 0);
-            double max = 0;
-            for (size_t i=0; i<size(); i++) {
-                if ((!i) || (max < log_weights[i])) {
-                    max = log_weights[i];
-                }
-            }
-            double tot = 0;
-            for (size_t i=0; i<size(); i++) {
-                w[i] = exp(log_weights[i] - max);
-                tot += w[i];
-            }
-            double s2 = 0;
-            for (size_t i=0; i<size(); i++) {
-                w[i] /= tot;
-                s2 += w[i]*w[i];
-            }
-            double effsize = 1.0/s2;
-            if (effsize < min_effsize)   {
-                std::discrete_distribution<int> distrib(w.begin(), w.end());
-                if (conditional)    {
-                    choose[0] = 0;
-                }
-                else    {
-                    choose[0] = distrib(gen);
-                }
-                for (size_t i=1; i<size(); i++) {
-                    choose[i] = distrib(gen);
-                }
-
-                double mean = tot / size();
-                double log_mean_weight = log(mean) + max;
-                for (size_t i=0; i<size(); i++) {
-                    log_weights[i] = log_mean_weight;
-                }
-                // std::cerr << "*";
-            }
-            else    {
-                // std::cerr << ".";
-                for (size_t i=0; i<size(); i++) {
-                    choose[i] = i;
-                }
             }
         }
     };
@@ -1727,7 +1730,7 @@ struct tree_process_methods  {
             forward_pf(node, conditional, min_effsize, b, gen);
 
             // choose random particle
-            int c = choose_particle(gen);
+            int c = choose_particle(log_weights, gen);
 
             // pull out
             for (int i=counter-1; i>=0; i--) {
@@ -1772,7 +1775,7 @@ struct tree_process_methods  {
                 }
             }
             else    {
-                bootstrap_pf(conditional, choose, min_effsize, gen);
+                bootstrap_pf(conditional, log_weights, choose, min_effsize, gen);
 
                 for (size_t i=0; i<size(); i++)  {
                     node_ancestors[node][i] = b[choose[i]];
@@ -1830,74 +1833,6 @@ struct tree_process_methods  {
 
             for (size_t i=0; i<size(); i++)  {
                 b[i] = node_ancestors[node][bb[i]];
-            }
-        }
-
-        template<class Gen>
-        size_t choose_particle(Gen& gen)    {
-            std::vector<double> w(size(), 0);
-            double max = 0;
-            for (size_t i=0; i<size(); i++) {
-                if ((!i) || (max < log_weights[i])) {
-                    max = log_weights[i];
-                }
-            }
-            double tot = 0;
-            for (size_t i=0; i<size(); i++) {
-                w[i] = exp(log_weights[i] - max);
-                tot += w[i];
-            }
-            for (size_t i=0; i<size(); i++) {
-                w[i] /= tot;
-            }
-            std::discrete_distribution<int> distrib(w.begin(), w.end());
-            return distrib(gen);
-        }
-
-        template<class Gen>
-        void bootstrap_pf(bool conditional, std::vector<int>& choose, double min_effsize, Gen& gen)  {
-            std::vector<double> w(size(), 0);
-            double max = 0;
-            for (size_t i=0; i<size(); i++) {
-                if ((!i) || (max < log_weights[i])) {
-                    max = log_weights[i];
-                }
-            }
-            double tot = 0;
-            for (size_t i=0; i<size(); i++) {
-                w[i] = exp(log_weights[i] - max);
-                tot += w[i];
-            }
-            double s2 = 0;
-            for (size_t i=0; i<size(); i++) {
-                w[i] /= tot;
-                s2 += w[i]*w[i];
-            }
-            double effsize = 1.0/s2;
-            if (effsize < min_effsize)   {
-                std::discrete_distribution<int> distrib(w.begin(), w.end());
-                if (conditional)    {
-                    choose[0] = 0;
-                }
-                else    {
-                    choose[0] = distrib(gen);
-                }
-                for (size_t i=1; i<size(); i++) {
-                    choose[i] = distrib(gen);
-                }
-
-                double mean = tot / size();
-                double log_mean_weight = log(mean) + max;
-                for (size_t i=0; i<size(); i++) {
-                    log_weights[i] = log_mean_weight;
-                }
-                // std::cerr << "*";
-            }
-            else    {
-                // std::cerr << ".";
-                for (size_t i=0; i<size(); i++) {
-                    choose[i] = i;
-                }
             }
         }
     };
