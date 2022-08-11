@@ -1,5 +1,6 @@
 
 #include "tree/tree_factory.hpp"
+#include "montecarlo/split_tree.hpp"
 
 struct tree_process_methods  {
 
@@ -1351,7 +1352,8 @@ struct tree_process_methods  {
                     external_clamps[node] = false;
                 }
                 if (max < int(tree.nb_nodes()))  {
-                    // choose_components(min, max, gen);
+
+                    // split_tree::choose_components(tree, min, max, external_clamps, gen);
 
                     double cond_frac = ((double) max)/tree.nb_nodes();
                     std::vector<double> w = {1-cond_frac, cond_frac};
@@ -1375,92 +1377,6 @@ struct tree_process_methods  {
                 }
             }
             wdist.init(external_clamps);
-        }
-
-        template<class Gen>
-        void choose_components(int min, int max, Gen& gen)  {
-            recursive_choose_components(tree.root(), tree.nb_nodes(), min, max, gen);
-        }
-
-        template<class Gen>
-        void recursive_choose_components(int node, int size, int min, int max, Gen& gen)    {
-            // std::cerr << node << '\t' << size << '\n';
-            if (! tree.is_root(node))   {
-                external_clamps[node] = false;
-            }
-            std::pair<int,int> p = split(node, min, gen);
-            if (! tree.is_root(node))   {
-                external_clamps[node] = true;
-            }
-            // std::cerr << p.first << '\t' << p.second << '\t' << size-p.second+1 << '\n';
-            // std::cerr << "---\n";
-            if (p.second > max)  {
-                recursive_choose_components(p.first, p.second, min, max, gen);
-            }
-            if (size - p.second > max)  {
-                recursive_choose_components(node, size-p.second+1, min, max, gen);
-            }
-        }
-        
-        template<class Gen>
-        std::pair<int,int> split(size_t node, int min, Gen& gen)    {
-            if (external_clamps[node])  {
-                std::cerr << "error in split: node already clamped\n";
-                exit(1);
-            }
-            std::vector<int> node_sizes(tree.nb_nodes(),0);
-            get_subtree_sizes(node, node_sizes);
-            int count = 0;
-            for (size_t c=0; c<tree.nb_nodes(); c++)    {
-                // std::cerr << node_sizes[c] << '\t';
-                if ((c != node) && (node_sizes[c] > min))   {
-                    count++;
-                }
-            }
-            // std::cerr << '\n';
-            if (! count)    {
-                std::cerr << "error in split: no eligible node was found\n";
-                exit(1);
-            }
-            int choose = 1 + int(draw_uniform(gen) * count);
-            // std::cerr << "choose : " << choose << '\t' << count << '\n';
-            size_t c=0;
-            while (choose)  {
-                c++;
-                if (c == tree.nb_nodes())   {
-                    std::cerr << "in split: overflow\n";
-                    exit(1);
-                }
-                if ((c != node) && (node_sizes[c] > min))   {
-                    choose--;
-                }
-            }
-            // std::cerr << "chosen node : " << c << '\t' << node_sizes[c] << '\t' << node_sizes[node]-node_sizes[c]+1 << '\n';
-            if (external_clamps[c]) {
-                std::cerr << "error in split: already clamped\n";
-                exit(1);
-            }
-            if (node_sizes[c] <= min)   {
-                std::cerr << "error in split: size too small\n";
-                exit(1);
-            }
-            external_clamps[c] = true;
-            return std::make_pair(c,node_sizes[c]);
-        }
-
-        int get_subtree_sizes(int node, std::vector<int>& node_sizes)    {
-            if (external_clamps[node])  {
-                node_sizes[node] = 1;
-            }
-            else    {
-                int s = 0;
-                for (auto c : tree.children(node))  {
-                    s += get_subtree_sizes(c, node_sizes);
-                }
-                s++;
-                node_sizes[node] = s;
-            }
-            return node_sizes[node];
         }
 
         template<class Gen>
@@ -1748,7 +1664,8 @@ struct tree_process_methods  {
                     external_clamps[node] = false;
                 }
                 if (max < int(tree.nb_nodes()))  {
-                    // choose_components(min, max, gen);
+
+                    // split_tree::choose_components(tree, min, max, external_clamps, gen);
 
                     double cond_frac = ((double) max)/tree.nb_nodes();
                     std::vector<double> w = {1-cond_frac, cond_frac};
@@ -1773,92 +1690,6 @@ struct tree_process_methods  {
                 }
             }
             wdist.init(external_clamps);
-        }
-
-        template<class Gen>
-        void choose_components(int min, int max, Gen& gen)  {
-            recursive_choose_components(tree.root(), tree.nb_nodes(), min, max, gen);
-        }
-
-        template<class Gen>
-        void recursive_choose_components(int node, int size, int min, int max, Gen& gen)    {
-            // std::cerr << node << '\t' << size << '\n';
-            if (! tree.is_root(node))   {
-                external_clamps[node] = false;
-            }
-            std::pair<int,int> p = split(node, min, gen);
-            if (! tree.is_root(node))   {
-                external_clamps[node] = true;
-            }
-            // std::cerr << p.first << '\t' << p.second << '\t' << size-p.second+1 << '\n';
-            // std::cerr << "---\n";
-            if (p.second > max)  {
-                recursive_choose_components(p.first, p.second, min, max, gen);
-            }
-            if (size - p.second > max)  {
-                recursive_choose_components(node, size-p.second+1, min, max, gen);
-            }
-        }
-        
-        template<class Gen>
-        std::pair<int,int> split(size_t node, int min, Gen& gen)    {
-            if (external_clamps[node])  {
-                std::cerr << "error in split: node already clamped\n";
-                exit(1);
-            }
-            std::vector<int> node_sizes(tree.nb_nodes(),0);
-            get_subtree_sizes(node, node_sizes);
-            int count = 0;
-            for (size_t c=0; c<tree.nb_nodes(); c++)    {
-                // std::cerr << node_sizes[c] << '\t';
-                if ((c != node) && (node_sizes[c] > min))   {
-                    count++;
-                }
-            }
-            // std::cerr << '\n';
-            if (! count)    {
-                std::cerr << "error in split: no eligible node was found\n";
-                exit(1);
-            }
-            int choose = 1 + int(draw_uniform(gen) * count);
-            // std::cerr << "choose : " << choose << '\t' << count << '\n';
-            size_t c=0;
-            while (choose)  {
-                c++;
-                if (c == tree.nb_nodes())   {
-                    std::cerr << "in split: overflow\n";
-                    exit(1);
-                }
-                if ((c != node) && (node_sizes[c] > min))   {
-                    choose--;
-                }
-            }
-            // std::cerr << "chosen node : " << c << '\t' << node_sizes[c] << '\t' << node_sizes[node]-node_sizes[c]+1 << '\n';
-            if (external_clamps[c]) {
-                std::cerr << "error in split: already clamped\n";
-                exit(1);
-            }
-            if (node_sizes[c] <= min)   {
-                std::cerr << "error in split: size too small\n";
-                exit(1);
-            }
-            external_clamps[c] = true;
-            return std::make_pair(c,node_sizes[c]);
-        }
-
-        int get_subtree_sizes(int node, std::vector<int>& node_sizes)    {
-            if (external_clamps[node])  {
-                node_sizes[node] = 1;
-            }
-            else    {
-                int s = 0;
-                for (auto c : tree.children(node))  {
-                    s += get_subtree_sizes(c, node_sizes);
-                }
-                s++;
-                node_sizes[node] = s;
-            }
-            return node_sizes[node];
         }
 
         template<class Gen>
@@ -1894,14 +1725,6 @@ struct tree_process_methods  {
             // run forward particle filter
             // will stop at the nodes that are externally clamped
             forward_pf(node, conditional, min_effsize, b, gen);
-
-            /*
-            std::map<int,int> ancmap;
-            for (size_t i=0; i<size(); i++)  {
-                ancmap[b[i]]++;
-            }
-            std::cerr << ancmap[0] << '\t';
-            */
 
             // choose random particle
             int c = choose_particle(gen);
