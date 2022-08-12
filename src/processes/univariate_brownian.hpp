@@ -180,59 +180,17 @@ struct normal_mean_condL    {
         }
     }
 
-    /*
-    static void init(std::vector<L>& condls, const real& x, const bool& clamp, bool external_clamp)    {
-        if (external_clamp) {
-            init(condls[0], x, clamp, true);
-        }
-        else    {
-            for(auto& condl : condls)   {
-                init(condl, x, clamp, false);
-            }
-        }
-    }
-    */
-
-    /*
-    static void multiply(const std::vector<L>& from_condls, std::vector<L>& to_condls,
-            bool from_clamp, bool to_clamp)   {
-
-        if (from_clamp) {
-            if (to_clamp)   {
-                multiply(from_condls.at(0), to_condls[0]);
-            }
-            else    {
-                for (size_t i=0; i<from_condls.size(); i++)  {
-                    multiply(from_condls.at(0), to_condls[i]);
-                }
-            }
-        }
-        else    {
-            if (to_clamp)   {
-                for (size_t i=0; i<from_condls.size(); i++)  {
-                    multiply(from_condls.at(i), to_condls[0]);
-                }
-            }
-            else    {
-                for (size_t i=0; i<from_condls.size(); i++)  {
-                    multiply(from_condls.at(i), to_condls[i]);
-                }
-            }
-        }
-    }
-    */
-
-    static void mix(L& condl, const std::vector<L>& condls)   {
+    static void mix(L& condl, size_t min, size_t max, const std::vector<L>& condls)   {
         init(condl);
         double maxlogK = 0;
-        for (const auto& l : condls)    {
-            if (maxlogK < get<0>(l))   {
-                maxlogK = get<0>(l);
+        for (size_t i=min; i<=max; i++)  {
+            if (maxlogK < get<0>(condls.at(i)))   {
+                maxlogK = get<0>(condls.at(i));
             }
         }
         double K = 0;
         std::vector<double> w(condls.size(), 0);
-        for (size_t i=0; i<condls.size(); i++)  {
+        for (size_t i=min; i<=max; i++)  {
             w[i] = exp(get<0>(condls.at(i))) - maxlogK;
             K += w[i];
         }
@@ -240,7 +198,7 @@ struct normal_mean_condL    {
 
         double mu = 0;
         double v = 0;
-        for (size_t i=0; i<condls.size(); i++)  {
+        for (size_t i=min; i<=max; i++)  {
             mu += w[i] * get<1>(condls.at(i));
             v += w[i] / get<2>(condls.at(i));
         }
@@ -253,33 +211,32 @@ struct normal_mean_condL    {
         get<2>(condl) = tau;
     }
 
+    static double point_eval(const L& condl, const T& val)   {
+        double diff = val - get<1>(condl);
+        return get<0>(condl) - 0.5*diff*diff/get<2>(condl);
+    }
+
     template<class Gen>
-    static size_t draw_component(const std::vector<L>& condls, std::vector<bool> select, Gen& gen)   {
+    static size_t draw_component(const std::vector<L>& condls, size_t imin, size_t imax, const T& val, double& logZ, Gen& gen)   {
         double max = 0;
-        bool first_comp = true;
-        for (size_t i=0; i<condls.size(); i++)  {
-            if (select[i])  {
-                if (first_comp || (max < get<0>(condls.at(i)))) {
-                    max = get<0>(condls.at(i));
-                    first_comp = false;
-                }
+        std::vector<double> logw(condls.size(), 0);
+        for (size_t i=imin; i<=imax; i++)   {
+            logw[i] = point_eval(condls.at(i), val);
+            if ((i == imin) || (max < logw[i])) {
+                max = logw[i];
             }
         }
         std::vector<double> w(condls.size(), 0);
         double tot = 0;
-        for (size_t i=0; i<condls.size(); i++)  {
-            if (select[i])  {
-                w[i] = exp(get<0>(condls.at(i)) - max);
-            }
-            else    {
-                w[i] = 0;
-            }
+        for (size_t i=imin; i<=imax; i++)   {
+            w[i] = exp(logw[i] - max);
             tot += w[i];
         }
-        for (size_t i=0; i<condls.size(); i++)  {
+        for (size_t i=imin; i<=imax; i++)   {
             w[i] /= tot;
         }
         std::discrete_distribution<int> distrib(w.begin(), w.end());
+        logZ = log(tot/(imax-imin+1)) + max;
         return distrib(gen);
     }
 };
@@ -491,6 +448,12 @@ struct univariate_brownian {
         }
         double v = (t_old - t_young)/(n-1)/tau;
         return -0.5*(n-1)*log(2.0*constants::pi*v) - 0.5*s/v;
+    }
+
+    static real node_logprob(const instantT& x_young, const instantT& x_old, double t_young, double t_old, spos_real tau)   {
+        double s = (x_young - x_old)*(x_young-x_old);
+        double v = (t_old - t_young)/tau;
+        return -0.5*log(2.0*constants::pi*v) - 0.5*s/v;
     }
 
     static void backward_propagate(const CondL::L& condl_young, CondL::L& condl_old, double t_young, double t_old, spos_real tau)  {
