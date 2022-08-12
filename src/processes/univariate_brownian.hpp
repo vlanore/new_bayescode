@@ -95,12 +95,14 @@ struct normal_mean_condL    {
             std::cerr << "condl is nan\n";
             ret = true;
         }
+        /*
         if (!get<2>(condl)) {
             if (get<1>(condl) || get<0>(condl)) {
                 std::cerr << "condl is ill-defined\n";
                 ret = true;
             }
         }
+        */
         if (ret)    {
             printerr(condl);
             std::cerr << '\n';
@@ -115,8 +117,12 @@ struct normal_mean_condL    {
     // multiply condl into res_condl
     static void multiply(const L& condl, L& res_condl)   {
 
-        if (ill_defined(condl) || ill_defined(res_condl))   {
-            std::cerr << "ill defined in multiply\n";
+        if (ill_defined(condl)) {
+            std::cerr << "source condl ill defined in multiply\n";
+            exit(1);
+        }
+        if (ill_defined(res_condl)) {
+            std::cerr << "target condl ill defined in multiply\n";
             exit(1);
         }
 
@@ -191,7 +197,7 @@ struct normal_mean_condL    {
         double K = 0;
         std::vector<double> w(condls.size(), 0);
         for (size_t i=min; i<=max; i++)  {
-            w[i] = exp(get<0>(condls.at(i))) - maxlogK;
+            w[i] = exp(get<0>(condls.at(i)) - maxlogK);
             K += w[i];
         }
         double logK = log(K) + maxlogK;
@@ -209,15 +215,34 @@ struct normal_mean_condL    {
         get<0>(condl) = logK;
         get<1>(condl) = mu;
         get<2>(condl) = tau;
+        if (ill_defined(condl)) {
+            std::cerr << "result of mixing condls is ill defined\n";
+            for (size_t i=min; i<=max; i++)  {
+                printerr(condls.at(i));
+                std::cerr << '\n';
+            }
+            std::cerr << "===\n";
+            printerr(condl);
+            std::cerr << '\n';
+            exit(1);
+        }
     }
 
     static double point_eval(const L& condl, const T& val)   {
+        if (! get<2>(condl))    {
+            if (get<1>(condl))  {
+                std::cerr << "in point eval: inconsistent condl\n";
+                exit(1);
+            }
+            return get<0>(condl);
+        }
         double diff = val - get<1>(condl);
         return get<0>(condl) - 0.5*diff*diff/get<2>(condl);
     }
 
     template<class Gen>
-    static size_t draw_component(const std::vector<L>& condls, size_t imin, size_t imax, const T& val, double& logZ, Gen& gen)   {
+    static size_t draw_component(const std::vector<L>& condls, const std::vector<double>& weights, 
+            size_t imin, size_t imax, const T& val, double& logZ, Gen& gen)   {
         double max = 0;
         std::vector<double> logw(condls.size(), 0);
         for (size_t i=imin; i<=imax; i++)   {
@@ -229,15 +254,26 @@ struct normal_mean_condL    {
         std::vector<double> w(condls.size(), 0);
         double tot = 0;
         for (size_t i=imin; i<=imax; i++)   {
-            w[i] = exp(logw[i] - max);
+            w[i] = weights[i] * exp(logw[i] - max);
             tot += w[i];
         }
         for (size_t i=imin; i<=imax; i++)   {
             w[i] /= tot;
         }
         std::discrete_distribution<int> distrib(w.begin(), w.end());
-        logZ = log(tot/(imax-imin+1)) + max;
-        return distrib(gen);
+        logZ = log(tot) + max;
+        int ret = distrib(gen);
+        if ((ret < int(imin)) || (ret > int(imax)))   {
+            std::cerr << "error in draw component: out of bounds\n";
+            std::cerr << ret << '\t' << imin << '\t' << imax << '\n';
+            for (size_t i=imin; i<=imax; i++)   {
+                std::cerr << i << '\t';
+                printerr(condls.at(i));
+                std::cerr << '\t' << weights[i] << '\t' << logw[i] << '\t' << w[i] << '\n';
+            }
+            exit(1);
+        }
+        return ret;
     }
 };
 
@@ -335,7 +371,16 @@ static auto get_branch_sum(const discretized_path<T>& path, double t_young, doub
         mean += lambda(path.at(i));
     }
     mean /= path.size()-1;
-    return mean * (t_old-t_young);
+    double ret = mean * (t_old-t_young);
+    if (std::isnan(ret))    {
+        std::cerr << "nan branch sum : " << mean << '\t' << t_old << '\t' << t_young << '\n';
+        for (size_t i=0; i<path.size(); i++)  {
+            std::cerr << path.at(i) << '\t';
+        }
+        std::cerr << '\n';
+        exit(1);
+    }
+    return ret;
 } 
 
 struct univariate_normal    {

@@ -110,10 +110,12 @@ class dSOmegaPathSuffStat {
         double ret = (nsyn + nnonsyn)*log(l) + nnonsyn*log(omega) - l*(bsyn + bnonsyn*omega);
         if (std::isnan(ret))    {
             std::cerr << "nan dsom suffstat log prob\n";
+            std::cerr << "under params: " << l << '\t' << omega << '\n';
             exit(1);
         }
         if (std::isinf(ret))    {
             std::cerr << "inf dsom suffstat log prob\n";
+            std::cerr << "under params: " << l << '\t' << omega << '\n';
             exit(1);
         }
         return ret;

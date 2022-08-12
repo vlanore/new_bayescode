@@ -422,96 +422,188 @@ struct tree_process_methods  {
     // old_condls[node][i]: old condl, given that immediate ancestor is at time t_i
     // but if immediate ancestor is root..
 
-    static size_t grid_index(double t, const std::vector<double>& times)   {
-        return int((t-1e-6) * times.size());
+    static size_t grid_index(double t, size_t n)    {
+        return int((t-1e-6) * n);
     }
 
-    static double grid_time(size_t i, double tmin, double tmax,
-            const std::vector<double>& times,
-            const std::vector<double>& min_times,
-            const std::vector<double>& max_times)   {
-        double t = times[i];
-        if (t < tmin)   {
-            t = min_times[i];
-            if (t < tmin)   {
-                std::cerr << "error: inconsistent time\n";
-                exit(1);
-            }
+    static double grid_time(size_t i, size_t n) {
+        return (i+0.5) / n;
+    }
+
+    static void get_time_intervals(double tmin, double tmax, size_t n, std::vector<double>& w)  {
+        double delta = 1.0/n;
+        size_t imin = grid_index(tmin, n);
+        size_t imax = grid_index(tmax, n);
+        
+        for (size_t i=0; i<n; i++)  {
+            w[i] = 0;
         }
-        if (t > tmax)   {
-            t = max_times[i];
-            if (t > tmax)   {
-                std::cerr << "error: inconsistent time\n";
-                exit(1);
+        for (size_t i=imin; i<=imax; i++)   {
+            double u = grid_time(i,n);
+            double umin = u-0.5*delta;
+            double umax = u+0.5*delta;
+            if (umax > tmax)    { // last interval, incomplete from above
+                umax = tmax;
             }
+            if (umin < tmin)    { // first interval, incomplete from below
+                umin = tmin;
+            }
+            w[i] = umax - umin;
         }
-        return t;
     }
 
     template<class Process, class CondLs, class T, class Constraint>
     static void init_double_condls(Process& process,
+            size_t n, double tmin, double tmax,
             CondLs& condls, T& x,
-            double tmin, double tmax, const std::vector<double>& times,
             const Constraint& clamp, bool external_clamp) {
 
-        for (size_t i=grid_index(tmin, times); i<=grid_index(tmax, times); i++) {
+        size_t imin = grid_index(tmin, n);
+        size_t imax = grid_index(tmax, n);
+        for (size_t i=imin; i<=imax; i++)   {
             node_distrib_t<Process>::CondL::init(condls[i], x, clamp, external_clamp);
         }
     }
 
     template<class Process, class CondLs>
     static void multiply_double_condls(Process& process,
-            const CondLs& from_condls, CondLs& to_condls,
-            double tmin, double tmax, const std::vector<double>& times)   {
+            size_t n, double tmin, double tmax,
+            const CondLs& from_condls, CondLs& to_condls)   {
 
-        for (size_t i=grid_index(tmin, times); i<=grid_index(tmax, times); i++) {
+        size_t imin = grid_index(tmin, n);
+        size_t imax = grid_index(tmax, n);
+        for (size_t i=imin; i<=imax; i++)   {
             node_distrib_t<Process>::CondL::multiply(from_condls.at(i), to_condls[i]);
         }
     }
 
+    template<class Process, class CondLs, class T, class Gen>
+    static double draw_conditional_time(Process& process, int node, double tmin, double tmax, size_t n,
+            const std::vector<CondLs>& condls, const T& val,
+            double& logZ, size_t& index, Gen& gen)  {
+
+        // for checks only
+        const auto& tree = get<tree_field>(process);
+        auto timeframe = get<time_frame_field>(process);
+
+        std::vector<double> w(n, 0);
+        std::vector<double> min_times(n, 0);
+        std::vector<double> max_times(n, 0);
+
+        size_t imin = grid_index(tmin, n);
+        size_t imax = grid_index(tmax, n);
+
+        // compute time intervals and bounds
+        double tot = 0;
+        for (size_t i=imin; i<=imax; i++)   {
+            double u = grid_time(i,n);
+            double umin = u-0.5/n;
+            double umax = u+0.5/n;
+            if (umax > tmax)    { // last interval, incomplete from above
+                umax = tmax;
+            }
+            if (umin < tmin)    { // first interval, incomplete from below
+                umin = tmin;
+            }
+            min_times[i] = umin;
+            max_times[i] = umax;
+            w[i] = n*(umax - umin);
+            tot += w[i];
+        }
+        if (!tot)   {
+            std::cerr << "empty interval to draw from\n";
+            if (tree.is_leaf(node)) {
+                std::cerr << "leaf node\n";
+            }
+            exit(1);
+        }
+
+        // draw time interval
+        index = node_distrib_t<Process>::CondL::draw_component(condls, w,
+            imin, imax, val, logZ, gen);
+
+        // draw time within time interval
+        double time = min_times[index] + draw_uniform(gen) * (max_times[index] - min_times[index]);
+        if (time > 1.0) {
+            std::cerr << "time > 1\n";
+            std::cerr << time << '\t' << min_times[index] << '\t' << max_times[index] << '\n';
+            exit(1);
+        }
+
+        if (time > timeframe(tree.parent(node))) {
+            std::cerr << "draw time: inconsistent times\n";
+            std::cerr << time << '\t' << timeframe(tree.parent(node)) << '\n';
+            std::cerr << tmin << '\t' << tmax << '\n';
+            exit(1);
+        }
+        if (tree.is_leaf(node))   {
+            if (time)   {
+                std::cerr << "error: drawing non zero time for leaf\n";
+                std::cerr << time << '\t' << timeframe(tree.parent(node)) << '\n';
+                std::cerr << tmin << '\t' << tmax << '\n';
+                exit(1);
+            }
+        }
+        else    {
+            if ((time <=0) || (time >= 1.0))    {
+                std::cerr << "error: in joint node/age draw: inconsistent time for internal node\n";
+                std::cerr << time << '\t' << timeframe(tree.parent(node)) << '\n';
+                std::cerr << tmin << '\t' << tmax << '\n';
+                std::cerr << index << '\n';
+                std::cerr << "===\n";
+                for (size_t i=imin; i<=imax; i++)   {
+                    std::cerr << i << '\t' << min_times[i] << '\t' << max_times[i] << '\t' << w[i] << '\t';
+                    node_distrib_t<Process>::CondL::printerr(condls.at(i));
+                    std::cerr << '\n';
+                }
+                exit(1);
+            }
+        }
+        return time;
+    }
+
     template<class Tree, class Process, class CondLs, class Params, class... Keys>
     static void double_backward_branch_propagate(const Tree& tree, int node, Process& process, 
-            const std::vector<double>& times, 
-            const std::vector<double>& min_times, 
-            const std::vector<double>& max_times, 
+            size_t n,
             double tmin, double tmax, 
             double ptmin, double ptmax,
-            const CondLs& young_condls, CondLs& old_condls, 
+            const CondLs& young_condls, CondLs& old_condls, std::vector<CondLs>& mid_condls,
             const Params& params, std::tuple<Keys...>)   {
 
-        auto tmp = std::vector<typename node_distrib_t<Process>::CondL::L>(
-                times.size(),
-                node_distrib_t<Process>::CondL::make_init());
+        auto old_min = grid_index(ptmin,n);
+        auto old_max = grid_index(ptmax,n);
 
-        auto old_min = grid_index(ptmin, times);
-        auto old_max = grid_index(ptmax, times);
+        auto young_min = grid_index(tmin,n);
+        auto young_max = grid_index(tmax,n);
 
-        auto young_min = grid_index(tmin, times);
-        auto young_max = grid_index(tmax, times);
+        if (young_max > old_max)    {
+            std::cerr << "in double backward propagate: young_max > old_max \n";
+            exit(1);
+        }
 
         for (size_t i=old_min; i<=old_max; i++) {
-            double old_t = grid_time(i, ptmin, ptmax, times, min_times, max_times);
+            double old_t = (ptmin == ptmax) ? ptmin : grid_time(i,n);
 
-            for (size_t j=young_min; j<=young_max; j++) {
-                double young_t = grid_time(j, tmin, tmax, times, min_times, max_times);
+            for (size_t j=young_min; j<=i; j++) {
+                double young_t = (tmin == tmax) ? tmin : grid_time(j,n);
 
                 node_distrib_t<Process>::backward_propagate(
-                        young_condls[j], tmp[j],
+                        young_condls[j], mid_condls[i][j],
                         young_t, old_t,
                         get<Keys>(params)()...);
             }
-            node_distrib_t<Process>::CondL::mix(old_condls[i], young_min, young_max, tmp);
+            node_distrib_t<Process>::CondL::mix(old_condls[i], young_min, i, mid_condls[i]);
         }
     }
 
-    template<class Tree, class Process, class CondLsArray>
+    template<class Tree, class Process, class CondLs>
     static void recursive_double_backward(const Tree& tree, int node, Process& process, 
-            const std::vector<double>& times, 
-            const std::vector<double>& min_times, 
-            const std::vector<double>& max_times, 
+            size_t n,
             std::vector<double>& node_tmin,
             std::vector<double>& node_tmax,
-            CondLsArray& young_condls, CondLsArray& old_condls,
+            std::vector<CondLs>& young_condls, 
+            std::vector<CondLs>& old_condls, 
+            std::vector<std::vector<CondLs>>& mid_condls, 
             const std::vector<bool>& external_clamps)   {
 
         auto& node_vals = get<node_values>(process);
@@ -532,15 +624,16 @@ struct tree_process_methods  {
             node_tmin[node] = 0;
         }
 
-        init_double_condls(process, young_condls[node], node_vals[node],
-                node_tmin[node], node_tmax[node], times,
+        init_double_condls(process, 
+                n, node_tmin[node], node_tmax[node],
+                young_condls[node], node_vals[node],
                 clamps[node], external_clamps[node]);
 
         for (auto c : tree.children(node))  {
-            recursive_double_backward(tree, c, process, 
-                    times, min_times, max_times,
+            recursive_double_backward(tree, c, process, n,
                     node_tmin, node_tmax,
-                    young_condls, old_condls, external_clamps);
+                    young_condls, old_condls, mid_condls,
+                    external_clamps);
 
             if (node_tmin[node] < node_tmin[c])   {
                 if (external_clamps[node])  {
@@ -551,29 +644,27 @@ struct tree_process_methods  {
             }
 
             multiply_double_condls(process,
-                    old_condls[c], young_condls[node],
-                    node_tmin[node], node_tmax[node], times);
+                    n, node_tmin[node], node_tmax[node],
+                    old_condls[c], young_condls[node]);
         }
 
         if (! tree.is_root(node))   {
-            double_backward_branch_propagate(tree, node, process,
-                    times, min_times, max_times,
+            double_backward_branch_propagate(tree, node, process, n,
                     node_tmin[node], node_tmax[node],
                     node_tmin[tree.parent(node)], node_tmax[tree.parent(node)],
-                    young_condls[node], old_condls[node], 
+                    young_condls[node], old_condls[node], mid_condls[node],
                     get<params>(process), param_keys_t<node_distrib_t<Process>>());
         }
     }
 
     // draw value at node, given parent node and conditional likelihood for downstream data
     template<class Chrono, class Process, class CondLs, class Params, class... Keys, class Gen>
-    static void node_age_val_conditional_draw(Chrono& chrono, Process& process, int node,
-            const std::vector<double>& times,
-            const std::vector<double>& min_times,
-            const std::vector<double>& max_times,
+    static void node_age_val_conditional_draw(Chrono& chrono, Process& process, int node, int n,
             double tmin, double tmax,
+            double ptmin, double ptmax,
             CondLs& young_condls,
             CondLs& old_condls,
+            std::vector<CondLs>& mid_condls,
             double& log_weight,
             const Params& params, std::tuple<Keys...>, Gen& gen)   {
 
@@ -584,65 +675,94 @@ struct tree_process_methods  {
         auto& parent_val = node_vals[tree.parent(node)];
         double parent_age = chrono[tree.parent(node)];
 
-        auto condls = std::vector<typename node_distrib_t<Process>::CondL::L>(
-                times.size(),
-                node_distrib_t<Process>::CondL::make_init());
+        size_t i_old = grid_index(parent_age, n);
+        size_t i_young = 0;
 
-        auto imin = grid_index(tmin, times);
-        auto imax = grid_index(tmax, times);
-        for (size_t i=imin; i<=imax; i++)   {
-            double young_t = grid_time(i, tmin, tmax, times, min_times, max_times);
-            node_distrib_t<Process>::backward_propagate(
-                    young_condls[i], condls[i],
-                    young_t, parent_age,
-                    get<Keys>(params)()...);
+        // if (tree.is_leaf(node)) {
+        if (tmin == tmax)   {
+            // should check that
+            double log_weight = node_distrib_t<Process>::CondL::point_eval(old_condls[0], parent_val);
+            if (log_weight) {
+                std::cerr << "non zero logweight for leaf node\n";
+                exit(1);
+            }
+            chrono[node] = tmin;
+            // chrono[node] = 0;
         }
-        double logZ = 0;
-        size_t i_young = node_distrib_t<Process>::CondL::draw_component(condls, imin, imax, parent_val, logZ, gen);
-        // given this choice, draw continuous time in the relevant time interval
-        double umin = (tmin < min_times[i_young]) ? min_times[i_young] : tmin;
-        double umax = (tmax > max_times[i_young]) ? max_times[i_young] : tmax;
-        chrono[node] = umin + draw_uniform(gen)*(umax - umin);
+        else    {
+            double logZ = 0;
+            chrono[node] = draw_conditional_time(process, node, tmin, tmax, n,
+                    mid_condls[i_old], parent_val, logZ, i_young, gen);
 
-        // correcting for drawing time within interval that may not 
-        log_weight += log((chrono[node] - umin)/(umax - umin));
 
-        // correcting for approximate conditional likelihood
+            if (chrono[node] > chrono[tree.parent(node)])   {
+                std::cerr << "double forward: inconsistent times\n";
+                std::cerr << chrono[node] << '\t' << chrono[tree.parent(node)] << '\n';
+                std::cerr << tmin << '\t' << tmax << '\n';
+                std::cerr << node << '\t' << tree.parent(node) << '\n';
+                exit(1);
+            }
+            if (tree.is_leaf(node))   {
+                if (chrono[node])   {
+                    std::cerr << "error: drawing non zero time for leaf\n";
+                    std::cerr << chrono[node] << '\t' << tmin << '\t' << tmax << '\n';
+                    exit(1);
+                }
+            }
+            else    {
+                if ((chrono[node] <= 0) || (chrono[node] >= 1.0))    {
+                    std::cerr << "error: in joint node/age draw: inconsistent time for internal node\n";
+                    std::cerr << chrono[node] << '\t' << tmin << '\t' << tmax << '\n';
+                    exit(1);
+                }
+            }
 
-        auto i_old = grid_index(parent_age, times);
+            // correcting for approximate...
+            double logZ0 = node_distrib_t<Process>::CondL::point_eval(old_condls[i_old], parent_val);
+            log_weight -= logZ0;
 
-        log_weight -= node_distrib_t<Process>::CondL::point_eval(old_condls[i_old], parent_val);
-        log_weight += logZ;
+            // ...versus exact marginal likelihood (marginal over all times for this node)
+            log_weight += logZ;
+        }
 
-        // finally, draw instant value at node...
+        // draw instant value at node
         node_distrib_t<Process>::node_conditional_draw(
                 node_vals[node], clamps[node], node_vals[tree.parent(node)],
                 chrono[node], chrono[tree.parent(node)],
-                condls[i_young],
+                young_condls[i_young],
                 get<Keys>(params)()..., gen);
 
-        // ...and correct for discrepancy between drawing at exact times versus on grid
+        // correct for approximate versus exact marginal likelihood (marginal over node value)
+        double logY0 = node_distrib_t<Process>::CondL::point_eval(mid_condls[i_old][i_young], parent_val);
+        auto tmp_condl = node_distrib_t<Process>::CondL::make_init();
+        node_distrib_t<Process>::backward_propagate(
+                young_condls[i_young], tmp_condl,
+                chrono[node], chrono[tree.parent(node)],
+                get<Keys>(params)()...);
+        double logY = node_distrib_t<Process>::CondL::point_eval(tmp_condl, parent_val);
+        log_weight -= logY0;
+        log_weight += logY;
 
-        // find out at which grid time old node was set during double backward
-        double t_old = (tmax == parent_age) ? parent_age : 
-            grid_time(i_old, tmin, tmax, times, min_times, max_times);
+        /*
+        // grid times
+        double t_old = (ptmin == ptmax) ? ptmin : grid_time(i_old, n);
+        double t_young = (tmin == tmax) ? tmin : grid_time(i_young, n);
 
-        // at which grid time young node was set
-        double t_young = grid_time(i_young, tmin, tmax, times, min_times, max_times);
-
-        // discount log prob at those grid times
-        log_weight -= node_distrib_t<Process>::node_logprob(
+        // correct for discrepancy between drawing instant value based on grid times (proposal)...
+        double grid_log_prob = node_distrib_t<Process>::node_logprob(
                 node_vals[node], node_vals[tree.parent(node)],
                 t_young, t_old,
                 get<Keys>(params)()...);
 
-        // factor in log prob at the new chosen times
-        // this last factor may not belong to the proposal
-        log_weight += node_distrib_t<Process>::node_logprob(
+        // ...versus density at exact times (target)
+        double exact_log_prob = node_distrib_t<Process>::node_logprob(
                 node_vals[node], node_vals[tree.parent(node)],
                 chrono[node], chrono[tree.parent(node)],
                 get<Keys>(params)()...);
 
+        log_weight -= grid_log_prob;
+        log_weight += exact_log_prob;
+        */
     }
 
     // ****************************
@@ -1112,14 +1232,12 @@ struct tree_process_methods  {
         Process& process;
 
         size_t ntimes;
-        std::vector<double> times;
-        std::vector<double> min_times;
-        std::vector<double> max_times;
-
         std::vector<double> node_tmin;
         std::vector<double> node_tmax;
+
         std::vector<std::vector<typename node_distrib_t<Process>::CondL::L>> young_condls;
         std::vector<std::vector<typename node_distrib_t<Process>::CondL::L>> old_condls;
+        std::vector<std::vector<std::vector<typename node_distrib_t<Process>::CondL::L>>> mid_condls;
 
         public:
 
@@ -1128,9 +1246,6 @@ struct tree_process_methods  {
             chrono(in_chrono),
             process(in_process), 
             ntimes(in_ntimes),
-            times(ntimes,0),
-            min_times(ntimes,0),
-            max_times(ntimes,0),
             node_tmin(get<node_values>(process).size(),0),
             node_tmax(get<node_values>(process).size(),1),
             young_condls(get<node_values>(process).size(), 
@@ -1138,14 +1253,11 @@ struct tree_process_methods  {
                         node_distrib_t<Process>::CondL::make_init())),
             old_condls(get<node_values>(process).size(), 
                     std::vector<typename node_distrib_t<Process>::CondL::L>(ntimes,
-                        node_distrib_t<Process>::CondL::make_init()))   {
-
-
-            for (size_t i=0; i<ntimes; i++)   {
-                times[i] = (i + 0.5)/ntimes;
-                min_times[i] = double(i)/ntimes;
-                max_times[i] = double(i+1)/ntimes;
-            }
+                        node_distrib_t<Process>::CondL::make_init())),
+            mid_condls(get<node_values>(process).size(), 
+                    std::vector<std::vector<typename node_distrib_t<Process>::CondL::L>>(ntimes,
+                        std::vector<typename node_distrib_t<Process>::CondL::L>(ntimes,
+                            node_distrib_t<Process>::CondL::make_init())))  {
         }
 
         void init(const std::vector<bool>& external_clamps)  {
@@ -1153,9 +1265,8 @@ struct tree_process_methods  {
             auto& tree = get<tree_field>(process);
 
             recursive_double_backward(tree, tree.root(), process, 
-                    times, min_times, max_times,
-                    node_tmin, node_tmax,
-                    young_condls, old_condls, 
+                    ntimes, node_tmin, node_tmax,
+                    young_condls, old_condls, mid_condls,
                     external_clamps);
         }
 
@@ -1185,18 +1296,38 @@ struct tree_process_methods  {
             chrono[tree.parent(node)] = parent_age;
             node_vals[tree.parent(node)] = parent_val;
 
-            double tmax = node_tmax[tree.parent(node)];
+            double tmax = (node_tmax[node] < parent_age) ? node_tmax[node] : parent_age;
             double tmin = node_tmin[node];
 
-            node_age_val_conditional_draw(chrono, process, node, 
-                    times, min_times, max_times, tmin, tmax,
-                    young_condls[node],
-                    old_condls[node],
+            node_age_val_conditional_draw(chrono, process, node,
+                    ntimes, tmin, tmax,
+                    node_tmin[tree.parent(node)], node_tmax[tree.parent(node)],
+                    young_condls[node], old_condls[node], mid_condls[node],
                     log_weight,
                     get<params>(process), param_keys_t<node_distrib_t<Process>>(), gen);
 
             age = chrono[node];
             val = node_vals[node];
+
+            if (! tree.is_leaf(node))   {
+                if ((age <= 0) || (age >= 1.0)) {
+                    std::cerr << "incorrect internal node age : " << age << '\n';
+                    std::cerr << tmin << '\t' << tmax << '\t' << parent_age << '\n';
+                    exit(1);
+                }
+            }
+            if (parent_age <= age)  {
+                std::cerr << "in double pf: inconsistent ages\n";
+                std::cerr << age << '\t' << parent_age << '\t' << tmin << '\t' << tmax << '\n';
+                std::cerr << "node : " << node << '\t' << tree.parent(node) << '\n';
+                if (tree.is_leaf(node)) {
+                    std::cerr << "node is leaf\n";
+                }
+                else    {
+                    std::cerr << "node is internal\n";
+                }
+                exit(1);
+            }
         }
 
         template<class Gen>
@@ -1655,6 +1786,19 @@ struct tree_process_methods  {
         template<class Gen>
         void init(bool conditional, int min, int max, Gen& gen) {
 
+            for (size_t node=0; node<tree.nb_nodes(); node++)    {
+                if (tree.is_root(node)) {
+                    for (size_t i=0; i<size(); i++) {
+                        age_swarm[node][i] = 1.0;
+                    }
+                }
+                if (tree.is_leaf(node)) {
+                    for (size_t i=0; i<size(); i++) {
+                        age_swarm[node][i] = 0;
+                    }
+                }
+            }
+
             if (conditional)    {
 
                 auto& node_vals = get<node_values>(process);
@@ -1676,9 +1820,12 @@ struct tree_process_methods  {
                 }
                 if (max < int(tree.nb_nodes()))  {
 
+                    std::cerr << "subtrees not yet working for joint pf\n";
+                    exit(1);
+
                     // split_tree::choose_components(tree, min, max, external_clamps, gen);
 
-                    double cond_frac = ((double) max)/tree.nb_nodes();
+                    double cond_frac = 1.0 / max;
                     std::vector<double> w = {1-cond_frac, cond_frac};
                     std::discrete_distribution<int> distrib(w.begin(), w.end());
                     for (size_t node=0; node<tree.nb_nodes(); node++)   {

@@ -93,7 +93,7 @@ struct brownian_clock_globom {
 
         std::cerr << "get suffstats from file\n";
         // mapping suffstats for dS and dN
-        auto dsom_ss = pathss_factory::make_dsom_suffstat_from_mappings(suffstat, 1.0);
+        auto dsom_ss = pathss_factory::make_dsom_suffstat_from_mappings(suffstat, 0.01);
 
         // collapse dS dN mapping branch suffstats into one single suffstat for global omega
         auto omega_ss = pathss_factory::make_omega_suffstat(
@@ -129,14 +129,16 @@ struct brownian_clock_globom {
     template<class Model, class Gen>
         static auto move_params(Model& model, Gen& gen) {
 
-            move_chrono(model, gen);
+            // move_chrono(model, gen);
 
             // move branch times and rates
+            /*
             for (int rep=0; rep<10; rep++)  {
                 move_ds(model, gen);
             }
-            pf_move_ds(model, gen);
-            ais_pf_move_ds(model, gen);
+            */
+            // pf_move_ds(model, gen);
+            // ais_pf_move_ds(model, gen);
             pf_move_chrono_ds(model, gen);
 
             // move variance parameter of Brownian process
@@ -207,9 +209,9 @@ struct brownian_clock_globom {
                     branch_update, branch_logprob);
 
             auto pf = tree_process_methods::make_particle_filter(
-                    get<log_synrate>(model), target, 300);
+                    get<log_synrate>(model), target, 1000);
 
-            pf.run(true, 10, 30, gen);
+            pf.run(true, 5, 100, gen);
             gather(get<synrate>(model));
         }
 
@@ -225,7 +227,7 @@ struct brownian_clock_globom {
 
             auto target = tree_process_methods::make_annealed_prior_importance_sampler(
                     get<log_synrate>(model),
-                    branch_update, branch_logprob, 100, 1.0);
+                    branch_update, branch_logprob, 10, 1.0);
 
             auto pf = tree_process_methods::make_particle_filter(
                     get<log_synrate>(model), target, 1000);
@@ -250,9 +252,9 @@ struct brownian_clock_globom {
                     branch_update, branch_logprob, 100);
 
             auto pf = tree_process_methods::make_joint_chrono_process_particle_filter(
-                    get<chrono,value>(model), get<log_synrate>(model), target, 300);
+                    get<chrono,value>(model), get<log_synrate>(model), target, 10000);
 
-            pf.run(true, 10, 30, gen);
+            pf.run(true, 100, 1000, gen);
             gather(get<synrate>(model));
         }
 
