@@ -93,7 +93,7 @@ struct brownian_clock_globom {
 
         std::cerr << "get suffstats from file\n";
         // mapping suffstats for dS and dN
-        auto dsom_ss = pathss_factory::make_dsom_suffstat_from_mappings(suffstat, 0);
+        auto dsom_ss = pathss_factory::make_dsom_suffstat_from_mappings(suffstat, 1.0);
 
         // collapse dS dN mapping branch suffstats into one single suffstat for global omega
         auto omega_ss = pathss_factory::make_omega_suffstat(
@@ -239,17 +239,17 @@ struct brownian_clock_globom {
     template<class Model, class Gen>
         static auto pf_move_chrono_ds(Model& model, Gen& gen)  {
             
-            /*
             auto branch_update = array_element_gather(synrate_(model));
 
             auto branch_logprob = suffstat_array_element_logprob(
                     n_to_n(get<synrate,value>(model)),
                     n_to_one(get<global_omega,value>(model)),
                     dsom_suffstats_(model));
-            */
 
+            /*
             auto branch_update = [] (int branch) {};
             auto branch_logprob = [] (int branch) {return 0;};
+            */
 
             /*
             auto target = tree_process_methods::make_chrono_process_prior_importance_sampler(
@@ -258,15 +258,17 @@ struct brownian_clock_globom {
                     branch_update, branch_logprob, 100);
             */
 
-            auto target = tree_process_methods::make_chrono_process_free_forward_prior_importance_sampler(
+            auto target = tree_process_methods::make_chrono_process_mtry_free_forward_prior_importance_sampler(
                     get<chrono,value>(model),
                     get<log_synrate>(model),
-                    branch_update, branch_logprob);
+                    branch_update, branch_logprob, 100);
 
             auto pf = tree_process_methods::make_joint_chrono_process_particle_filter(
                     get<chrono,value>(model), get<log_synrate>(model), target, 10000);
 
-            pf.run(true, 100, 1000, gen);
+            int ret = pf.run(true, 1000, 1000, gen);
+            std::cerr << '\n';
+            std::cerr << ret << '\n';
             gather(get<synrate>(model));
         }
 

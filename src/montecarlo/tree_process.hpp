@@ -1278,8 +1278,13 @@ struct tree_process_methods  {
             chrono[tree.parent(node)] = parent_age;
             node_vals[tree.parent(node)] = parent_val;
 
-            chrono[node] = draw_uniform(gen) * parent_age;
-            log_weight += log(parent_age);
+            if (tree.is_leaf(node)) {
+                chrono[node] = 0;
+            }
+            else    {
+                chrono[node] = draw_uniform(gen) * parent_age;
+                log_weight += log(parent_age);
+            }
 
             tree_process_methods::path_draw(process, node, 
                 get<params>(process), param_keys_t<node_distrib_t<Process>>(), gen);
@@ -1373,6 +1378,142 @@ struct tree_process_methods  {
         return chrono_process_free_forward_prior_importance_sampler<Chrono,
                Process, Update, LogProb>(
                 chrono, process, update, logprob);
+    }
+
+
+    template<class Chrono, class Process, class BranchUpdate, class BranchLogProb>
+    class chrono_process_mtry_free_forward_prior_importance_sampler  {
+
+        Chrono& chrono;
+        Process& process;
+        chrono_process_free_forward_sampler<Chrono,Process> proposal;
+        BranchUpdate update;
+        BranchLogProb logprob;
+        size_t nrep;
+
+        public:
+
+        chrono_process_mtry_free_forward_prior_importance_sampler(Chrono& in_chrono, 
+                Process& in_process, 
+                BranchUpdate in_update, BranchLogProb in_logprob, size_t in_nrep) :
+
+            chrono(in_chrono), process(in_process),
+            proposal(chrono, process),
+            update(in_update), logprob(in_logprob), nrep(in_nrep) {
+        }
+
+        ~chrono_process_mtry_free_forward_prior_importance_sampler() {}
+
+        void init(const std::vector<bool>& external_clamps)    {
+            proposal.init(external_clamps);
+        }
+
+        template<class Gen>
+        void root_draw(typename node_distrib_t<Process>::instantT& val, 
+                double& log_weight, bool fixed_node, Gen& gen) {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+
+            if (! fixed_node)    {
+                proposal.root_draw(val, log_weight, gen);
+            }
+            else    {
+                node_vals[tree.root()] = val;
+            }
+        }
+
+        template<class Gen>
+        void path_draw(int node, 
+                double& age, double parent_age,
+                typename node_distrib_t<Process>::instantT& val, 
+                const typename node_distrib_t<Process>::instantT& parent_val, 
+                typename node_distrib_t<Process>::pathT& path, 
+                double& log_weight, bool fixed_node, bool fixed_branch, Gen& gen) {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+            auto& path_vals = get<path_values>(process);
+            int branch = tree.get_branch(node);
+
+            /*
+            if (fixed_node)    {
+                chrono[tree.parent(node)] = parent_age;
+                chrono[node] = age;
+                node_vals[tree.parent(node)] = parent_val;
+                node_vals[node] = val;
+                path_vals[branch] = path;
+                update(branch);
+                log_weight += logprob(branch);
+            }
+            */
+
+            chrono[tree.parent(node)] = parent_age;
+            node_vals[tree.parent(node)] = parent_val;
+
+            std::vector<double> logws(nrep, 0);
+            std::vector<double> ages(nrep, 0);
+            std::vector<typename node_distrib_t<Process>::instantT> vals(nrep, val); 
+            std::vector<typename node_distrib_t<Process>::pathT> paths(nrep, path); 
+
+            size_t rep0 = 0;
+            if (fixed_node) {
+                rep0 = 1;
+                ages[0] = age;
+                vals[0] = val;
+                paths[0] = path;
+                update(branch);
+                logws[0] = logprob(branch);
+            }
+
+            for (size_t rep=rep0; rep<nrep; rep++) {
+                proposal.path_draw(node, ages[rep], parent_age,
+                        vals[rep], parent_val, paths[rep],
+                        logws[rep], gen);
+                update(branch);
+                logws[rep] = logprob(branch);
+            }
+
+            // choose try
+            std::vector<double> w(nrep,0);
+            double max = 0;
+            for (size_t rep=0; rep<nrep; rep++)   {
+                if ((!rep) || (max < logws[rep])) {
+                    max = logws[rep];
+                }
+            }
+            double tot = 0;
+            for (size_t rep=0; rep<nrep; rep++)   {
+                w[rep] = exp(logws[rep] - max);
+                tot += w[rep];
+            }
+            for (size_t rep=0; rep<nrep; rep++)   {
+                w[rep] /= tot;
+            }
+            double logZ = log(tot/nrep) + max;
+
+            int rep = 0;
+            if (! fixed_node)   {
+                std::discrete_distribution<int> distrib(w.begin(), w.end());
+                rep = distrib(gen);
+            }
+
+            chrono[node] = ages[rep];
+            age = ages[rep];
+            node_vals[node] = vals[rep];
+            val = vals[rep];
+            path_vals[branch] = paths[rep];
+            path = paths[rep];
+            update(branch);
+            log_weight += logZ;
+        }
+    };
+
+    template<class Chrono, class Process, class Update, class LogProb>
+    static auto make_chrono_process_mtry_free_forward_prior_importance_sampler(Chrono& chrono, Process& process, Update update, LogProb logprob, size_t nrep)   {
+        return chrono_process_mtry_free_forward_prior_importance_sampler<Chrono,
+               Process, Update, LogProb>(
+                chrono, process, update, logprob, nrep);
     }
 
 
@@ -1615,7 +1756,7 @@ struct tree_process_methods  {
 
     template<class Gen>
     static void bootstrap_pf(bool conditional, 
-            std::vector<double> log_weights,
+            std::vector<double>& log_weights,
             std::vector<int>& choose, 
             double min_effsize, Gen& gen)  {
 
@@ -1638,6 +1779,7 @@ struct tree_process_methods  {
         }
         double effsize = 1.0/s2;
         if (effsize < min_effsize)   {
+            std::cerr << "*";
             std::discrete_distribution<int> distrib(w.begin(), w.end());
             if (conditional)    {
                 choose[0] = 0;
@@ -1656,6 +1798,7 @@ struct tree_process_methods  {
             }
         }
         else    {
+            std::cerr << ".";
             for (size_t i=0; i<log_weights.size(); i++) {
                 choose[i] = i;
             }
@@ -1802,7 +1945,7 @@ struct tree_process_methods  {
                 }
             }
 
-            return b[c];
+            return c;
         }
 
         template<class Gen>
