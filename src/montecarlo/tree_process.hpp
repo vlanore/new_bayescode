@@ -864,10 +864,12 @@ struct tree_process_methods  {
         }
     };
 
+    /*
     template<class Process>
     static auto make_free_forward_sampler(Process& process) {
         return free_forward_sampler<Process>(process);
     }
+    */
 
     template<class Process, class BranchUpdate, class BranchLogProb>
     class free_forward_prior_importance_sampler  {
@@ -1025,10 +1027,12 @@ struct tree_process_methods  {
         }
     };
 
+    /*
     template<class Process>
     static auto make_conditional_sampler(Process& process) {
         return conditional_sampler<Process>(process);
     }
+    */
 
     template<class Process, class BranchUpdate, class BranchLogProb>
     class prior_importance_sampler  {
@@ -1226,6 +1230,153 @@ struct tree_process_methods  {
     //
 
     template<class Chrono, class Process>
+    class chrono_process_free_forward_sampler    {
+
+        Chrono& chrono;
+        Process& process;
+
+        public:
+
+        chrono_process_free_forward_sampler(Chrono& in_chrono,
+                Process& in_process) :
+            chrono(in_chrono),
+            process(in_process) {}
+
+        void init(const std::vector<bool>& external_clamps)  {
+            for (auto c : external_clamps)  {
+                if (c)  {
+                    std::cerr << "error: free forward sampler cannot work conditionally\n";
+                    exit(1);
+                }
+            }
+        }
+
+        template<class Gen>
+        void root_draw(typename node_distrib_t<Process>::instantT& val,
+                double& log_weight,
+                Gen& gen)  {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+
+            tree_process_methods::root_draw(process,
+                get<struct root_params>(process), param_keys_t<node_root_distrib_t<Process>>(), gen);
+            val = node_vals[tree.root()];
+        }
+
+        template<class Gen>
+        void path_draw(int node, double& age, double parent_age,
+                typename node_distrib_t<Process>::instantT& val, 
+                const typename node_distrib_t<Process>::instantT& parent_val, 
+                typename node_distrib_t<Process>::pathT& path,
+                double& log_weight, Gen& gen)    {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+            auto& path_vals = get<path_values>(process);
+
+            chrono[tree.parent(node)] = parent_age;
+            node_vals[tree.parent(node)] = parent_val;
+
+            chrono[node] = draw_uniform(gen) * parent_age;
+            log_weight += log(parent_age);
+
+            tree_process_methods::path_draw(process, node, 
+                get<params>(process), param_keys_t<node_distrib_t<Process>>(), gen);
+
+            age = chrono[node];
+            val = node_vals[node];
+            path = path_vals[tree.get_branch(node)];
+        }
+    };
+
+    /*
+    template<class Chrono, class Process>
+    static auto make_chrono_process_free_forward_sampler(Chrono& chrono, Process& process)   {
+        return chrono_process_free_forward_sampler<Chrono,Process>(chrono, process);
+    }
+    */
+
+    template<class Chrono, class Process, class BranchUpdate, class BranchLogProb>
+    class chrono_process_free_forward_prior_importance_sampler  {
+
+        Chrono& chrono;
+        Process& process;
+        chrono_process_free_forward_sampler<Chrono,Process> proposal;
+        BranchUpdate update;
+        BranchLogProb logprob;
+
+        public:
+
+        chrono_process_free_forward_prior_importance_sampler(Chrono& in_chrono, 
+                Process& in_process, 
+                BranchUpdate in_update, BranchLogProb in_logprob) :
+
+            chrono(in_chrono), process(in_process),
+            proposal(chrono, process),
+            update(in_update), logprob(in_logprob) {
+        }
+
+        ~chrono_process_free_forward_prior_importance_sampler() {}
+
+        void init(const std::vector<bool>& external_clamps)    {
+            proposal.init(external_clamps);
+        }
+
+        template<class Gen>
+        void root_draw(typename node_distrib_t<Process>::instantT& val, 
+                double& log_weight, bool fixed_node, Gen& gen) {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+
+            if (! fixed_node)    {
+                proposal.root_draw(val, log_weight, gen);
+            }
+            else    {
+                node_vals[tree.root()] = val;
+            }
+        }
+
+        template<class Gen>
+        void path_draw(int node, 
+                double& age, double parent_age,
+                typename node_distrib_t<Process>::instantT& val, 
+                const typename node_distrib_t<Process>::instantT& parent_val, 
+                typename node_distrib_t<Process>::pathT& path, 
+                double& log_weight, bool fixed_node, bool fixed_branch, Gen& gen) {
+
+            auto& tree = get<tree_field>(process);
+            auto& node_vals = get<node_values>(process);
+            auto& path_vals = get<path_values>(process);
+            int branch = tree.get_branch(node);
+
+            if (! fixed_node)    {
+                proposal.path_draw(node, age, parent_age,
+                        val, parent_val, path,
+                        log_weight, gen);
+            }
+            else    {
+                chrono[tree.parent(node)] = parent_age;
+                chrono[node] = age;
+                node_vals[tree.parent(node)] = parent_val;
+                node_vals[node] = val;
+                path_vals[branch] = path;
+            }
+            update(branch);
+            log_weight += logprob(branch);
+        }
+    };
+
+    template<class Chrono, class Process, class Update, class LogProb>
+    static auto make_chrono_process_free_forward_prior_importance_sampler(Chrono& chrono, Process& process, Update update, LogProb logprob)   {
+        return chrono_process_free_forward_prior_importance_sampler<Chrono,
+               Process, Update, LogProb>(
+                chrono, process, update, logprob);
+    }
+
+
+    template<class Chrono, class Process>
     class chrono_process_conditional_sampler    {
 
         Chrono& chrono;
@@ -1351,10 +1502,12 @@ struct tree_process_methods  {
         }
     };
 
+    /*
     template<class Chrono, class Process>
     static auto make_chrono_process_conditional_sampler(Chrono& chrono, Process& process, size_t ntimes) {
-        return conditional_sampler<Process>(chrono, process, ntimes);
+        return chrono_process_conditional_sampler<Chrono,Process>(chrono, process, ntimes);
     }
+    */
 
     template<class Chrono, class Process, class BranchUpdate, class BranchLogProb>
     class chrono_process_prior_importance_sampler  {
@@ -1818,6 +1971,7 @@ struct tree_process_methods  {
                 for (size_t node=0; node<tree.nb_nodes(); node++)   {
                     external_clamps[node] = false;
                 }
+
                 if (max < int(tree.nb_nodes()))  {
 
                     std::cerr << "subtrees not yet working for joint pf\n";
